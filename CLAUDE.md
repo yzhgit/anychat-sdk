@@ -120,18 +120,18 @@ anychat_client_destroy(client);
 使用 `ffigen` 自动生成 FFI 绑定：
 
 ```bash
-cd bindings/flutter
+cd packages/flutter
 dart run ffigen --config ffigen.yaml  # 生成 lib/src/anychat_ffi_bindings.dart
 flutter pub get
 cd example && flutter run
 ```
 
-详见：`bindings/flutter/README.md`
+详见：`packages/flutter/README.md`
 
 ### Android (JNI) 🚧
 
 ```bash
-cd bindings/android
+cd packages/android
 ./gradlew assembleRelease
 ```
 
@@ -140,7 +140,7 @@ cd bindings/android
 ### iOS/macOS (Swift) 🚧
 
 ```bash
-cd bindings/ios
+cd packages/ios
 pod install
 open AnyChatSDK.xcworkspace
 ```
@@ -150,7 +150,7 @@ open AnyChatSDK.xcworkspace
 ### Web (Emscripten) 🚧
 
 ```bash
-cd bindings/web
+cd packages/web
 emcmake cmake -B build
 cmake --build build
 ```
@@ -191,9 +191,9 @@ ctest --test-dir build  # 运行单元测试
 ### 3. 构建平台 SDK
 
 参见各平台 README：
-- `bindings/flutter/README.md`
-- `bindings/android/README.md` *(TBD)*
-- `bindings/ios/README.md` *(TBD)*
+- `packages/flutter/README.md`
+- `packages/android/README.md` *(TBD)*
+- `packages/ios/README.md` *(TBD)*
 
 
 ## 测试
@@ -209,7 +209,7 @@ cd build && ctest
 valgrind --leak-check=full ./build/bin/c_example
 
 # Flutter 测试
-cd bindings/flutter && flutter test
+cd packages/flutter && flutter test
 ```
 
 
@@ -218,4 +218,4 @@ cd bindings/flutter && flutter test
 - **后端 API 文档**：https://yzhgit.github.io/anychat-server
 - **后端仓库**：https://github.com/yzhgit/anychat-server
 - **C API 指南**：`docs/c_api_guide.md`
-- **Flutter SDK 指南**：`bindings/flutter/README.md`
+- **Flutter SDK 指南**：`packages/flutter/README.md`

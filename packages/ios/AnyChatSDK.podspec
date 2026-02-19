@@ -26,20 +26,20 @@ Pod::Spec.new do |s|
 
   s.swift_version = '5.9'
 
-  # Swift source files from bindings
+  # Swift source files
   s.source_files = [
-    'bindings/ios/Sources/AnyChatSDK/**/*.{swift,h}',
+    'Sources/AnyChatSDK/**/*.{swift,h}',
     'core/include/**/*.h'
   ]
 
   # Public headers
   s.public_header_files = [
-    'bindings/ios/Sources/AnyChatSDK/AnyChatSDK.h',
+    'Sources/AnyChatSDK/AnyChatSDK.h',
     'core/include/**/*.h'
   ]
 
   # Module map
-  s.module_map = 'bindings/ios/Sources/AnyChatSDK/module.modulemap'
+  s.module_map = 'Sources/AnyChatSDK/module.modulemap'
 
   # Preserve directory structure for headers
   s.header_mappings_dir = '.'

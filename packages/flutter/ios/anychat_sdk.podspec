@@ -7,22 +7,20 @@ Official Flutter SDK for the AnyChat instant messaging system.
 This package wraps the native FFI bindings for iOS.
                        DESC
   s.homepage         = 'https://github.com/yzhgit/anychat-sdk'
-  s.license          = { :type => 'MIT', :file => '../LICENSE' }
+  s.license          = { :type => 'MIT', :file => '../../../LICENSE' }
   s.author           = { 'AnyChat Team' => 'noreply@anychat.io' }
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
   s.platform         = :ios, '12.0'
 
-  # Delegate to the actual bindings podspec
   s.dependency 'Flutter'
 
-  # Reference the bindings podspec
-  # The actual native library building is handled by ../../bindings/flutter/ios/anychat_flutter.podspec
-  s.vendored_frameworks = '../../bindings/flutter/ios/Frameworks/*.framework'
+  # Link against the C API static library
+  s.vendored_libraries = 'libanychat_c.a', 'libanychat_core.a'
 
   # Include paths for C headers
   s.xcconfig = {
-    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/../../bindings/flutter/ios" "${PODS_TARGET_SRCROOT}/../../../core/include"',
+    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/../../../core/include"',
     'OTHER_LDFLAGS' => '-lc++ -lz'
   }
 
@@ -32,10 +30,17 @@ This package wraps the native FFI bindings for iOS.
 
   s.ios.deployment_target = '12.0'
 
-  # Pre-build: Build the native library via the bindings
+  # Pre-build script: build anychat_c and anychat_core
   s.prepare_command = <<-CMD
-    cd ../../bindings/flutter/ios
-    # The anychat_flutter.podspec will handle building the native library
-    # We just need to ensure it's built before our pod is used
+    cd ../../../core
+    mkdir -p build-ios
+    cd build-ios
+    cmake .. -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_TOOLCHAIN_FILE=../../cmake/ios.toolchain.cmake \
+             -DPLATFORM=OS64 \
+             -DBUILD_TESTS=OFF
+    cmake --build . --target anychat_c anychat_core
+    cp bin/libanychat_c.a ../../packages/flutter/ios/
+    cp bin/libanychat_core.a ../../packages/flutter/ios/
   CMD
 end

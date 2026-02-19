@@ -27,7 +27,7 @@ The WASM files need to be available in the public directory. After building the 
 
 ```bash
 mkdir -p public/lib
-cp ../../bindings/web/lib/* public/lib/
+cp ../../packages/web/lib/* public/lib/
 ```
 
 ### 3. Run Development Server

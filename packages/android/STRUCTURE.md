@@ -49,7 +49,7 @@ packages/android/
 **`build.gradle.kts`** - Modern Kotlin DSL with:
 - Android library plugin configuration
 - Native build setup (CMake)
-- Source sets pointing to `../../bindings/android/`
+- Source sets pointing to `../../packages/android/`
 - Maven publishing configuration
 - POM metadata for Maven Central
 - Signing configuration (commented out)
@@ -71,13 +71,13 @@ The package **does not duplicate** the bindings code. Instead, it references the
 ```kotlin
 sourceSets {
     getByName("main") {
-        kotlin.srcDirs("../../bindings/android/src/main/kotlin")
-        jniLibs.srcDirs("../../bindings/android/src/main/jniLibs")
+        kotlin.srcDirs("../../packages/android/src/main/kotlin")
+        jniLibs.srcDirs("../../packages/android/src/main/jniLibs")
     }
 }
 ```
 
-**Bindings location**: `../../bindings/android/src/main/kotlin/com/anychat/sdk/`
+**Bindings location**: `../../packages/android/src/main/kotlin/com/anychat/sdk/`
 
 Contains:
 - `AnyChatClient.kt` - Main SDK client
@@ -276,7 +276,7 @@ Required for building:
 ## Related Files
 
 **Outside this directory**:
-- `../../bindings/android/` - Actual Kotlin/JNI implementation
+- `../../packages/android/` - Actual Kotlin/JNI implementation
 - `../../CMakeLists.txt` - Root CMake configuration
 - `../../core/` - C++ core SDK
 - `../../thirdparty/` - Third-party dependencies (submodules)
@@ -301,10 +301,10 @@ Required for building:
 
 ### Adding New Features
 
-The actual SDK code is in `../../bindings/android/src/main/kotlin/`. This package only provides the Gradle wrapper for publishing.
+The actual SDK code is in `../../packages/android/src/main/kotlin/`. This package only provides the Gradle wrapper for publishing.
 
 To add features:
-1. Modify code in `bindings/android/`
+1. Modify code in `packages/android/`
 2. Test with example app
 3. Update documentation
 4. Bump version

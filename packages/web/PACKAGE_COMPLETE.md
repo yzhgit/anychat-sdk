@@ -4,7 +4,7 @@ The `@anychat/sdk` npm package in `packages/web/` has been completed and is read
 
 ## Overview
 
-This package wraps the WebAssembly bindings from `bindings/web/` and provides a clean, publishable npm package for web applications.
+This package wraps the WebAssembly bindings from `packages/web/` and provides a clean, publishable npm package for web applications.
 
 ## Completed Tasks
 
@@ -32,7 +32,7 @@ This package wraps the WebAssembly bindings from `bindings/web/` and provides a 
 - `/home/mosee/projects/anychat-sdk/packages/web/src/types.ts` - Type re-exports
 - `/home/mosee/projects/anychat-sdk/packages/web/src/client.ts` - Client re-exports
 
-**Strategy**: Simple re-export pattern that wraps `../../bindings/web/src/` without duplicating code.
+**Strategy**: Simple re-export pattern that wraps `../../packages/web/src/` without duplicating code.
 
 ### 3. ✅ Created Build Configuration
 
@@ -171,7 +171,7 @@ lib/
 
 ### Pre-publish Checklist
 
-1. Ensure bindings are built: `cd ../../bindings/web && ./build.sh`
+1. Ensure bindings are built: `cd ../../packages/web && ./build.sh`
 2. Build the package: `npm run build`
 3. Update version: `npm version [patch|minor|major]`
 4. Update CHANGELOG.md with changes
@@ -298,10 +298,10 @@ The package uses a simple re-export pattern to wrap the bindings without code du
 
 ```typescript
 // src/index.ts
-export * from '../../bindings/web/src/index';
-export * from '../../bindings/web/src/types';
-export * from '../../bindings/web/src/AnyChatClient';
-export * from '../../bindings/web/src/EventEmitter';
+export * from '../../packages/web/src/index';
+export * from '../../packages/web/src/types';
+export * from '../../packages/web/src/AnyChatClient';
+export * from '../../packages/web/src/EventEmitter';
 ```
 
 This approach:

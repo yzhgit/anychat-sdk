@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Flutter package at `packages/flutter/` is now complete and ready for publishing to pub.dev. This package wraps the FFI bindings from `bindings/flutter/` and provides a clean, publishable structure.
+The Flutter package at `packages/flutter/` is now complete and ready for publishing to pub.dev. This package wraps the FFI bindings from `packages/flutter/` and provides a clean, publishable structure.
 
 ## Completed Tasks
 
@@ -25,7 +25,7 @@ The Flutter package at `packages/flutter/` is now complete and ready for publish
 - `anychat_client.dart` - Re-exports from bindings
 - `models.dart` - Re-exports from bindings
 
-The package properly wraps and re-exports the actual FFI bindings from `../../bindings/flutter/`.
+The package properly wraps and re-exports the actual FFI bindings from `../../packages/flutter/`.
 
 ### 3. ✅ Created Platform Build Files
 
@@ -157,7 +157,7 @@ packages/flutter/
    - pub.dev-ready documentation
    - Example application
 
-2. **FFI Bindings** (`bindings/flutter/`)
+2. **FFI Bindings** (`packages/flutter/`)
    - Actual FFI implementation
    - Platform-specific native builds
    - Auto-generated bindings
@@ -187,7 +187,7 @@ Flutter App
     ↓ import 'package:anychat_sdk/anychat_sdk.dart'
 packages/flutter/lib/anychat_sdk.dart
     ↓ export from bindings
-bindings/flutter/lib/anychat.dart
+packages/flutter/lib/anychat.dart
     ↓ dart:ffi
 Native Library (anychat_c)
     ↓ C++
@@ -258,8 +258,8 @@ Core Implementation (anychat_core)
 ## Dependencies on Bindings
 
 The package has a relative path dependency on the bindings:
-- Library files re-export from `../../bindings/flutter/lib/`
-- Platform builds delegate to `../../bindings/flutter/[platform]/`
+- Library files re-export from `../../packages/flutter/lib/`
+- Platform builds delegate to `../../packages/flutter/[platform]/`
 
 This structure allows:
 - Clean separation of concerns

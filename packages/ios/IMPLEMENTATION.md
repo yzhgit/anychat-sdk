@@ -37,7 +37,7 @@ packages/ios/
 - Version: 0.1.0
 - Platforms: iOS 13.0+, macOS 10.15+
 - Swift version: 5.9
-- Source files reference: `bindings/ios/Sources/AnyChatSDK/**/*.{swift,h}`
+- Source files reference: `packages/ios/Sources/AnyChatSDK/**/*.{swift,h}`
 - Public headers: Core C API headers + Swift umbrella header
 - Module map: Custom module map for C API bridging
 - Vendored library: Static library built by prepare_command
@@ -179,11 +179,11 @@ JSON version of the podspec for:
 
 ### Source Files
 
-The podspec correctly references the bindings in `../../bindings/ios/`:
+The podspec correctly references the bindings in `../../packages/ios/`:
 
 ```ruby
 s.source_files = [
-  'bindings/ios/Sources/AnyChatSDK/**/*.{swift,h}',
+  'packages/ios/Sources/AnyChatSDK/**/*.{swift,h}',
   'core/include/**/*.h'
 ]
 ```
@@ -193,7 +193,7 @@ s.source_files = [
 Custom module map for C API bridging:
 
 ```ruby
-s.module_map = 'bindings/ios/Sources/AnyChatSDK/module.modulemap'
+s.module_map = 'packages/ios/Sources/AnyChatSDK/module.modulemap'
 ```
 
 ### Build Settings
@@ -263,7 +263,7 @@ pod 'AnyChatSDK', '~> 0.1'
 
 ### Swift Package Manager (Alternative)
 
-Users can also use SPM via the Package.swift in `bindings/ios/`.
+Users can also use SPM via the Package.swift in `packages/ios/`.
 
 ## Testing
 
@@ -340,4 +340,4 @@ Potential additions for future versions:
 
 ## Summary
 
-The iOS/macOS CocoaPods package is **complete and ready for publishing**. All required files are in place, the podspec is properly configured to reference the bindings in `../../bindings/ios/`, and a comprehensive example app demonstrates all SDK features. The package includes documentation for both users and maintainers, automated verification, and a complete publishing workflow.
+The iOS/macOS CocoaPods package is **complete and ready for publishing**. All required files are in place, the podspec is properly configured to reference the bindings in `../../packages/ios/`, and a comprehensive example app demonstrates all SDK features. The package includes documentation for both users and maintainers, automated verification, and a complete publishing workflow.

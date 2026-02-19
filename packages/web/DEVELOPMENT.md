@@ -46,7 +46,7 @@ npm install
 Make sure the bindings are built:
 
 ```bash
-cd ../../bindings/web
+cd ../../packages/web
 npm install
 ./build.sh
 cd ../../packages/web
@@ -54,7 +54,7 @@ cd ../../packages/web
 
 ### 2. Development
 
-The package simply re-exports from `../../bindings/web/src/`, so most development happens in the bindings directory.
+The package simply re-exports from `../../packages/web/src/`, so most development happens in the bindings directory.
 
 To work on the package wrapper:
 
@@ -200,13 +200,13 @@ This updates `package.json` and creates a git tag.
 Make sure the bindings are built and WASM files exist:
 
 ```bash
-ls ../../bindings/web/lib/anychat.{js,wasm}
+ls ../../packages/web/lib/anychat.{js,wasm}
 ```
 
 If missing, build the bindings:
 
 ```bash
-cd ../../bindings/web && ./build.sh
+cd ../../packages/web && ./build.sh
 ```
 
 ### TypeScript errors

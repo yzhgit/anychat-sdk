@@ -11,7 +11,7 @@
 │        Dart · TypeScript · Kotlin · Swift · C++ header-only      │
 │   职责：UI 友好的 API 封装、响应式状态适配、平台推送集成            │
 ├─────────────────────────────────────────────────────────────────┤
-│               Platform Binding Layer  (bindings/)                │
+│               Platform Binding Layer  (packages/)                │
 │          Dart FFI · Emscripten postMessage · JNI · ObjC          │
 │   职责：跨语言调用桥接、线程调度、平台路径/存储注入                 │
 ├──────────────────────────────┬──────────────────────────────────┤

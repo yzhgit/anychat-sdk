@@ -16,14 +16,14 @@ This directory contains publishable packages for all supported platforms. Each p
 ```
 packages/                    # Publishable packages (this directory)
     ↓
-bindings/                    # Platform-specific bindings (JNI, FFI, embind, Swift)
+packages/                    # Platform-specific bindings (JNI, FFI, embind, Swift)
     ↓
 core/anychat_c/              # Stable C API layer
     ↓
 core/anychat_core/           # C++ implementation
 ```
 
-Each package in `packages/` wraps the corresponding bindings in `bindings/`, providing:
+Each package in `packages/` wraps the corresponding bindings in `packages/`, providing:
 - Complete package metadata for publication
 - Comprehensive documentation (README, CHANGELOG, guides)
 - Working example applications

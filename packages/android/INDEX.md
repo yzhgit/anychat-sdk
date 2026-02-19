@@ -133,7 +133,7 @@ packages/android/
 ├── 📱 Library Source
 │   └── src/main/
 │       └── AndroidManifest.xml
-│   (Actual sources are in ../../bindings/android/)
+│   (Actual sources are in ../../packages/android/)
 │
 ├── 📦 Example App
 │   └── example/

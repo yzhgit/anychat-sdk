@@ -121,8 +121,8 @@ Switch in: `Build > Select Build Variant`
 
 | Component | Location |
 |-----------|----------|
-| Kotlin sources | `../../bindings/android/src/main/kotlin/` |
-| JNI C++ sources | `../../bindings/android/src/main/cpp/` |
+| Kotlin sources | `../../packages/android/src/main/kotlin/` |
+| JNI C++ sources | `../../packages/android/src/main/cpp/` |
 | Core C++ SDK | `../../core/` |
 | CMake config | `../../CMakeLists.txt` |
 | Third-party libs | `../../thirdparty/` |

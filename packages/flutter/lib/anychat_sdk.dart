@@ -66,6 +66,6 @@
 ///
 library anychat_sdk;
 
-// Re-export the actual FFI bindings from ../../bindings/flutter
+// Core SDK exports
 export 'src/anychat_client.dart';
 export 'src/models.dart';

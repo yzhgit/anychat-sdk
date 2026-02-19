@@ -62,7 +62,7 @@ anychat-sdk/
 │   ├── src/              # C++ implementation
 │   │   └── c_api/        # C wrapper implementation
 │   └── tests/            # Unit tests
-├── bindings/             # Platform-specific SDK packages
+├── packages/             # Platform-specific SDK packages
 │   ├── android/          # JNI bindings (Kotlin/Java)
 │   ├── ios/              # Swift bindings
 │   ├── flutter/          # Dart FFI bindings ✅
@@ -123,7 +123,7 @@ This builds:
 #### Flutter (Dart FFI)
 
 ```bash
-cd bindings/flutter
+cd packages/flutter
 
 # Generate FFI bindings from C headers
 dart run ffigen --config ffigen.yaml
@@ -133,12 +133,12 @@ cd example
 flutter run
 ```
 
-See [bindings/flutter/README.md](bindings/flutter/README.md) for details.
+See [packages/flutter/README.md](packages/flutter/README.md) for details.
 
 #### Android (JNI)
 
 ```bash
-cd bindings/android
+cd packages/android
 ./gradlew assembleRelease
 # Outputs: build/outputs/aar/anychat-android.aar
 ```
@@ -148,7 +148,7 @@ cd bindings/android
 #### iOS/macOS (Swift)
 
 ```bash
-cd bindings/ios
+cd packages/ios
 pod install
 open AnyChatSDK.xcworkspace
 # Build the framework
@@ -159,7 +159,7 @@ open AnyChatSDK.xcworkspace
 #### Web (Emscripten)
 
 ```bash
-cd bindings/web
+cd packages/web
 emcmake cmake -B build
 cmake --build build
 # Outputs: build/anychat.wasm, build/anychat.js
@@ -211,7 +211,7 @@ See [examples/c_example/main.c](examples/c_example/main.c) and [docs/c_api_guide
 ## Documentation
 
 - **[C API Guide](docs/c_api_guide.md)** — Memory management, callbacks, error handling
-- **[Flutter SDK Guide](bindings/flutter/README.md)** — Dart FFI usage
+- **[Flutter SDK Guide](packages/flutter/README.md)** — Dart FFI usage
 - **[Backend API Docs](https://yzhgit.github.io/anychat-server)** — Server API reference
 
 ## Development Workflow
@@ -221,9 +221,9 @@ See [examples/c_example/main.c](examples/c_example/main.c) and [docs/c_api_guide
 1. **Update C++ core**: Add methods to `core/include/anychat/*.h` and implement in `core/src/`
 2. **Update C wrapper**: Add C functions to `core/include/anychat_c/*.h` and implement in `core/src/c_api/`
 3. **Regenerate bindings**:
-   - Flutter: `cd bindings/flutter && dart run ffigen`
-   - Android: Update JNI wrappers in `bindings/android/src/main/cpp/`
-   - iOS: Update Swift wrappers in `bindings/ios/Sources/`
+   - Flutter: `cd packages/flutter && dart run ffigen`
+   - Android: Update JNI wrappers in `packages/android/src/main/cpp/`
+   - iOS: Update Swift wrappers in `packages/ios/Sources/`
 4. **Test**: Run platform-specific tests
 
 ### Testing
@@ -236,13 +236,13 @@ cd build && ctest
 ./build/bin/c_example
 
 # Flutter tests
-cd bindings/flutter && flutter test
+cd packages/flutter && flutter test
 
 # Android tests
-cd bindings/android && ./gradlew test
+cd packages/android && ./gradlew test
 
 # iOS tests
-cd bindings/ios && xcodebuild test
+cd packages/ios && xcodebuild test
 ```
 
 ### Memory leak detection

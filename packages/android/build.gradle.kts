@@ -41,7 +41,7 @@ android {
 
     externalNativeBuild {
         cmake {
-            path = file("../../CMakeLists.txt")
+            path = file("CMakeLists.txt")
             version = "3.22.1"
         }
     }
@@ -57,8 +57,8 @@ android {
 
     sourceSets {
         getByName("main") {
-            kotlin.srcDirs("../../bindings/android/src/main/kotlin")
-            jniLibs.srcDirs("../../bindings/android/src/main/jniLibs")
+            kotlin.srcDirs("src/main/kotlin")
+            jniLibs.srcDirs("src/main/jniLibs")
         }
     }
 

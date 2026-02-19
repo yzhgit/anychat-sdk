@@ -4,7 +4,7 @@ This document describes the structure of the publishable Flutter package at `pac
 
 ## Overview
 
-The `packages/flutter/` directory contains the publishable Flutter plugin that wraps the FFI bindings from `bindings/flutter/`. This structure allows for:
+The `packages/flutter/` directory contains the publishable Flutter plugin that wraps the FFI bindings from `packages/flutter/`. This structure allows for:
 
 1. Clear separation between internal bindings and public API
 2. Publishable package ready for pub.dev
@@ -85,19 +85,19 @@ Main library file with:
 
 ### lib/src/
 
-Internal implementation files that re-export the actual bindings from `../../bindings/flutter/lib/`.
+Internal implementation files that re-export the actual bindings from `../../packages/flutter/lib/`.
 
 ## Platform Build Configurations
 
 ### Android (build.gradle)
 
-- Delegates to `../../bindings/flutter/android/CMakeLists.txt`
+- Delegates to `../../packages/flutter/android/CMakeLists.txt`
 - Builds native library via CMake
 - No Java/Kotlin code needed (pure FFI plugin)
 
 ### iOS (anychat_sdk.podspec)
 
-- Delegates to `../../bindings/flutter/ios/anychat_flutter.podspec`
+- Delegates to `../../packages/flutter/ios/anychat_flutter.podspec`
 - Links against static libraries from bindings
 - Includes C headers from core
 
@@ -137,7 +137,7 @@ packages/flutter/              # Publishable package
 │       └── *.dart             # Re-exports from bindings
 └── [platform]/                # Delegates to bindings build
 
-bindings/flutter/              # Actual FFI implementation
+packages/flutter/              # Actual FFI implementation
 ├── lib/
 │   ├── anychat.dart           # Main bindings export
 │   └── src/

@@ -98,15 +98,15 @@ endif()
 add_subdirectory(core)
 
 if(BUILD_ANDROID_BINDING)
-  add_subdirectory(bindings/android)
+  add_subdirectory(packages/android)
 endif()
 
 if(BUILD_IOS_BINDING)
-  add_subdirectory(bindings/ios)
+  add_subdirectory(packages/ios)
 endif()
 
 if(BUILD_WEB_BINDING)
-  add_subdirectory(bindings/web)
+  add_subdirectory(packages/web)
 endif()
 
 if(BUILD_TESTS)
