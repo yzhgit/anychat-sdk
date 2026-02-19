@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(AnyChatSDK VERSION 0.1.0 LANGUAGES CXX)
+project(AnyChatSDK VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,54 +24,75 @@ else()
   message(STATUS "ccache not found")
 endif()
 
-# ── CPM Package Manager ──────────────────────────────────────────────────────
-include(cmake/CPM.cmake)
-
-# ── Third-party dependencies ─────────────────────────────────────────────────
-
-# nlohmann/json (header-only)
-CPMAddPackage(
-  NAME nlohmann_json
-  GITHUB_REPOSITORY nlohmann/json
-  VERSION 3.11.3
-  OPTIONS "JSON_BuildTests OFF"
-)
-
-# libcurl — use system library on Apple/Android toolchains, find via CMake elsewhere
-if(APPLE OR ANDROID)
-  find_package(CURL REQUIRED)
-else()
-  find_package(CURL QUIET)
-  if(NOT CURL_FOUND)
+# ── Submodule guard ────────────────────────────────────────────────────────────
+# Verify that submodules have been initialised.  A missing CMakeLists.txt in
+# any thirdparty directory is a reliable indicator that the developer forgot to
+# run `git submodule update --init --recursive`.
+foreach(_dep curl googletest libwebsockets nlohmann-json)
+  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/${_dep}/CMakeLists.txt")
     message(FATAL_ERROR
-      "[AnyChat] libcurl not found.\n"
-      "  Ubuntu/Debian : sudo apt install libcurl4-openssl-dev\n"
-      "  macOS         : brew install curl\n"
-      "  Windows       : vcpkg install curl"
+      "[AnyChat] Submodule 'thirdparty/${_dep}' is not initialised.\n"
+      "  Run: git submodule update --init --recursive"
     )
   endif()
-endif()
+endforeach()
 
-# libwebsockets — find system library; provide install hint on failure
-find_package(Libwebsockets QUIET)
-if(NOT Libwebsockets_FOUND)
-  # Some distros install the CMake config under a different name
-  find_package(libwebsockets QUIET)
-endif()
-if(NOT Libwebsockets_FOUND AND NOT libwebsockets_FOUND)
+# Verify sqlite3 (not a submodule, directly bundled)
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/sqlite3/CMakeLists.txt")
   message(FATAL_ERROR
-    "[AnyChat] libwebsockets not found.\n"
-    "  Ubuntu/Debian : sudo apt install libwebsockets-dev\n"
-    "  macOS         : brew install libwebsockets\n"
-    "  Cross-compile : set -DCMAKE_PREFIX_PATH to your sysroot"
+    "[AnyChat] thirdparty/sqlite3 is missing.\n"
+    "  Ensure sqlite3.c/sqlite3.h are present in thirdparty/sqlite3/"
   )
 endif()
+
+# ── Third-party dependencies ──────────────────────────────────────────────────
+
+# ── nlohmann/json (header-only) ───────────────────────────────────────────────
+set(JSON_BuildTests     OFF CACHE BOOL "" FORCE)
+set(JSON_Install        OFF CACHE BOOL "" FORCE)
+add_subdirectory(thirdparty/nlohmann-json EXCLUDE_FROM_ALL)
+
+# ── libcurl ───────────────────────────────────────────────────────────────────
+# Build only the static library; disable the CLI tool and tests.
+set(BUILD_CURL_EXE         OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS      OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING          OFF CACHE BOOL "" FORCE)
+set(CURL_DISABLE_TESTS     ON  CACHE BOOL "" FORCE)
+set(CURL_USE_OPENSSL       ON  CACHE BOOL "" FORCE)
+set(CURL_USE_LIBPSL        OFF CACHE BOOL "" FORCE)
+set(HTTP_ONLY              ON  CACHE BOOL "" FORCE)
+add_subdirectory(thirdparty/curl EXCLUDE_FROM_ALL)
+# curl's CMakeLists creates CURL::libcurl alias when BUILD_SHARED_LIBS=OFF.
+
+# ── libwebsockets ─────────────────────────────────────────────────────────────
+set(LWS_WITHOUT_TESTAPPS          ON  CACHE BOOL "" FORCE)
+set(LWS_WITHOUT_TEST_SERVER       ON  CACHE BOOL "" FORCE)
+set(LWS_WITHOUT_TEST_PING         ON  CACHE BOOL "" FORCE)
+set(LWS_WITHOUT_TEST_CLIENT       ON  CACHE BOOL "" FORCE)
+set(LWS_WITHOUT_DAEMONIZE         ON  CACHE BOOL "" FORCE)
+set(LWS_WITH_MINIMAL_EXAMPLES     OFF CACHE BOOL "" FORCE)
+set(LWS_WITH_SSL                  ON  CACHE BOOL "" FORCE)
+set(LWS_WITHOUT_EXTENSIONS        ON  CACHE BOOL "" FORCE)
+add_subdirectory(thirdparty/libwebsockets EXCLUDE_FROM_ALL)
+# libwebsockets creates target: websockets (static) or websockets_shared.
+
+# ── SQLite3 ───────────────────────────────────────────────────────────────────
+# Direct sqlite3 amalgamation build (sqlite3.c / sqlite3.h).
+# Creates targets: sqlite3 (STATIC) and SQLite::SQLite3 (ALIAS).
+add_subdirectory(thirdparty/sqlite3 EXCLUDE_FROM_ALL)
 
 # ── Build options ─────────────────────────────────────────────────────────────
 option(BUILD_TESTS            "Build unit tests"                    ON)
 option(BUILD_ANDROID_BINDING  "Build Android JNI binding"           OFF)
 option(BUILD_IOS_BINDING      "Build iOS binding"                   OFF)
 option(BUILD_WEB_BINDING      "Build WebAssembly binding"           OFF)
+
+# ── googletest (only when tests are enabled) ──────────────────────────────────
+if(BUILD_TESTS)
+  set(INSTALL_GTEST             OFF CACHE BOOL "" FORCE)
+  set(gtest_force_shared_crt    ON  CACHE BOOL "" FORCE)
+  add_subdirectory(thirdparty/googletest EXCLUDE_FROM_ALL)
+endif()
 
 # ── Sub-directories ───────────────────────────────────────────────────────────
 add_subdirectory(core)

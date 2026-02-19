@@ -8,8 +8,7 @@
 #include <memory>
 #include <string>
 
-// Forward-declare nlohmann::json to avoid heavy include in header.
-namespace nlohmann { class json; }
+#include <nlohmann/json_fwd.hpp>
 
 namespace anychat {
 

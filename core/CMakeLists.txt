@@ -1,5 +1,3 @@
-find_package(SQLite3 REQUIRED)
-
 add_library(anychat_core STATIC
     src/client.cpp
     src/auth_manager.cpp
@@ -35,16 +33,12 @@ target_link_libraries(anychat_core
             SQLite::SQLite3
 )
 
-# libwebsockets: handle both Libwebsockets and libwebsockets config names
+# libwebsockets: handle both target names produced by the submodule build.
 if(TARGET websockets)
     target_link_libraries(anychat_core PRIVATE websockets)
 elseif(TARGET websockets_shared)
     target_link_libraries(anychat_core PRIVATE websockets_shared)
 else()
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(LWS REQUIRED libwebsockets)
-        target_include_directories(anychat_core PRIVATE ${LWS_INCLUDE_DIRS})
-        target_link_libraries(anychat_core PRIVATE ${LWS_LIBRARIES})
-    endif()
+    message(FATAL_ERROR "[AnyChat] libwebsockets target not found. "
+        "Ensure the thirdparty/libwebsockets submodule is initialised.")
 endif()

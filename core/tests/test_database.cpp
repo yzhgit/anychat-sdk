@@ -5,6 +5,7 @@
 // We test the full Database API via the public interface.
 
 using namespace anychat::db;
+using TxScope = Database::TxScope;
 
 // ---------------------------------------------------------------------------
 // Fixture: opens a fresh in-memory database for each test.

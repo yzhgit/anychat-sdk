@@ -7,7 +7,7 @@
 #include <variant>
 #include <vector>
 
-// Forward-declare sqlite3 to avoid including sqlite3.h in this header.
+// Forward-declare sqlite3 for the TxScope raw handle.
 struct sqlite3;
 
 namespace anychat::db {

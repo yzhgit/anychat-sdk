@@ -49,7 +49,7 @@ protected:
 // ---------------------------------------------------------------------------
 TEST_F(ConversationManagerTest, GetListEmptyInitially) {
     std::vector<anychat::Conversation> result;
-    mgr_->getList([&](const std::vector<anychat::Conversation>& list) {
+    mgr_->getList([&](std::vector<anychat::Conversation> list, const std::string& /*err*/) {
         result = list;
     });
     EXPECT_TRUE(result.empty());

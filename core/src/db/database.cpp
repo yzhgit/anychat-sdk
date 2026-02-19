@@ -3,10 +3,10 @@
 
 #include <sqlite3.h>
 
-#include <cassert>
 #include <condition_variable>
 #include <future>
 #include <mutex>
+#include <queue>
 #include <string>
 #include <thread>
 #include <utility>
@@ -92,9 +92,12 @@ static std::string execOrQuery(sqlite3* db,
 // ---------------------------------------------------------------------------
 
 struct Database::Impl {
-    sqlite3*    db      = nullptr;
+    // Raw sqlite3* pointer — used by all low-level prepare/bind/step helpers
+    // for parameterised raw-SQL queries.
+    sqlite3* raw_db = nullptr;
+
     std::string path;
-    bool        open_   = false;
+    bool        open_ = false;
 
     std::thread              worker;
     std::queue<std::function<void()>> tasks;
@@ -138,7 +141,6 @@ struct Database::Impl {
     }
 
     // Post a task and block until it returns (sync helper).
-    // R must be default-constructible or we use promise<R>.
     template<typename F>
     auto postSync(F&& f) -> decltype(f()) {
         using R = decltype(f());
@@ -174,23 +176,23 @@ bool Database::open() {
     impl_->start();
 
     return impl_->postSync([this]() -> bool {
-        int rc = sqlite3_open(impl_->path.c_str(), &impl_->db);
+        // Open SQLite connection using the raw C API.
+        int rc = sqlite3_open(impl_->path.c_str(), &impl_->raw_db);
         if (rc != SQLITE_OK) {
-            sqlite3_close(impl_->db);
-            impl_->db = nullptr;
+            sqlite3_close(impl_->raw_db);
+            impl_->raw_db = nullptr;
             return false;
         }
-
         // Enable WAL mode for better concurrent read performance.
-        sqlite3_exec(impl_->db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
+        sqlite3_exec(impl_->raw_db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
         // Reasonable busy timeout (5 s).
-        sqlite3_busy_timeout(impl_->db, 5000);
+        sqlite3_busy_timeout(impl_->raw_db, 5000);
         // Foreign-key enforcement.
-        sqlite3_exec(impl_->db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr);
+        sqlite3_exec(impl_->raw_db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr);
 
-        if (!runMigrations(impl_->db)) {
-            sqlite3_close(impl_->db);
-            impl_->db = nullptr;
+        if (!runMigrations(impl_->raw_db)) {
+            sqlite3_close(impl_->raw_db);
+            impl_->raw_db = nullptr;
             return false;
         }
 
@@ -201,12 +203,11 @@ bool Database::open() {
 
 void Database::close() {
     if (!impl_) return;
-    // Signal worker to stop after draining the queue.
     impl_->stop();
 
-    if (impl_->db) {
-        sqlite3_close(impl_->db);
-        impl_->db = nullptr;
+    if (impl_->raw_db) {
+        sqlite3_close(impl_->raw_db);
+        impl_->raw_db = nullptr;
     }
     impl_->open_ = false;
 }
@@ -218,7 +219,7 @@ void Database::close() {
 void Database::exec(std::string sql, Params params, ExecCallback cb) {
     impl_->post([this, sql = std::move(sql), params = std::move(params),
                  cb = std::move(cb)]() mutable {
-        std::string err = execOrQuery(impl_->db, sql, params, nullptr);
+        std::string err = execOrQuery(impl_->raw_db, sql, params, nullptr);
         if (cb) cb(err.empty(), err);
     });
 }
@@ -227,7 +228,7 @@ void Database::query(std::string sql, Params params, QueryCallback cb) {
     impl_->post([this, sql = std::move(sql), params = std::move(params),
                  cb = std::move(cb)]() mutable {
         Rows rows;
-        std::string err = execOrQuery(impl_->db, sql, params, &rows);
+        std::string err = execOrQuery(impl_->raw_db, sql, params, &rows);
         if (cb) cb(std::move(rows), err);
     });
 }
@@ -238,7 +239,7 @@ void Database::query(std::string sql, Params params, QueryCallback cb) {
 
 bool Database::execSync(const std::string& sql, Params params) {
     return impl_->postSync([this, &sql, &params]() -> bool {
-        std::string err = execOrQuery(impl_->db, sql, params, nullptr);
+        std::string err = execOrQuery(impl_->raw_db, sql, params, nullptr);
         return err.empty();
     });
 }
@@ -246,7 +247,7 @@ bool Database::execSync(const std::string& sql, Params params) {
 Rows Database::querySync(const std::string& sql, Params params) {
     return impl_->postSync([this, &sql, &params]() -> Rows {
         Rows rows;
-        execOrQuery(impl_->db, sql, params, &rows);
+        execOrQuery(impl_->raw_db, sql, params, &rows);
         return rows;
     });
 }
@@ -294,11 +295,10 @@ Rows Database::TxScope::queryDirect(const std::string& sql,
 
 bool Database::transactionSync(std::function<bool(TxScope&)> fn) {
     return impl_->postSync([this, fn = std::move(fn)]() -> bool {
-        // BEGIN
-        if (execOrQuery(impl_->db, "BEGIN", {}, nullptr) != "") return false;
+        if (execOrQuery(impl_->raw_db, "BEGIN", {}, nullptr) != "") return false;
 
         TxScope scope;
-        scope.db = impl_->db;
+        scope.db = impl_->raw_db;
 
         bool ok = false;
         try {
@@ -308,14 +308,14 @@ bool Database::transactionSync(std::function<bool(TxScope&)> fn) {
         }
 
         if (ok) {
-            std::string err = execOrQuery(impl_->db, "COMMIT", {}, nullptr);
+            std::string err = execOrQuery(impl_->raw_db, "COMMIT", {}, nullptr);
             if (!err.empty()) {
-                execOrQuery(impl_->db, "ROLLBACK", {}, nullptr);
+                execOrQuery(impl_->raw_db, "ROLLBACK", {}, nullptr);
                 return false;
             }
             return true;
         } else {
-            execOrQuery(impl_->db, "ROLLBACK", {}, nullptr);
+            execOrQuery(impl_->raw_db, "ROLLBACK", {}, nullptr);
             return false;
         }
     });

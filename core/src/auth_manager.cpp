@@ -27,7 +27,7 @@ AuthManagerImpl::AuthManagerImpl(std::shared_ptr<network::HttpClient> http,
             std::lock_guard<std::mutex> lock(token_mutex_);
             token_.access_token  = at;
             token_.refresh_token = rt;
-            token_.expires_at    = std::stoll(exp);
+            token_.expires_at_ms = std::stoll(exp);
             http_->setAuthToken(at);
         }
     }
@@ -167,7 +167,7 @@ bool AuthManagerImpl::isLoggedIn() const
 {
     std::lock_guard<std::mutex> lock(token_mutex_);
     return !token_.access_token.empty() &&
-           token_.expires_at > static_cast<int64_t>(std::time(nullptr));
+           token_.expires_at_ms > static_cast<int64_t>(std::time(nullptr));
 }
 
 AuthToken AuthManagerImpl::currentToken() const
@@ -246,7 +246,7 @@ void AuthManagerImpl::handleAuthResponse(network::HttpResponse resp,
         token.access_token  = data.value("accessToken",  "");
         token.refresh_token = data.value("refreshToken", "");
         auto expires_in     = data.value("expiresIn",    int64_t{0});
-        token.expires_at    = static_cast<int64_t>(std::time(nullptr)) + expires_in;
+        token.expires_at_ms = static_cast<int64_t>(std::time(nullptr)) + expires_in;
 
         storeToken(token);
         http_->setAuthToken(token.access_token);
@@ -266,7 +266,7 @@ void AuthManagerImpl::storeToken(const AuthToken& token)
     if (db_) {
         db_->setMeta("auth.access_token",  token.access_token);
         db_->setMeta("auth.refresh_token", token.refresh_token);
-        db_->setMeta("auth.expires_at_ms", std::to_string(token.expires_at));
+        db_->setMeta("auth.expires_at_ms", std::to_string(token.expires_at_ms));
     }
 }
 

@@ -44,7 +44,7 @@ TEST_F(GroupManagerTest, GroupInvitedNotificationFiresHandler) {
     anychat::Group received{};
     int call_count = 0;
 
-    mgr_->setOnGroupInvited([&](const anychat::Group& g) {
+    mgr_->setOnGroupInvited([&](const anychat::Group& g, const std::string& /*inviter_id*/) {
         received = g;
         ++call_count;
     });
@@ -98,7 +98,7 @@ TEST_F(GroupManagerTest, GroupInfoUpdatedNotificationFiresUpdatedHandler) {
 TEST_F(GroupManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     int invited_count = 0;
     int updated_count = 0;
-    mgr_->setOnGroupInvited([&](const anychat::Group&) { ++invited_count; });
+    mgr_->setOnGroupInvited([&](const anychat::Group&, const std::string&) { ++invited_count; });
     mgr_->setOnGroupUpdated([&](const anychat::Group&) { ++updated_count; });
 
     const std::string frame = R"({
