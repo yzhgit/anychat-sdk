@@ -1,0 +1,34 @@
+# Files to exclude from the published package
+
+# Development files
+.vscode/
+.idea/
+*.iml
+.DS_Store
+
+# Build artifacts
+build/
+.dart_tool/
+*.log
+
+# Git files
+.git/
+.gitignore
+
+# Documentation that's not needed in the package
+PUBLISHING.md
+
+# Test coverage
+coverage/
+
+# Example build artifacts
+example/build/
+example/.dart_tool/
+example/.flutter-plugins
+example/.flutter-plugins-dependencies
+example/ios/Flutter/
+example/android/.gradle/
+example/android/app/build/
+example/linux/flutter/
+example/macos/Flutter/
+example/windows/flutter/

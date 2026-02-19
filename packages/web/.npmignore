@@ -1,0 +1,50 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Build files
+tsconfig.json
+rollup.config.js
+.tsbuildinfo
+
+# Development
+node_modules/
+example/
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Testing
+__tests__/
+*.test.ts
+*.spec.ts
+jest.config.js
+coverage/
+
+# Documentation (keep README and CHANGELOG)
+docs/
+*.md
+!README.md
+!CHANGELOG.md
+
+# Build scripts and tools
+scripts/
+tools/
+Makefile
+
+# Misc
+*.log
+*.tmp
+.DS_Store
+.env
+.env.*

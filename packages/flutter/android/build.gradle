@@ -1,0 +1,60 @@
+// Android build configuration for anychat_sdk
+//
+// This Gradle file delegates to the actual FFI bindings in ../../bindings/flutter/android/
+// The bindings contain the CMakeLists.txt that builds the native library.
+
+group 'com.anychat.sdk'
+version '1.0'
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.4.0'
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 33
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        minSdkVersion 21
+
+        // Point to the CMakeLists.txt in the bindings directory
+        externalNativeBuild {
+            cmake {
+                path "../../bindings/flutter/android/CMakeLists.txt"
+                version "3.10.2"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "../../bindings/flutter/android/CMakeLists.txt"
+        }
+    }
+
+    sourceSets {
+        main {
+            // No Java/Kotlin source files needed for FFI plugin
+        }
+    }
+}

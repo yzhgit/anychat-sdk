@@ -1,7 +1,10 @@
 name: anychat_sdk
-description: Flutter SDK for the AnyChat instant messaging system.
+description: Official Flutter SDK for the AnyChat instant messaging system. Supports Android, iOS, Windows, Linux, and macOS with native FFI bindings for high performance.
 version: 0.1.0
 homepage: https://github.com/yzhgit/anychat-sdk
+repository: https://github.com/yzhgit/anychat-sdk
+issue_tracker: https://github.com/yzhgit/anychat-sdk/issues
+documentation: https://github.com/yzhgit/anychat-sdk#readme
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -11,17 +14,35 @@ dependencies:
   flutter:
     sdk: flutter
   ffi: ^2.1.0
+  path_provider: ^2.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
 
+# FFI plugin configuration
 flutter:
   plugin:
     platforms:
       android:
-        package: com.anychat.sdk
-        pluginClass: AnyChatSdkPlugin
+        ffiPlugin: true
       ios:
-        pluginClass: AnyChatSdkPlugin
+        ffiPlugin: true
+      linux:
+        ffiPlugin: true
+      macos:
+        ffiPlugin: true
+      windows:
+        ffiPlugin: true
+
+topics:
+  - im
+  - chat
+  - messaging
+  - websocket
+  - realtime
+
+screenshots:
+  - description: 'AnyChat SDK example app showing connection and messaging features'
+    path: example/screenshot.png

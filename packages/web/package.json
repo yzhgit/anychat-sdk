@@ -2,23 +2,71 @@
   "name": "@anychat/sdk",
   "version": "0.1.0",
   "description": "JavaScript/TypeScript SDK for the AnyChat instant messaging system",
-  "main": "dist/anychat.js",
-  "types": "dist/anychat.d.ts",
-  "module": "dist/anychat.esm.js",
-  "files": ["dist/"],
-  "scripts": {
-    "build": "../../tools/build-web.sh",
-    "test": "jest"
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
   },
-  "keywords": ["anychat", "im", "chat", "sdk", "websocket"],
+  "files": [
+    "dist/",
+    "lib/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "npm run build:bindings && npm run build:package",
+    "build:bindings": "cd ../../bindings/web && npm run build && ./build.sh",
+    "build:package": "tsc && npm run bundle",
+    "bundle": "rollup -c",
+    "clean": "rm -rf dist lib",
+    "prepublishOnly": "npm run build",
+    "test": "jest",
+    "example": "cd example && npm run dev"
+  },
+  "keywords": [
+    "anychat",
+    "im",
+    "chat",
+    "sdk",
+    "websocket",
+    "messaging",
+    "webassembly",
+    "wasm"
+  ],
+  "author": "AnyChat Team",
   "license": "MIT",
-  "homepage": "https://github.com/yzhgit/anychat-sdk",
+  "homepage": "https://github.com/yzhgit/anychat-server",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yzhgit/anychat-sdk.git"
+    "url": "https://github.com/yzhgit/anychat-server.git",
+    "directory": "packages/web"
+  },
+  "bugs": {
+    "url": "https://github.com/yzhgit/anychat-server/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "jest": "^29.0.0"
-  }
+    "@types/node": "^20.10.0",
+    "rollup": "^4.9.0",
+    "rollup-plugin-copy": "^3.5.0",
+    "typescript": "^5.3.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0"
+  },
+  "peerDependencies": {}
 }
