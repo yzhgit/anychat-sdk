@@ -1,0 +1,141 @@
+#pragma once
+
+#include "types_c.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* ---- Callback types ---- */
+
+typedef void (*AnyChatCallCallback)(
+    void*                        userdata,
+    int                          success,
+    const AnyChatCallSession_C*  session,
+    const char*                  error);
+
+typedef void (*AnyChatCallListCallback)(
+    void*                    userdata,
+    const AnyChatCallList_C* list,
+    const char*              error);
+
+typedef void (*AnyChatMeetingCallback)(
+    void*                        userdata,
+    int                          success,
+    const AnyChatMeetingRoom_C*  room,
+    const char*                  error);
+
+typedef void (*AnyChatMeetingListCallback)(
+    void*                        userdata,
+    const AnyChatMeetingList_C*  list,
+    const char*                  error);
+
+typedef void (*AnyChatRtcResultCallback)(
+    void*       userdata,
+    int         success,
+    const char* error);
+
+/* Fired when an incoming call arrives. */
+typedef void (*AnyChatIncomingCallCallback)(
+    void*                       userdata,
+    const AnyChatCallSession_C* session);
+
+/* Fired when the status of an ongoing call changes. */
+typedef void (*AnyChatCallStatusChangedCallback)(
+    void*       userdata,
+    const char* call_id,
+    int         status  /* ANYCHAT_CALL_STATUS_* */);
+
+/* ---- One-to-one call operations ---- */
+
+/* call_type: ANYCHAT_CALL_AUDIO or ANYCHAT_CALL_VIDEO */
+ANYCHAT_C_API int anychat_rtc_initiate_call(
+    AnyChatRtcHandle    handle,
+    const char*         callee_id,
+    int                 call_type,
+    void*               userdata,
+    AnyChatCallCallback callback);
+
+ANYCHAT_C_API int anychat_rtc_join_call(
+    AnyChatRtcHandle    handle,
+    const char*         call_id,
+    void*               userdata,
+    AnyChatCallCallback callback);
+
+ANYCHAT_C_API int anychat_rtc_reject_call(
+    AnyChatRtcHandle       handle,
+    const char*            call_id,
+    void*                  userdata,
+    AnyChatRtcResultCallback callback);
+
+ANYCHAT_C_API int anychat_rtc_end_call(
+    AnyChatRtcHandle       handle,
+    const char*            call_id,
+    void*                  userdata,
+    AnyChatRtcResultCallback callback);
+
+ANYCHAT_C_API int anychat_rtc_get_call_session(
+    AnyChatRtcHandle    handle,
+    const char*         call_id,
+    void*               userdata,
+    AnyChatCallCallback callback);
+
+ANYCHAT_C_API int anychat_rtc_get_call_logs(
+    AnyChatRtcHandle        handle,
+    int                     page,
+    int                     page_size,
+    void*                   userdata,
+    AnyChatCallListCallback callback);
+
+/* ---- Meeting operations ---- */
+
+/* password: pass NULL or empty string for a meeting without password. */
+ANYCHAT_C_API int anychat_rtc_create_meeting(
+    AnyChatRtcHandle       handle,
+    const char*            title,
+    const char*            password,
+    int                    max_participants,
+    void*                  userdata,
+    AnyChatMeetingCallback callback);
+
+ANYCHAT_C_API int anychat_rtc_join_meeting(
+    AnyChatRtcHandle       handle,
+    const char*            room_id,
+    const char*            password,
+    void*                  userdata,
+    AnyChatMeetingCallback callback);
+
+ANYCHAT_C_API int anychat_rtc_end_meeting(
+    AnyChatRtcHandle         handle,
+    const char*              room_id,
+    void*                    userdata,
+    AnyChatRtcResultCallback callback);
+
+ANYCHAT_C_API int anychat_rtc_get_meeting(
+    AnyChatRtcHandle       handle,
+    const char*            room_id,
+    void*                  userdata,
+    AnyChatMeetingCallback callback);
+
+ANYCHAT_C_API int anychat_rtc_list_meetings(
+    AnyChatRtcHandle           handle,
+    int                        page,
+    int                        page_size,
+    void*                      userdata,
+    AnyChatMeetingListCallback callback);
+
+/* ---- Incoming event handlers ---- */
+
+ANYCHAT_C_API void anychat_rtc_set_incoming_call_callback(
+    AnyChatRtcHandle            handle,
+    void*                       userdata,
+    AnyChatIncomingCallCallback callback);
+
+ANYCHAT_C_API void anychat_rtc_set_call_status_changed_callback(
+    AnyChatRtcHandle                  handle,
+    void*                             userdata,
+    AnyChatCallStatusChangedCallback  callback);
+
+#ifdef __cplusplus
+}
+#endif

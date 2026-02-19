@@ -42,3 +42,60 @@ else()
     message(FATAL_ERROR "[AnyChat] libwebsockets target not found. "
         "Ensure the thirdparty/libwebsockets submodule is initialised.")
 endif()
+
+# ── C API wrapper layer ───────────────────────────────────────────────────────
+
+add_library(anychat_c STATIC
+    src/c_api/errors_c.cpp
+    src/c_api/utils_c.cpp
+    src/c_api/client_c.cpp
+    src/c_api/auth_c.cpp
+    src/c_api/message_c.cpp
+    src/c_api/conversation_c.cpp
+    src/c_api/friend_c.cpp
+    src/c_api/group_c.cpp
+    src/c_api/file_c.cpp
+    src/c_api/user_c.cpp
+    src/c_api/rtc_c.cpp
+)
+
+target_include_directories(anychat_c
+    PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api
+)
+
+target_compile_features(anychat_c PUBLIC cxx_std_17)
+
+target_link_libraries(anychat_c
+    PUBLIC anychat_core
+)
+
+# Optional shared-library variant (for cross-compiler binary distribution).
+option(BUILD_ANYCHAT_C_SHARED "Build C API as a shared library" OFF)
+if(BUILD_ANYCHAT_C_SHARED)
+    add_library(anychat_c_shared SHARED
+        src/c_api/errors_c.cpp
+        src/c_api/utils_c.cpp
+        src/c_api/client_c.cpp
+        src/c_api/auth_c.cpp
+        src/c_api/message_c.cpp
+        src/c_api/conversation_c.cpp
+        src/c_api/friend_c.cpp
+        src/c_api/group_c.cpp
+        src/c_api/file_c.cpp
+        src/c_api/user_c.cpp
+        src/c_api/rtc_c.cpp
+    )
+    target_compile_definitions(anychat_c_shared PRIVATE ANYCHAT_C_EXPORTS)
+    target_include_directories(anychat_c_shared
+        PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api
+    )
+    target_compile_features(anychat_c_shared PUBLIC cxx_std_17)
+    target_link_libraries(anychat_c_shared PUBLIC anychat_core)
+    set_target_properties(anychat_c_shared PROPERTIES
+        OUTPUT_NAME anychat_c
+        VERSION     ${PROJECT_VERSION}
+        SOVERSION   0
+    )
+endif()
