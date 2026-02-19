@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build-android:
+    name: Build Android AAR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SWIG
+        run: sudo apt-get install -y swig
+      - name: Generate Android bindings
+        run: ./tools/generate-bindings.sh android
+      - name: Build AAR
+        working-directory: packages/android
+        run: ./gradlew assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-aar
+          path: packages/android/build/outputs/aar/*.aar
+
+  build-web:
+    name: Build WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '3.1.56'
+      - name: Install SWIG
+        run: sudo apt-get install -y swig
+      - name: Generate Web bindings
+        run: ./tools/generate-bindings.sh web
+      - name: Build WASM
+        run: ./tools/build-web.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-wasm
+          path: packages/web/dist/
+
+  publish-flutter:
+    name: Publish Flutter package
+    runs-on: ubuntu-latest
+    needs: [build-android]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+      - name: Publish to pub.dev
+        working-directory: packages/flutter
+        env:
+          PUB_CREDENTIALS: ${{ secrets.PUB_CREDENTIALS }}
+        run: flutter pub publish --force
+
+  publish-npm:
+    name: Publish npm package
+    runs-on: ubuntu-latest
+    needs: [build-web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-wasm
+          path: packages/web/dist/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Publish to npm
+        working-directory: packages/web
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public

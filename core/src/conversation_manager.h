@@ -1,0 +1,49 @@
+#pragma once
+#include "anychat/conversation.h"
+#include "notification_manager.h"
+#include "cache/conversation_cache.h"
+#include "db/database.h"
+#include "network/http_client.h"
+#include <memory>
+#include <mutex>
+
+namespace anychat {
+
+class ConversationManagerImpl : public ConversationManager {
+public:
+    ConversationManagerImpl(db::Database*                        db,
+                             cache::ConversationCache*            conv_cache,
+                             NotificationManager*                 notif_mgr,
+                             std::shared_ptr<network::HttpClient> http);
+
+    // ConversationManager interface
+    void getList(ConversationListCallback cb) override;
+    void markRead(const std::string& conv_id, ConversationCallback cb) override;
+    void setPinned(const std::string& conv_id, bool pinned, ConversationCallback cb) override;
+    void setMuted(const std::string& conv_id, bool muted, ConversationCallback cb) override;
+    void deleteConv(const std::string& conv_id, ConversationCallback cb) override;
+    void setOnConversationUpdated(OnConversationUpdated handler) override;
+
+private:
+    // Parse a single session JSON object into a Conversation struct.
+    static Conversation parseSession(const nlohmann::json& j);
+
+    // Persist a conversation to the DB (upsert).
+    void upsertDb(const Conversation& conv);
+
+    // Populate a Conversation from a DB row.
+    static Conversation rowToConversation(const db::Row& row);
+
+    // Notification handler for session-related events.
+    void handleSessionNotification(const NotificationEvent& event);
+
+    db::Database*                        db_;
+    cache::ConversationCache*            conv_cache_;
+    NotificationManager*                 notif_mgr_;
+    std::shared_ptr<network::HttpClient> http_;
+
+    mutable std::mutex    handler_mutex_;
+    OnConversationUpdated on_updated_;
+};
+
+} // namespace anychat

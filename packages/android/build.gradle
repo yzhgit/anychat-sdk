@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android' version '1.9.0'
+    id 'maven-publish'
+}
+
+android {
+    namespace 'com.anychat.sdk'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 34
+        versionName "0.1.0"
+
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++17"
+                arguments "-DBUILD_ANDROID_BINDING=ON"
+            }
+        }
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "../../CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+}
+
+dependencies {
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+}
+
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId    = 'io.github.yzhgit'
+            artifactId = 'anychat-sdk-android'
+            version    = '0.1.0'
+            afterEvaluate {
+                from components.release
+            }
+        }
+    }
+}

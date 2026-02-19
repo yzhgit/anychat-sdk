@@ -1,0 +1,24 @@
+{
+  "name": "@anychat/sdk",
+  "version": "0.1.0",
+  "description": "JavaScript/TypeScript SDK for the AnyChat instant messaging system",
+  "main": "dist/anychat.js",
+  "types": "dist/anychat.d.ts",
+  "module": "dist/anychat.esm.js",
+  "files": ["dist/"],
+  "scripts": {
+    "build": "../../tools/build-web.sh",
+    "test": "jest"
+  },
+  "keywords": ["anychat", "im", "chat", "sdk", "websocket"],
+  "license": "MIT",
+  "homepage": "https://github.com/yzhgit/anychat-sdk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yzhgit/anychat-sdk.git"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0"
+  }
+}
