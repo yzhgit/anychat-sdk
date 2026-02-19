@@ -1,0 +1,177 @@
+# FFI bindings generator configuration
+# Run: dart run ffigen --config ffigen.yaml
+
+name: AnyChatNativeBindings
+description: |
+  Auto-generated FFI bindings for AnyChat C API.
+  DO NOT EDIT — regenerate via: dart run ffigen
+
+output: 'lib/src/anychat_ffi_bindings.dart'
+
+headers:
+  entry-points:
+    - '../../core/include/anychat_c/anychat_c.h'
+  include-directives:
+    - '../../core/include/anychat_c/*.h'
+
+compiler-opts:
+  - '-I../../core/include'
+
+preamble: |
+  // ignore_for_file: always_specify_types
+  // ignore_for_file: camel_case_types
+  // ignore_for_file: non_constant_identifier_names
+  // coverage:ignore-file
+
+comments:
+  style: any
+  length: full
+
+# Type mappings
+typedefs:
+  include:
+    - 'AnyChatClientHandle'
+    - 'AnyChatAuthHandle'
+    - 'AnyChatMessageHandle'
+    - 'AnyChatConvHandle'
+    - 'AnyChatFriendHandle'
+    - 'AnyChatGroupHandle'
+    - 'AnyChatFileHandle'
+    - 'AnyChatUserHandle'
+    - 'AnyChatRtcHandle'
+
+structs:
+  include:
+    - 'AnyChatClientConfig_C'
+    - 'AnyChatAuthToken_C'
+    - 'AnyChatUserInfo_C'
+    - 'AnyChatMessage_C'
+    - 'AnyChatMessageList_C'
+    - 'AnyChatConversation_C'
+    - 'AnyChatConversationList_C'
+    - 'AnyChatFriend_C'
+    - 'AnyChatFriendList_C'
+    - 'AnyChatFriendRequest_C'
+    - 'AnyChatFriendRequestList_C'
+    - 'AnyChatGroup_C'
+    - 'AnyChatGroupList_C'
+    - 'AnyChatGroupMember_C'
+    - 'AnyChatGroupMemberList_C'
+    - 'AnyChatFileInfo_C'
+    - 'AnyChatUserProfile_C'
+    - 'AnyChatUserSettings_C'
+    - 'AnyChatUserList_C'
+    - 'AnyChatCallSession_C'
+    - 'AnyChatCallList_C'
+    - 'AnyChatMeetingRoom_C'
+    - 'AnyChatMeetingList_C'
+
+functions:
+  include:
+    # Client
+    - 'anychat_client_create'
+    - 'anychat_client_destroy'
+    - 'anychat_client_connect'
+    - 'anychat_client_disconnect'
+    - 'anychat_client_get_connection_state'
+    - 'anychat_client_set_connection_callback'
+    - 'anychat_client_get_auth'
+    - 'anychat_client_get_message'
+    - 'anychat_client_get_conversation'
+    - 'anychat_client_get_friend'
+    - 'anychat_client_get_group'
+    - 'anychat_client_get_file'
+    - 'anychat_client_get_user'
+    - 'anychat_client_get_rtc'
+
+    # Errors
+    - 'anychat_get_last_error'
+
+    # Memory
+    - 'anychat_free_string'
+    - 'anychat_free_message'
+    - 'anychat_free_message_list'
+    - 'anychat_free_conversation_list'
+    - 'anychat_free_friend_list'
+    - 'anychat_free_friend_request_list'
+    - 'anychat_free_group_list'
+    - 'anychat_free_group_member_list'
+    - 'anychat_free_user_list'
+    - 'anychat_free_call_list'
+    - 'anychat_free_meeting_list'
+
+    # Auth
+    - 'anychat_auth_login'
+    - 'anychat_auth_register'
+    - 'anychat_auth_logout'
+    - 'anychat_auth_refresh_token'
+    - 'anychat_auth_change_password'
+    - 'anychat_auth_is_logged_in'
+    - 'anychat_auth_get_current_token'
+    - 'anychat_auth_set_on_expired'
+
+    # Message
+    - 'anychat_message_send_text'
+    - 'anychat_message_get_history'
+    - 'anychat_message_mark_read'
+    - 'anychat_message_set_received_callback'
+
+    # Conversation
+    - 'anychat_conv_get_list'
+    - 'anychat_conv_mark_read'
+    - 'anychat_conv_set_pinned'
+    - 'anychat_conv_set_muted'
+    - 'anychat_conv_delete'
+    - 'anychat_conv_set_updated_callback'
+
+    # Friend
+    - 'anychat_friend_get_list'
+    - 'anychat_friend_send_request'
+    - 'anychat_friend_handle_request'
+    - 'anychat_friend_get_pending_requests'
+    - 'anychat_friend_delete'
+    - 'anychat_friend_update_remark'
+    - 'anychat_friend_add_to_blacklist'
+    - 'anychat_friend_remove_from_blacklist'
+    - 'anychat_friend_set_request_callback'
+    - 'anychat_friend_set_list_changed_callback'
+
+    # Group
+    - 'anychat_group_get_list'
+    - 'anychat_group_create'
+    - 'anychat_group_join'
+    - 'anychat_group_invite'
+    - 'anychat_group_quit'
+    - 'anychat_group_update'
+    - 'anychat_group_get_members'
+    - 'anychat_group_set_invited_callback'
+    - 'anychat_group_set_updated_callback'
+
+    # File
+    - 'anychat_file_upload'
+    - 'anychat_file_get_download_url'
+    - 'anychat_file_delete'
+
+    # User
+    - 'anychat_user_get_profile'
+    - 'anychat_user_update_profile'
+    - 'anychat_user_get_settings'
+    - 'anychat_user_update_settings'
+    - 'anychat_user_update_push_token'
+    - 'anychat_user_search'
+    - 'anychat_user_get_info'
+
+    # RTC
+    - 'anychat_rtc_initiate_call'
+    - 'anychat_rtc_join_call'
+    - 'anychat_rtc_reject_call'
+    - 'anychat_rtc_end_call'
+    - 'anychat_rtc_get_call_session'
+    - 'anychat_rtc_get_call_logs'
+    - 'anychat_rtc_create_meeting'
+    - 'anychat_rtc_join_meeting'
+    - 'anychat_rtc_end_meeting'
+    - 'anychat_rtc_get_meeting'
+    - 'anychat_rtc_list_meetings'
+    - 'anychat_rtc_set_incoming_call_callback'
+    - 'anychat_rtc_set_call_status_changed_callback'
