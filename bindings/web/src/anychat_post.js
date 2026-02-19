@@ -1,19 +1,10 @@
 // Emscripten post-js: runs after the WASM module is initialized.
-// Wraps the raw Emscripten module into a clean JS/Promise API.
+// This file is automatically concatenated to the generated JavaScript output.
 
-Module['AnyChatClient'] = class AnyChatClient {
-  constructor(config) {
-    this._config = config;
-    // TODO: instantiate via Emscripten-generated binding
-    this._handle = null;
-  }
+// Re-export the module for ES6 module compatibility
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Module;
+}
 
-  async connect() {
-    // TODO: call Module._anychat_connect(this._handle)
-    throw new Error('Not yet implemented');
-  }
-
-  disconnect() {
-    // TODO: call Module._anychat_disconnect(this._handle)
-  }
-};
+// Note: The TypeScript layer (index.ts) handles the high-level Promise-based API.
+// This file just ensures the module is properly exported.

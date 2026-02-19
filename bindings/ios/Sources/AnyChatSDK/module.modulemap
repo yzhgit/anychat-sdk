@@ -1,0 +1,21 @@
+module AnyChatSDK {
+    umbrella header "AnyChatSDK.h"
+    export *
+    module * { export * }
+
+    explicit module CAPI {
+        header "../../core/include/anychat_c/anychat_c.h"
+        header "../../core/include/anychat_c/errors_c.h"
+        header "../../core/include/anychat_c/types_c.h"
+        header "../../core/include/anychat_c/client_c.h"
+        header "../../core/include/anychat_c/auth_c.h"
+        header "../../core/include/anychat_c/message_c.h"
+        header "../../core/include/anychat_c/conversation_c.h"
+        header "../../core/include/anychat_c/friend_c.h"
+        header "../../core/include/anychat_c/group_c.h"
+        header "../../core/include/anychat_c/file_c.h"
+        header "../../core/include/anychat_c/user_c.h"
+        header "../../core/include/anychat_c/rtc_c.h"
+        export *
+    }
+}
