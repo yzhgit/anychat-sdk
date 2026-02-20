@@ -356,16 +356,6 @@ class AnyChatClient {
     );
   }
 
-  /// Connects to the server.
-  void connect() {
-    _bindings.anychat_client_connect(_clientHandle);
-  }
-
-  /// Disconnects from the server.
-  void disconnect() {
-    _bindings.anychat_client_disconnect(_clientHandle);
-  }
-
   /// Gets the current connection state.
   ConnectionState get connectionState {
     final state = _bindings.anychat_client_get_connection_state(_clientHandle);
@@ -374,7 +364,6 @@ class AnyChatClient {
 
   /// Disposes the client and releases all resources.
   void dispose() {
-    _bindings.anychat_client_disconnect(_clientHandle);
     _bindings.anychat_client_destroy(_clientHandle);
     _connectionStateCallableNative.close();
     _connectionStateController.close();
@@ -391,7 +380,10 @@ class AnyChatClient {
     return _authHandle!;
   }
 
-  /// Logs in with account and password.
+  /// Logs in with account and password, then automatically establishes WebSocket connection.
+  ///
+  /// The WebSocket connection is managed automatically by the SDK. Auto-reconnection
+  /// is handled internally when network interruptions occur.
   Future<AuthToken> login({
     required String account,
     required String password,
@@ -414,8 +406,8 @@ class AnyChatClient {
     final passwordPtr = password.toNativeUtf8();
     final deviceTypePtr = deviceType.toNativeUtf8();
 
-    final ret = _bindings.anychat_auth_login(
-      _auth,
+    final ret = _bindings.anychat_client_login(
+      _clientHandle,
       accountPtr.cast(),
       passwordPtr.cast(),
       deviceTypePtr.cast(),
@@ -439,7 +431,7 @@ class AnyChatClient {
 
   /// Checks if the user is logged in.
   bool get isLoggedIn {
-    return _bindings.anychat_auth_is_logged_in(_auth) != 0;
+    return _bindings.anychat_client_is_logged_in(_clientHandle) != 0;
   }
 
   /// Gets the current auth token (if logged in).
@@ -447,7 +439,7 @@ class AnyChatClient {
     if (!isLoggedIn) return null;
 
     final tokenStruct = calloc<AnyChatAuthToken_C>();
-    final ret = _bindings.anychat_auth_get_current_token(_auth, tokenStruct);
+    final ret = _bindings.anychat_client_get_current_token(_clientHandle, tokenStruct);
 
     if (ret != 0) {
       calloc.free(tokenStruct);
@@ -464,7 +456,7 @@ class AnyChatClient {
     return token;
   }
 
-  /// Logs out the current user.
+  /// Logs out: disconnects WebSocket and calls HTTP logout endpoint.
   Future<void> logout() {
     final completer = Completer<void>();
 
@@ -476,8 +468,8 @@ class AnyChatClient {
 
     final callbackId = _registerCallback(completer, callable);
 
-    final ret = _bindings.anychat_auth_logout(
-      _auth,
+    final ret = _bindings.anychat_client_logout(
+      _clientHandle,
       Pointer<Void>.fromAddress(callbackId),
       callable.nativeFunction,
     );

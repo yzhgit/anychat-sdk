@@ -116,24 +116,6 @@ class _HomePageState extends State<HomePage> {
     print(message);
   }
 
-  void _connect() {
-    if (_client == null) {
-      _log('Client not initialized');
-      return;
-    }
-    _log('Connecting...');
-    _client!.connect();
-  }
-
-  void _disconnect() {
-    if (_client == null) {
-      _log('Client not initialized');
-      return;
-    }
-    _log('Disconnecting...');
-    _client!.disconnect();
-  }
-
   Future<void> _login() async {
     if (_client == null) {
       _log('Client not initialized');
@@ -297,14 +279,6 @@ class _HomePageState extends State<HomePage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                ElevatedButton(
-                  onPressed: _connect,
-                  child: const Text('Connect'),
-                ),
-                ElevatedButton(
-                  onPressed: _disconnect,
-                  child: const Text('Disconnect'),
-                ),
                 ElevatedButton(
                   onPressed: _login,
                   child: const Text('Login'),

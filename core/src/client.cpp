@@ -35,7 +35,8 @@ class AnyChatClientImpl : public AnyChatClient {
 public:
     explicit AnyChatClientImpl(const ClientConfig& config)
         : http_(std::make_shared<network::HttpClient>(config.api_base_url))
-        , ws_(std::make_shared<network::WebSocketClient>(buildWsUrl(config)))
+        , gateway_url_(config.gateway_url)
+        , config_(config)
     {
         // 1. Open DB
         db_ = std::make_unique<db::Database>(config.db_path);
@@ -48,11 +49,8 @@ public:
         // 3. Create auth manager with DB for token persistence
         auth_mgr_ = createAuthManager(http_, config.device_id, db_.get());
 
-        // 4. Create NotificationManager and wire WebSocket message handler
+        // 4. Create NotificationManager
         notif_mgr_ = std::make_unique<NotificationManager>();
-        ws_->setOnMessage([this](const std::string& raw) {
-            notif_mgr_->handleRaw(raw);
-        });
 
         // 5. Create OutboundQueue
         outbound_q_ = std::make_unique<OutboundQueue>(db_.get());
@@ -64,11 +62,6 @@ public:
         // 7. Wire NotificationManager → OutboundQueue
         notif_mgr_->setOnMessageSent([this](const MsgSentAck& ack) {
             outbound_q_->onMessageSentAck(ack);
-        });
-
-        // Wire NotificationManager → ConnectionManager heartbeat (pong)
-        notif_mgr_->setOnPong([this]() {
-            conn_mgr_->onPongReceived();
         });
 
         // 8. Create Phase 4 business managers
@@ -84,32 +77,55 @@ public:
         user_mgr_   = std::make_unique<UserManagerImpl>(http_);
         rtc_mgr_    = std::make_unique<RtcManagerImpl>(http_, notif_mgr_.get());
 
-        // 9. Create ConnectionManager last (it calls onReady/onStateChanged)
-        conn_mgr_ = std::make_unique<ConnectionManager>(
-            buildWsUrl(config),
-            config.network_monitor,
-            ws_,
-            [this](ConnectionState s) { onStateChanged(s); },
-            [this]() { onReady(); });
+        // Note: WebSocket and ConnectionManager will be created after login
     }
 
     ~AnyChatClientImpl() override {
         // Ensure clean shutdown: stop reconnects and close WebSocket.
-        conn_mgr_->disconnect();
+        if (conn_mgr_) conn_mgr_->disconnect();
     }
 
-    // ---- Lifecycle -----------------------------------------------------------
+    // ---- 认证与连接管理 ------------------------------------------------------
 
-    void connect() override {
-        conn_mgr_->connect();
+    void login(const std::string& account,
+               const std::string& password,
+               const std::string& device_type,
+               AuthCallback callback) override {
+        // 调用HTTP登录
+        auth_mgr_->login(account, password, device_type,
+            [this, cb = std::move(callback)](bool success, const anychat::AuthToken& token, const std::string& error) {
+                if (success) {
+                    // 登录成功：使用access_token创建WebSocket连接
+                    initializeWebSocket(token.access_token);
+                    // 自动建立连接
+                    conn_mgr_->connect();
+                }
+                // 将结果回调给上层
+                if (cb) cb(success, token, error);
+            });
     }
 
-    void disconnect() override {
-        outbound_q_->onDisconnected();
-        conn_mgr_->disconnect();
+    void logout(ResultCallback callback) override {
+        // 先断开WebSocket连接
+        if (conn_mgr_) {
+            conn_mgr_->disconnect();
+            outbound_q_->onDisconnected();
+        }
+
+        // 然后调用HTTP登出
+        auth_mgr_->logout(std::move(callback));
+    }
+
+    bool isLoggedIn() const override {
+        return auth_mgr_->isLoggedIn();
+    }
+
+    AuthToken getCurrentToken() const override {
+        return auth_mgr_->currentToken();
     }
 
     ConnectionState connectionState() const override {
+        if (!conn_mgr_) return ConnectionState::Disconnected;
         return conn_mgr_->state();
     }
 
@@ -118,7 +134,7 @@ public:
         state_cb_ = std::move(callback);
     }
 
-    // ---- Sub-modules ---------------------------------------------------------
+    // ---- 子模块 ---------------------------------------------------------
 
     AuthManager& authMgr() override {
         return *auth_mgr_;
@@ -155,13 +171,41 @@ public:
 private:
     // ---- Helpers -------------------------------------------------------------
 
-    static std::string buildWsUrl(const ClientConfig& config) {
-        // Append /api/v1/ws?token= — the token is filled in dynamically by
-        // HttpClient / AuthManager; the WebSocket URL base is the gateway_url.
-        std::string url = config.gateway_url;
+    static std::string buildWsUrl(const std::string& gateway_url, const std::string& token) {
+        // Build WebSocket URL with token query parameter
+        // Format: ws://host:port/api/v1/ws?token=TOKEN
+        std::string url = gateway_url;
         if (!url.empty() && url.back() != '/') url += '/';
         url += "api/v1/ws";
+        if (!token.empty()) {
+            url += "?token=" + token;
+        }
         return url;
+    }
+
+    void initializeWebSocket(const std::string& access_token) {
+        // Create WebSocket with token-appended URL
+        std::string ws_url = buildWsUrl(gateway_url_, access_token);
+
+        ws_ = std::make_shared<network::WebSocketClient>(ws_url);
+
+        // Wire WebSocket message handler to NotificationManager
+        ws_->setOnMessage([this](const std::string& raw) {
+            notif_mgr_->handleRaw(raw);
+        });
+
+        // Create ConnectionManager with the new WebSocket client
+        conn_mgr_ = std::make_unique<ConnectionManager>(
+            ws_url,
+            config_.network_monitor,
+            ws_,
+            [this](ConnectionState s) { onStateChanged(s); },
+            [this]() { onReady(); });
+
+        // Wire NotificationManager → ConnectionManager heartbeat (pong)
+        notif_mgr_->setOnPong([this]() {
+            if (conn_mgr_) conn_mgr_->onPongReceived();
+        });
     }
 
     void onStateChanged(ConnectionState s) {
@@ -175,16 +219,21 @@ private:
 
     void onReady() {
         // WebSocket connected: flush outbound queue and trigger incremental sync.
-        outbound_q_->onConnected([this](const std::string& json) {
-            ws_->send(json);
-        });
+        if (ws_) {
+            outbound_q_->onConnected([this](const std::string& json) {
+                ws_->send(json);
+            });
+        }
         sync_engine_->sync();
     }
 
     // ---- Members -------------------------------------------------------------
 
     std::shared_ptr<network::HttpClient>       http_;
-    std::shared_ptr<network::WebSocketClient>  ws_;
+    std::shared_ptr<network::WebSocketClient>  ws_;  // Created after login
+
+    std::string                 gateway_url_;  // Base WebSocket gateway URL
+    ClientConfig                config_;       // Original config for ConnectionManager
 
     std::unique_ptr<db::Database>               db_;
     std::unique_ptr<cache::ConversationCache>   conv_cache_;
@@ -192,7 +241,7 @@ private:
 
     std::unique_ptr<AuthManager>               auth_mgr_;
     std::unique_ptr<MessageManager>            msg_mgr_;
-    std::unique_ptr<ConnectionManager>         conn_mgr_;
+    std::unique_ptr<ConnectionManager>         conn_mgr_;  // Created after login
 
     std::unique_ptr<NotificationManager>        notif_mgr_;
     std::unique_ptr<OutboundQueue>              outbound_q_;

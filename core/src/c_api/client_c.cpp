@@ -1,6 +1,7 @@
 #include "handles_c.h"
 #include "anychat_c/client_c.h"
 #include "utils_c.h"
+#include <cstring>
 
 static int connectionStateToC(anychat::ConnectionState s) {
     switch (s) {
@@ -70,12 +71,88 @@ void anychat_client_destroy(AnyChatClientHandle handle) {
     delete handle;
 }
 
-void anychat_client_connect(AnyChatClientHandle handle) {
-    if (handle) handle->impl->connect();
+// ---- Authentication & Connection ------------------------------------------
+
+int anychat_client_login(AnyChatClientHandle    handle,
+                         const char*            account,
+                         const char*            password,
+                         const char*            device_type,
+                         void*                  userdata,
+                         AnyChatAuthCallback    callback)
+{
+    if (!handle || !account || !password || !device_type) {
+        anychat_set_last_error("Invalid parameters");
+        return -1;
+    }
+
+    try {
+        handle->impl->login(account, password, device_type,
+            [callback, userdata](bool success, const anychat::AuthToken& token, const std::string& error) {
+                if (callback) {
+                    AnyChatAuthToken_C c_token{};
+                    if (success) {
+                        strncpy(c_token.access_token, token.access_token.c_str(), sizeof(c_token.access_token) - 1);
+                        strncpy(c_token.refresh_token, token.refresh_token.c_str(), sizeof(c_token.refresh_token) - 1);
+                        c_token.expires_at_ms = token.expires_at_ms;
+                    }
+                    callback(userdata, success ? 1 : 0, success ? &c_token : nullptr, error.empty() ? nullptr : error.c_str());
+                }
+            });
+        anychat_clear_last_error();
+        return 0;
+    } catch (const std::exception& e) {
+        anychat_set_last_error(e.what());
+        return -1;
+    }
 }
 
-void anychat_client_disconnect(AnyChatClientHandle handle) {
-    if (handle) handle->impl->disconnect();
+int anychat_client_logout(AnyChatClientHandle   handle,
+                          void*                 userdata,
+                          AnyChatResultCallback callback)
+{
+    if (!handle) {
+        anychat_set_last_error("Invalid handle");
+        return -1;
+    }
+
+    try {
+        handle->impl->logout([callback, userdata](bool success, const std::string& error) {
+            if (callback) {
+                callback(userdata, success ? 1 : 0, error.empty() ? nullptr : error.c_str());
+            }
+        });
+        anychat_clear_last_error();
+        return 0;
+    } catch (const std::exception& e) {
+        anychat_set_last_error(e.what());
+        return -1;
+    }
+}
+
+int anychat_client_is_logged_in(AnyChatClientHandle handle) {
+    if (!handle) return 0;
+    return handle->impl->isLoggedIn() ? 1 : 0;
+}
+
+int anychat_client_get_current_token(AnyChatClientHandle handle,
+                                     AnyChatAuthToken_C* out_token)
+{
+    if (!handle || !out_token) {
+        anychat_set_last_error("Invalid parameters");
+        return -1;
+    }
+
+    try {
+        auto token = handle->impl->getCurrentToken();
+        strncpy(out_token->access_token, token.access_token.c_str(), sizeof(out_token->access_token) - 1);
+        strncpy(out_token->refresh_token, token.refresh_token.c_str(), sizeof(out_token->refresh_token) - 1);
+        out_token->expires_at_ms = token.expires_at_ms;
+        anychat_clear_last_error();
+        return 0;
+    } catch (const std::exception& e) {
+        anychat_set_last_error(e.what());
+        return -1;
+    }
 }
 
 int anychat_client_get_connection_state(AnyChatClientHandle handle) {

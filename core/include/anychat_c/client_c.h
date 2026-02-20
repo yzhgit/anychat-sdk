@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types_c.h"
+#include "auth_c.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,11 +33,33 @@ ANYCHAT_C_API AnyChatClientHandle anychat_client_create(
  * Must not be called while callbacks are in flight on other threads. */
 ANYCHAT_C_API void anychat_client_destroy(AnyChatClientHandle handle);
 
-/* Start the WebSocket connection (non-blocking). */
-ANYCHAT_C_API void anychat_client_connect(AnyChatClientHandle handle);
+/* ---- Authentication & Connection ---- */
 
-/* Disconnect and stop all background activity (non-blocking). */
-ANYCHAT_C_API void anychat_client_disconnect(AnyChatClientHandle handle);
+/* Login with account/password and automatically establish WebSocket connection.
+ * Callback signature: void (*)(void* userdata, int success, AnyChatAuthToken_C* token, const char* error)
+ * Note: WebSocket auto-reconnect is handled internally by the SDK. */
+ANYCHAT_C_API int anychat_client_login(
+    AnyChatClientHandle         handle,
+    const char*                 account,
+    const char*                 password,
+    const char*                 device_type,
+    void*                       userdata,
+    AnyChatAuthCallback         callback);
+
+/* Logout: disconnect WebSocket and call HTTP logout endpoint.
+ * Callback signature: void (*)(void* userdata, int success, const char* error) */
+ANYCHAT_C_API int anychat_client_logout(
+    AnyChatClientHandle  handle,
+    void*                userdata,
+    AnyChatResultCallback callback);
+
+/* Check if the user is currently logged in. Returns 1 if logged in, 0 otherwise. */
+ANYCHAT_C_API int anychat_client_is_logged_in(AnyChatClientHandle handle);
+
+/* Get current auth token (if logged in). Returns 0 on success, -1 if not logged in. */
+ANYCHAT_C_API int anychat_client_get_current_token(
+    AnyChatClientHandle   handle,
+    AnyChatAuthToken_C*   out_token);
 
 /* Returns the current connection state (ANYCHAT_STATE_*). */
 ANYCHAT_C_API int anychat_client_get_connection_state(AnyChatClientHandle handle);

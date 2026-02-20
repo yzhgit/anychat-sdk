@@ -96,17 +96,22 @@ AnyChatClientConfig_C config = {
 };
 AnyChatClientHandle client = anychat_client_create(&config);
 
-// 连接
-anychat_client_connect(client);
+// 登录（自动建立WebSocket连接）
+anychat_client_login(client, "user@example.com", "password", "desktop", NULL, callback);
 
-// 登录
-AnyChatAuthHandle auth = anychat_client_get_auth(client);
-anychat_auth_login(auth, "user@example.com", "password", "desktop", NULL, callback);
+// WebSocket连接由SDK自动管理（包括断线重连）
+
+// 登出（自动断开WebSocket）
+anychat_client_logout(client, NULL, logout_callback);
 
 // 清理
-anychat_client_disconnect(client);
 anychat_client_destroy(client);
 ```
+
+**重要**:
+- `login()` 会自动建立WebSocket连接，无需手动调用 `connect()`
+- `logout()` 会先断开WebSocket，然后调用HTTP登出
+- 网络断开时SDK会自动重连（使用已有的access_token）
 
 详见：
 - `docs/c_api_guide.md` — C API 使用指南

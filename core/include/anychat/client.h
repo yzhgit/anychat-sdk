@@ -51,11 +51,19 @@ public:
 
     virtual ~AnyChatClient() = default;
 
-    // ---- 生命周期 ------------------------------------------------------------
-    // connect()    : 表达"我希望保持连接"的意图，内部处理重连。
-    // disconnect() : 显式断开，停止重连。
-    virtual void connect()    = 0;
-    virtual void disconnect() = 0;
+    // ---- 认证与连接管理 ------------------------------------------------------
+    // login(): HTTP认证 + 自动建立WebSocket连接
+    // logout(): 断开WebSocket + HTTP登出
+    // 注意: WebSocket自动重连由SDK内部管理，无需手动调用connect
+    virtual void login(const std::string& account,
+                       const std::string& password,
+                       const std::string& device_type,
+                       AuthCallback callback) = 0;
+
+    virtual void logout(ResultCallback callback) = 0;
+
+    virtual bool isLoggedIn() const = 0;
+    virtual AuthToken getCurrentToken() const = 0;
 
     virtual ConnectionState connectionState() const = 0;
     virtual void setOnConnectionStateChanged(ConnectionStateCallback callback) = 0;

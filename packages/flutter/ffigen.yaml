@@ -71,8 +71,10 @@ functions:
     # Client
     - 'anychat_client_create'
     - 'anychat_client_destroy'
-    - 'anychat_client_connect'
-    - 'anychat_client_disconnect'
+    - 'anychat_client_login'
+    - 'anychat_client_logout'
+    - 'anychat_client_is_logged_in'
+    - 'anychat_client_get_current_token'
     - 'anychat_client_get_connection_state'
     - 'anychat_client_set_connection_callback'
     - 'anychat_client_get_auth'

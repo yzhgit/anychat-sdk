@@ -209,241 +209,6 @@ class AnyChatNativeBindings {
   late final _anychat_free_meeting_list = _anychat_free_meeting_listPtr
       .asFunction<void Function(ffi.Pointer<AnyChatMeetingList_C>)>();
 
-  /// Create a new client. Returns NULL on failure; call anychat_get_last_error().
-  /// The caller owns the handle and must destroy it with anychat_client_destroy().
-  AnyChatClientHandle anychat_client_create(
-    ffi.Pointer<AnyChatClientConfig_C> config,
-  ) {
-    return _anychat_client_create(
-      config,
-    );
-  }
-
-  late final _anychat_client_createPtr = _lookup<
-      ffi.NativeFunction<
-          AnyChatClientHandle Function(
-              ffi.Pointer<AnyChatClientConfig_C>)>>('anychat_client_create');
-  late final _anychat_client_create = _anychat_client_createPtr.asFunction<
-      AnyChatClientHandle Function(ffi.Pointer<AnyChatClientConfig_C>)>();
-
-  /// Destroy the client and release all resources.
-  /// Must not be called while callbacks are in flight on other threads.
-  void anychat_client_destroy(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_destroy(
-      handle,
-    );
-  }
-
-  late final _anychat_client_destroyPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(AnyChatClientHandle)>>(
-          'anychat_client_destroy');
-  late final _anychat_client_destroy = _anychat_client_destroyPtr
-      .asFunction<void Function(AnyChatClientHandle)>();
-
-  /// Start the WebSocket connection (non-blocking).
-  void anychat_client_connect(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_connect(
-      handle,
-    );
-  }
-
-  late final _anychat_client_connectPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(AnyChatClientHandle)>>(
-          'anychat_client_connect');
-  late final _anychat_client_connect = _anychat_client_connectPtr
-      .asFunction<void Function(AnyChatClientHandle)>();
-
-  /// Disconnect and stop all background activity (non-blocking).
-  void anychat_client_disconnect(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_disconnect(
-      handle,
-    );
-  }
-
-  late final _anychat_client_disconnectPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(AnyChatClientHandle)>>(
-          'anychat_client_disconnect');
-  late final _anychat_client_disconnect = _anychat_client_disconnectPtr
-      .asFunction<void Function(AnyChatClientHandle)>();
-
-  /// Returns the current connection state (ANYCHAT_STATE_*).
-  int anychat_client_get_connection_state(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_get_connection_state(
-      handle,
-    );
-  }
-
-  late final _anychat_client_get_connection_statePtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(AnyChatClientHandle)>>(
-          'anychat_client_get_connection_state');
-  late final _anychat_client_get_connection_state =
-      _anychat_client_get_connection_statePtr
-          .asFunction<int Function(AnyChatClientHandle)>();
-
-  /// Register a callback for connection state changes.
-  /// Pass NULL to clear a previously registered callback.
-  /// userdata is passed through unchanged.
-  void anychat_client_set_connection_callback(
-    AnyChatClientHandle handle,
-    ffi.Pointer<ffi.Void> userdata,
-    ffi.Pointer<
-            ffi.NativeFunction<
-                ffi.Void Function(
-                    ffi.Pointer<ffi.Void> userdata, ffi.Int state)>>
-        callback,
-  ) {
-    return _anychat_client_set_connection_callback(
-      handle,
-      userdata,
-      callback,
-    );
-  }
-
-  late final _anychat_client_set_connection_callbackPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(
-                  AnyChatClientHandle,
-                  ffi.Pointer<ffi.Void>,
-                  ffi.Pointer<
-                      ffi.NativeFunction<
-                          ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
-                              ffi.Int state)>>)>>(
-      'anychat_client_set_connection_callback');
-  late final _anychat_client_set_connection_callback =
-      _anychat_client_set_connection_callbackPtr.asFunction<
-          void Function(
-              AnyChatClientHandle,
-              ffi.Pointer<ffi.Void>,
-              ffi.Pointer<
-                  ffi.NativeFunction<
-                      ffi.Void Function(
-                          ffi.Pointer<ffi.Void> userdata, ffi.Int state)>>)>();
-
-  /// ---- Sub-module accessors ----
-  /// The returned handles are owned by the client; do NOT destroy them separately.
-  AnyChatAuthHandle anychat_client_get_auth(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_get_auth(
-      handle,
-    );
-  }
-
-  late final _anychat_client_get_authPtr = _lookup<
-          ffi.NativeFunction<AnyChatAuthHandle Function(AnyChatClientHandle)>>(
-      'anychat_client_get_auth');
-  late final _anychat_client_get_auth = _anychat_client_get_authPtr
-      .asFunction<AnyChatAuthHandle Function(AnyChatClientHandle)>();
-
-  AnyChatMessageHandle anychat_client_get_message(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_get_message(
-      handle,
-    );
-  }
-
-  late final _anychat_client_get_messagePtr = _lookup<
-          ffi
-          .NativeFunction<AnyChatMessageHandle Function(AnyChatClientHandle)>>(
-      'anychat_client_get_message');
-  late final _anychat_client_get_message = _anychat_client_get_messagePtr
-      .asFunction<AnyChatMessageHandle Function(AnyChatClientHandle)>();
-
-  AnyChatConvHandle anychat_client_get_conversation(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_get_conversation(
-      handle,
-    );
-  }
-
-  late final _anychat_client_get_conversationPtr = _lookup<
-          ffi.NativeFunction<AnyChatConvHandle Function(AnyChatClientHandle)>>(
-      'anychat_client_get_conversation');
-  late final _anychat_client_get_conversation =
-      _anychat_client_get_conversationPtr
-          .asFunction<AnyChatConvHandle Function(AnyChatClientHandle)>();
-
-  AnyChatFriendHandle anychat_client_get_friend(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_get_friend(
-      handle,
-    );
-  }
-
-  late final _anychat_client_get_friendPtr = _lookup<
-          ffi
-          .NativeFunction<AnyChatFriendHandle Function(AnyChatClientHandle)>>(
-      'anychat_client_get_friend');
-  late final _anychat_client_get_friend = _anychat_client_get_friendPtr
-      .asFunction<AnyChatFriendHandle Function(AnyChatClientHandle)>();
-
-  AnyChatGroupHandle anychat_client_get_group(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_get_group(
-      handle,
-    );
-  }
-
-  late final _anychat_client_get_groupPtr = _lookup<
-          ffi.NativeFunction<AnyChatGroupHandle Function(AnyChatClientHandle)>>(
-      'anychat_client_get_group');
-  late final _anychat_client_get_group = _anychat_client_get_groupPtr
-      .asFunction<AnyChatGroupHandle Function(AnyChatClientHandle)>();
-
-  AnyChatFileHandle anychat_client_get_file(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_get_file(
-      handle,
-    );
-  }
-
-  late final _anychat_client_get_filePtr = _lookup<
-          ffi.NativeFunction<AnyChatFileHandle Function(AnyChatClientHandle)>>(
-      'anychat_client_get_file');
-  late final _anychat_client_get_file = _anychat_client_get_filePtr
-      .asFunction<AnyChatFileHandle Function(AnyChatClientHandle)>();
-
-  AnyChatUserHandle anychat_client_get_user(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_get_user(
-      handle,
-    );
-  }
-
-  late final _anychat_client_get_userPtr = _lookup<
-          ffi.NativeFunction<AnyChatUserHandle Function(AnyChatClientHandle)>>(
-      'anychat_client_get_user');
-  late final _anychat_client_get_user = _anychat_client_get_userPtr
-      .asFunction<AnyChatUserHandle Function(AnyChatClientHandle)>();
-
-  AnyChatRtcHandle anychat_client_get_rtc(
-    AnyChatClientHandle handle,
-  ) {
-    return _anychat_client_get_rtc(
-      handle,
-    );
-  }
-
-  late final _anychat_client_get_rtcPtr = _lookup<
-          ffi.NativeFunction<AnyChatRtcHandle Function(AnyChatClientHandle)>>(
-      'anychat_client_get_rtc');
-  late final _anychat_client_get_rtc = _anychat_client_get_rtcPtr
-      .asFunction<AnyChatRtcHandle Function(AnyChatClientHandle)>();
-
   /// Login with account (phone / e-mail) and password.
   /// device_type: "ios" | "android" | "web"
   /// Returns ANYCHAT_OK if the request was dispatched; callback fires asynchronously.
@@ -774,6 +539,344 @@ class AnyChatNativeBindings {
               ffi.Pointer<
                   ffi.NativeFunction<
                       ffi.Void Function(ffi.Pointer<ffi.Void> userdata)>>)>();
+
+  /// Create a new client. Returns NULL on failure; call anychat_get_last_error().
+  /// The caller owns the handle and must destroy it with anychat_client_destroy().
+  AnyChatClientHandle anychat_client_create(
+    ffi.Pointer<AnyChatClientConfig_C> config,
+  ) {
+    return _anychat_client_create(
+      config,
+    );
+  }
+
+  late final _anychat_client_createPtr = _lookup<
+      ffi.NativeFunction<
+          AnyChatClientHandle Function(
+              ffi.Pointer<AnyChatClientConfig_C>)>>('anychat_client_create');
+  late final _anychat_client_create = _anychat_client_createPtr.asFunction<
+      AnyChatClientHandle Function(ffi.Pointer<AnyChatClientConfig_C>)>();
+
+  /// Destroy the client and release all resources.
+  /// Must not be called while callbacks are in flight on other threads.
+  void anychat_client_destroy(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_destroy(
+      handle,
+    );
+  }
+
+  late final _anychat_client_destroyPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(AnyChatClientHandle)>>(
+          'anychat_client_destroy');
+  late final _anychat_client_destroy = _anychat_client_destroyPtr
+      .asFunction<void Function(AnyChatClientHandle)>();
+
+  /// Login with account/password and automatically establish WebSocket connection.
+  /// Callback signature: void (*)(void* userdata, int success, AnyChatAuthToken_C* token, const char* error)
+  /// Note: WebSocket auto-reconnect is handled internally by the SDK.
+  int anychat_client_login(
+    AnyChatClientHandle handle,
+    ffi.Pointer<ffi.Char> account,
+    ffi.Pointer<ffi.Char> password,
+    ffi.Pointer<ffi.Char> device_type,
+    ffi.Pointer<ffi.Void> userdata,
+    ffi.Pointer<
+            ffi.NativeFunction<
+                ffi.Void Function(
+                    ffi.Pointer<ffi.Void> userdata,
+                    ffi.Int success,
+                    ffi.Pointer<AnyChatAuthToken_C> token,
+                    ffi.Pointer<ffi.Char> error)>>
+        callback,
+  ) {
+    return _anychat_client_login(
+      handle,
+      account,
+      password,
+      device_type,
+      userdata,
+      callback,
+    );
+  }
+
+  late final _anychat_client_loginPtr = _lookup<
+          ffi.NativeFunction<
+              ffi.Int Function(
+                  AnyChatClientHandle,
+                  ffi.Pointer<ffi.Char>,
+                  ffi.Pointer<ffi.Char>,
+                  ffi.Pointer<ffi.Char>,
+                  ffi.Pointer<ffi.Void>,
+                  ffi.Pointer<
+                      ffi.NativeFunction<
+                          ffi.Void Function(
+                              ffi.Pointer<ffi.Void> userdata,
+                              ffi.Int success,
+                              ffi.Pointer<AnyChatAuthToken_C> token,
+                              ffi.Pointer<ffi.Char> error)>>)>>(
+      'anychat_client_login');
+  late final _anychat_client_login = _anychat_client_loginPtr.asFunction<
+      int Function(
+          AnyChatClientHandle,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Void>,
+          ffi.Pointer<
+              ffi.NativeFunction<
+                  ffi.Void Function(
+                      ffi.Pointer<ffi.Void> userdata,
+                      ffi.Int success,
+                      ffi.Pointer<AnyChatAuthToken_C> token,
+                      ffi.Pointer<ffi.Char> error)>>)>();
+
+  /// Logout: disconnect WebSocket and call HTTP logout endpoint.
+  /// Callback signature: void (*)(void* userdata, int success, const char* error)
+  int anychat_client_logout(
+    AnyChatClientHandle handle,
+    ffi.Pointer<ffi.Void> userdata,
+    ffi.Pointer<
+            ffi.NativeFunction<
+                ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
+                    ffi.Int success, ffi.Pointer<ffi.Char> error)>>
+        callback,
+  ) {
+    return _anychat_client_logout(
+      handle,
+      userdata,
+      callback,
+    );
+  }
+
+  late final _anychat_client_logoutPtr = _lookup<
+          ffi.NativeFunction<
+              ffi.Int Function(
+                  AnyChatClientHandle,
+                  ffi.Pointer<ffi.Void>,
+                  ffi.Pointer<
+                      ffi.NativeFunction<
+                          ffi.Void Function(
+                              ffi.Pointer<ffi.Void> userdata,
+                              ffi.Int success,
+                              ffi.Pointer<ffi.Char> error)>>)>>(
+      'anychat_client_logout');
+  late final _anychat_client_logout = _anychat_client_logoutPtr.asFunction<
+      int Function(
+          AnyChatClientHandle,
+          ffi.Pointer<ffi.Void>,
+          ffi.Pointer<
+              ffi.NativeFunction<
+                  ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
+                      ffi.Int success, ffi.Pointer<ffi.Char> error)>>)>();
+
+  /// Check if the user is currently logged in. Returns 1 if logged in, 0 otherwise.
+  int anychat_client_is_logged_in(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_is_logged_in(
+      handle,
+    );
+  }
+
+  late final _anychat_client_is_logged_inPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(AnyChatClientHandle)>>(
+          'anychat_client_is_logged_in');
+  late final _anychat_client_is_logged_in = _anychat_client_is_logged_inPtr
+      .asFunction<int Function(AnyChatClientHandle)>();
+
+  /// Get current auth token (if logged in). Returns 0 on success, -1 if not logged in.
+  int anychat_client_get_current_token(
+    AnyChatClientHandle handle,
+    ffi.Pointer<AnyChatAuthToken_C> out_token,
+  ) {
+    return _anychat_client_get_current_token(
+      handle,
+      out_token,
+    );
+  }
+
+  late final _anychat_client_get_current_tokenPtr = _lookup<
+          ffi.NativeFunction<
+              ffi.Int Function(
+                  AnyChatClientHandle, ffi.Pointer<AnyChatAuthToken_C>)>>(
+      'anychat_client_get_current_token');
+  late final _anychat_client_get_current_token =
+      _anychat_client_get_current_tokenPtr.asFunction<
+          int Function(AnyChatClientHandle, ffi.Pointer<AnyChatAuthToken_C>)>();
+
+  /// Returns the current connection state (ANYCHAT_STATE_*).
+  int anychat_client_get_connection_state(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_get_connection_state(
+      handle,
+    );
+  }
+
+  late final _anychat_client_get_connection_statePtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(AnyChatClientHandle)>>(
+          'anychat_client_get_connection_state');
+  late final _anychat_client_get_connection_state =
+      _anychat_client_get_connection_statePtr
+          .asFunction<int Function(AnyChatClientHandle)>();
+
+  /// Register a callback for connection state changes.
+  /// Pass NULL to clear a previously registered callback.
+  /// userdata is passed through unchanged.
+  void anychat_client_set_connection_callback(
+    AnyChatClientHandle handle,
+    ffi.Pointer<ffi.Void> userdata,
+    ffi.Pointer<
+            ffi.NativeFunction<
+                ffi.Void Function(
+                    ffi.Pointer<ffi.Void> userdata, ffi.Int state)>>
+        callback,
+  ) {
+    return _anychat_client_set_connection_callback(
+      handle,
+      userdata,
+      callback,
+    );
+  }
+
+  late final _anychat_client_set_connection_callbackPtr = _lookup<
+          ffi.NativeFunction<
+              ffi.Void Function(
+                  AnyChatClientHandle,
+                  ffi.Pointer<ffi.Void>,
+                  ffi.Pointer<
+                      ffi.NativeFunction<
+                          ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
+                              ffi.Int state)>>)>>(
+      'anychat_client_set_connection_callback');
+  late final _anychat_client_set_connection_callback =
+      _anychat_client_set_connection_callbackPtr.asFunction<
+          void Function(
+              AnyChatClientHandle,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<
+                  ffi.NativeFunction<
+                      ffi.Void Function(
+                          ffi.Pointer<ffi.Void> userdata, ffi.Int state)>>)>();
+
+  /// ---- Sub-module accessors ----
+  /// The returned handles are owned by the client; do NOT destroy them separately.
+  AnyChatAuthHandle anychat_client_get_auth(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_get_auth(
+      handle,
+    );
+  }
+
+  late final _anychat_client_get_authPtr = _lookup<
+          ffi.NativeFunction<AnyChatAuthHandle Function(AnyChatClientHandle)>>(
+      'anychat_client_get_auth');
+  late final _anychat_client_get_auth = _anychat_client_get_authPtr
+      .asFunction<AnyChatAuthHandle Function(AnyChatClientHandle)>();
+
+  AnyChatMessageHandle anychat_client_get_message(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_get_message(
+      handle,
+    );
+  }
+
+  late final _anychat_client_get_messagePtr = _lookup<
+          ffi
+          .NativeFunction<AnyChatMessageHandle Function(AnyChatClientHandle)>>(
+      'anychat_client_get_message');
+  late final _anychat_client_get_message = _anychat_client_get_messagePtr
+      .asFunction<AnyChatMessageHandle Function(AnyChatClientHandle)>();
+
+  AnyChatConvHandle anychat_client_get_conversation(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_get_conversation(
+      handle,
+    );
+  }
+
+  late final _anychat_client_get_conversationPtr = _lookup<
+          ffi.NativeFunction<AnyChatConvHandle Function(AnyChatClientHandle)>>(
+      'anychat_client_get_conversation');
+  late final _anychat_client_get_conversation =
+      _anychat_client_get_conversationPtr
+          .asFunction<AnyChatConvHandle Function(AnyChatClientHandle)>();
+
+  AnyChatFriendHandle anychat_client_get_friend(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_get_friend(
+      handle,
+    );
+  }
+
+  late final _anychat_client_get_friendPtr = _lookup<
+          ffi
+          .NativeFunction<AnyChatFriendHandle Function(AnyChatClientHandle)>>(
+      'anychat_client_get_friend');
+  late final _anychat_client_get_friend = _anychat_client_get_friendPtr
+      .asFunction<AnyChatFriendHandle Function(AnyChatClientHandle)>();
+
+  AnyChatGroupHandle anychat_client_get_group(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_get_group(
+      handle,
+    );
+  }
+
+  late final _anychat_client_get_groupPtr = _lookup<
+          ffi.NativeFunction<AnyChatGroupHandle Function(AnyChatClientHandle)>>(
+      'anychat_client_get_group');
+  late final _anychat_client_get_group = _anychat_client_get_groupPtr
+      .asFunction<AnyChatGroupHandle Function(AnyChatClientHandle)>();
+
+  AnyChatFileHandle anychat_client_get_file(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_get_file(
+      handle,
+    );
+  }
+
+  late final _anychat_client_get_filePtr = _lookup<
+          ffi.NativeFunction<AnyChatFileHandle Function(AnyChatClientHandle)>>(
+      'anychat_client_get_file');
+  late final _anychat_client_get_file = _anychat_client_get_filePtr
+      .asFunction<AnyChatFileHandle Function(AnyChatClientHandle)>();
+
+  AnyChatUserHandle anychat_client_get_user(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_get_user(
+      handle,
+    );
+  }
+
+  late final _anychat_client_get_userPtr = _lookup<
+          ffi.NativeFunction<AnyChatUserHandle Function(AnyChatClientHandle)>>(
+      'anychat_client_get_user');
+  late final _anychat_client_get_user = _anychat_client_get_userPtr
+      .asFunction<AnyChatUserHandle Function(AnyChatClientHandle)>();
+
+  AnyChatRtcHandle anychat_client_get_rtc(
+    AnyChatClientHandle handle,
+  ) {
+    return _anychat_client_get_rtc(
+      handle,
+    );
+  }
+
+  late final _anychat_client_get_rtcPtr = _lookup<
+          ffi.NativeFunction<AnyChatRtcHandle Function(AnyChatClientHandle)>>(
+      'anychat_client_get_rtc');
+  late final _anychat_client_get_rtc = _anychat_client_get_rtcPtr
+      .asFunction<AnyChatRtcHandle Function(AnyChatClientHandle)>();
 
   /// Send a plain-text message to a conversation.
   /// Returns ANYCHAT_OK if the request was dispatched.
