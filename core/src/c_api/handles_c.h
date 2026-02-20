@@ -12,6 +12,7 @@
 #include "anychat/file.h"
 #include "anychat/user.h"
 #include "anychat/rtc.h"
+#include "anychat_c/types_c.h"
 
 #include <memory>
 #include <mutex>
@@ -19,15 +20,42 @@
 /* Forward declare C callback types to avoid circular includes */
 typedef void (*AnyChatConnectionStateCallback)(void* userdata, int state);
 
+/* Forward declare to allow circular reference */
+struct AnyChatClient_T;
+
 /* Sub-module handle wrappers (non-owning pointers into the client). */
-struct AnyChatAuthManager_T   { anychat::AuthManager*         impl; };
-struct AnyChatMessage_T       { anychat::MessageManager*      impl; };
-struct AnyChatConversation_T  { anychat::ConversationManager* impl; };
-struct AnyChatFriend_T        { anychat::FriendManager*       impl; };
-struct AnyChatGroup_T         { anychat::GroupManager*        impl; };
-struct AnyChatFile_T          { anychat::FileManager*         impl; };
-struct AnyChatUser_T          { anychat::UserManager*         impl; };
-struct AnyChatRtc_T           { anychat::RtcManager*          impl; };
+struct AnyChatAuthManager_T   {
+    anychat::AuthManager*  impl;
+    AnyChatClient_T*       parent;  // Pointer to parent handle for error buffer access
+};
+struct AnyChatMessage_T       {
+    anychat::MessageManager* impl;
+    AnyChatClient_T*         parent;
+};
+struct AnyChatConversation_T  {
+    anychat::ConversationManager* impl;
+    AnyChatClient_T*              parent;
+};
+struct AnyChatFriend_T        {
+    anychat::FriendManager* impl;
+    AnyChatClient_T*        parent;
+};
+struct AnyChatGroup_T         {
+    anychat::GroupManager* impl;
+    AnyChatClient_T*       parent;
+};
+struct AnyChatFile_T          {
+    anychat::FileManager* impl;
+    AnyChatClient_T*      parent;
+};
+struct AnyChatUser_T          {
+    anychat::UserManager* impl;
+    AnyChatClient_T*      parent;
+};
+struct AnyChatRtc_T           {
+    anychat::RtcManager* impl;
+    AnyChatClient_T*     parent;
+};
 
 /* Main client handle. */
 struct AnyChatClient_T {
@@ -46,8 +74,29 @@ struct AnyChatClient_T {
     void*                              cb_userdata = nullptr;
     AnyChatConnectionStateCallback     cb          = nullptr;
 
-    // Error message buffer for async callbacks
+    // Error message buffers for async callbacks
     // Used to store error messages that need to persist across async callback boundaries
-    std::mutex        error_mutex;
-    std::string       last_callback_error;
+    // Each buffer is protected by its own mutex to avoid contention
+    std::mutex        auth_error_mutex;
+    std::string       auth_error_buffer;
+
+    std::mutex        msg_error_mutex;
+    std::string       msg_error_buffer;
+
+    std::mutex        conv_error_mutex;
+    std::string       conv_error_buffer;
+
+    std::mutex        friend_error_mutex;
+    std::string       friend_error_buffer;
+
+    std::mutex        group_error_mutex;
+    std::string       group_error_buffer;
+
+    std::mutex        client_error_mutex;
+    std::string       client_error_buffer;
+
+    // Token buffer for async auth callbacks
+    // Must persist until Dart callback completes
+    std::mutex            auth_token_mutex;
+    AnyChatAuthToken_C    auth_token_buffer;
 };

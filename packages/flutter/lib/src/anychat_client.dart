@@ -54,9 +54,15 @@ void _authCallbackNative(
     );
     completer.complete(dartToken);
   } else {
-    final errorMsg = (error != nullptr)
-        ? error.cast<Utf8>().toDartString()
-        : 'Unknown error';
+    String errorMsg = 'Unknown error';
+    if (error != nullptr) {
+      try {
+        errorMsg = error.cast<Utf8>().toDartString();
+      } catch (e) {
+        // If UTF-8 decoding fails, try to read as much as possible
+        errorMsg = 'Error (encoding issue): ${e.toString()}';
+      }
+    }
     completer.completeError(Exception(errorMsg));
   }
   _unregisterCallback(id);
@@ -75,9 +81,14 @@ void _resultCallbackNative(
   if (success != 0) {
     completer.complete();
   } else {
-    final errorMsg = (error != nullptr)
-        ? error.cast<Utf8>().toDartString()
-        : 'Unknown error';
+    String errorMsg = 'Unknown error';
+    if (error != nullptr) {
+      try {
+        errorMsg = error.cast<Utf8>().toDartString();
+      } catch (e) {
+        errorMsg = 'Error (encoding issue): ${e.toString()}';
+      }
+    }
     completer.completeError(Exception(errorMsg));
   }
   _unregisterCallback(id);
@@ -108,9 +119,14 @@ void _messageCallbackNative(
   if (success != 0) {
     completer.complete();
   } else {
-    final errorMsg = (error != nullptr)
-        ? error.cast<Utf8>().toDartString()
-        : 'Unknown error';
+    String errorMsg = 'Unknown error';
+    if (error != nullptr) {
+      try {
+        errorMsg = error.cast<Utf8>().toDartString();
+      } catch (e) {
+        errorMsg = 'Error (encoding issue): ${e.toString()}';
+      }
+    }
     completer.completeError(Exception(errorMsg));
   }
   _unregisterCallback(id);
@@ -127,7 +143,12 @@ void _messageListCallbackNative(
   if (completer == null) return;
 
   if (error != nullptr) {
-    final errorMsg = error.cast<Utf8>().toDartString();
+    String errorMsg = 'Unknown error';
+    try {
+      errorMsg = error.cast<Utf8>().toDartString();
+    } catch (e) {
+      errorMsg = 'Error (encoding issue): ${e.toString()}';
+    }
     completer.completeError(Exception(errorMsg));
   } else if (list != nullptr) {
     final messages = <Message>[];
@@ -168,7 +189,12 @@ void _convListCallbackNative(
   if (completer == null) return;
 
   if (error != nullptr) {
-    final errorMsg = error.cast<Utf8>().toDartString();
+    String errorMsg = 'Unknown error';
+    try {
+      errorMsg = error.cast<Utf8>().toDartString();
+    } catch (e) {
+      errorMsg = 'Error (encoding issue): ${e.toString()}';
+    }
     completer.completeError(Exception(errorMsg));
   } else if (list != nullptr) {
     final conversations = <Conversation>[];
@@ -208,9 +234,14 @@ void _convCallbackNative(
   if (success != 0) {
     completer.complete();
   } else {
-    final errorMsg = (error != nullptr)
-        ? error.cast<Utf8>().toDartString()
-        : 'Unknown error';
+    String errorMsg = 'Unknown error';
+    if (error != nullptr) {
+      try {
+        errorMsg = error.cast<Utf8>().toDartString();
+      } catch (e) {
+        errorMsg = 'Error (encoding issue): ${e.toString()}';
+      }
+    }
     completer.completeError(Exception(errorMsg));
   }
   _unregisterCallback(id);
@@ -227,7 +258,12 @@ void _friendListCallbackNative(
   if (completer == null) return;
 
   if (error != nullptr) {
-    final errorMsg = error.cast<Utf8>().toDartString();
+    String errorMsg = 'Unknown error';
+    try {
+      errorMsg = error.cast<Utf8>().toDartString();
+    } catch (e) {
+      errorMsg = 'Error (encoding issue): ${e.toString()}';
+    }
     completer.completeError(Exception(errorMsg));
   } else if (list != nullptr) {
     final friends = <Friend>[];
@@ -336,7 +372,12 @@ class AnyChatClient {
 
     if (_clientHandle == nullptr) {
       final errorPtr = _bindings.anychat_get_last_error();
-      final error = errorPtr.cast<Utf8>().toDartString();
+      String error = 'Unknown error';
+      try {
+        error = errorPtr.cast<Utf8>().toDartString();
+      } catch (e) {
+        error = 'Error creating client (encoding issue)';
+      }
       throw Exception('Failed to create client: $error');
     }
 
@@ -395,7 +436,7 @@ class AnyChatClient {
   Future<AuthToken> login({
     required String account,
     required String password,
-    String deviceType = 'flutter',
+    String deviceType = 'PC',
   }) {
     final completer = Completer<AuthToken>();
 
@@ -430,8 +471,78 @@ class AnyChatClient {
     if (ret != 0) {
       _unregisterCallback(callbackId);
       final errorPtr = _bindings.anychat_get_last_error();
-      final error = errorPtr.cast<Utf8>().toDartString();
+      String error = 'Unknown error';
+      try {
+        error = errorPtr.cast<Utf8>().toDartString();
+      } catch (e) {
+        error = 'Encoding issue';
+      }
       completer.completeError(Exception('Failed to dispatch login request: $error'));
+    }
+
+    return completer.future;
+  }
+
+  /// Registers a new user account.
+  ///
+  /// [phoneOrEmail] - Phone number or email address
+  /// [password] - Account password
+  /// [verifyCode] - SMS or email verification code
+  /// [deviceType] - Device type: iOS/Android/Web/PC
+  /// [nickname] - Optional user nickname (pass empty string to skip)
+  Future<AuthToken> register({
+    required String phoneOrEmail,
+    required String password,
+    required String verifyCode,
+    String deviceType = 'PC',
+    String nickname = '',
+  }) {
+    final completer = Completer<AuthToken>();
+
+    // Create listener callable for callback from external thread
+    final callable = NativeCallable<
+        Void Function(
+          Pointer<Void>,
+          Int,
+          Pointer<AnyChatAuthToken_C>,
+          Pointer<Char>,
+        )>.listener(_authCallbackNative);
+
+    final callbackId = _registerCallback(completer, callable);
+
+    final phoneOrEmailPtr = phoneOrEmail.toNativeUtf8();
+    final passwordPtr = password.toNativeUtf8();
+    final verifyCodePtr = verifyCode.toNativeUtf8();
+    final deviceTypePtr = deviceType.toNativeUtf8();
+    final nicknamePtr = nickname.toNativeUtf8();
+
+    final ret = _bindings.anychat_auth_register(
+      _auth,
+      phoneOrEmailPtr.cast(),
+      passwordPtr.cast(),
+      verifyCodePtr.cast(),
+      deviceTypePtr.cast(),
+      nicknamePtr.cast(),
+      Pointer<Void>.fromAddress(callbackId),
+      callable.nativeFunction,
+    );
+
+    calloc.free(phoneOrEmailPtr);
+    calloc.free(passwordPtr);
+    calloc.free(verifyCodePtr);
+    calloc.free(deviceTypePtr);
+    calloc.free(nicknamePtr);
+
+    if (ret != 0) {
+      _unregisterCallback(callbackId);
+      final errorPtr = _bindings.anychat_get_last_error();
+      String error = 'Unknown error';
+      try {
+        error = errorPtr.cast<Utf8>().toDartString();
+      } catch (e) {
+        error = 'Encoding issue';
+      }
+      completer.completeError(Exception('Failed to dispatch register request: $error'));
     }
 
     return completer.future;
@@ -485,7 +596,12 @@ class AnyChatClient {
     if (ret != 0) {
       _unregisterCallback(callbackId);
       final errorPtr = _bindings.anychat_get_last_error();
-      final error = errorPtr.cast<Utf8>().toDartString();
+      String error = 'Unknown error';
+      try {
+        error = errorPtr.cast<Utf8>().toDartString();
+      } catch (e) {
+        error = 'Encoding issue';
+      }
       completer.completeError(Exception('Failed to dispatch logout request: $error'));
     }
 
@@ -531,7 +647,12 @@ class AnyChatClient {
     if (ret != 0) {
       _unregisterCallback(callbackId);
       final errorPtr = _bindings.anychat_get_last_error();
-      final error = errorPtr.cast<Utf8>().toDartString();
+      String error = 'Unknown error';
+      try {
+        error = errorPtr.cast<Utf8>().toDartString();
+      } catch (e) {
+        error = 'Encoding issue';
+      }
       completer.completeError(Exception('Failed to send message: $error'));
     }
 
@@ -572,7 +693,12 @@ class AnyChatClient {
     if (ret != 0) {
       _unregisterCallback(callbackId);
       final errorPtr = _bindings.anychat_get_last_error();
-      final error = errorPtr.cast<Utf8>().toDartString();
+      String error = 'Unknown error';
+      try {
+        error = errorPtr.cast<Utf8>().toDartString();
+      } catch (e) {
+        error = 'Encoding issue';
+      }
       completer.completeError(Exception('Failed to get message history: $error'));
     }
 
@@ -609,7 +735,12 @@ class AnyChatClient {
     if (ret != 0) {
       _unregisterCallback(callbackId);
       final errorPtr = _bindings.anychat_get_last_error();
-      final error = errorPtr.cast<Utf8>().toDartString();
+      String error = 'Unknown error';
+      try {
+        error = errorPtr.cast<Utf8>().toDartString();
+      } catch (e) {
+        error = 'Encoding issue';
+      }
       completer.completeError(Exception('Failed to get conversations: $error'));
     }
 
@@ -642,7 +773,12 @@ class AnyChatClient {
     if (ret != 0) {
       _unregisterCallback(callbackId);
       final errorPtr = _bindings.anychat_get_last_error();
-      final error = errorPtr.cast<Utf8>().toDartString();
+      String error = 'Unknown error';
+      try {
+        error = errorPtr.cast<Utf8>().toDartString();
+      } catch (e) {
+        error = 'Encoding issue';
+      }
       completer.completeError(Exception('Failed to mark conversation as read: $error'));
     }
 
@@ -679,7 +815,12 @@ class AnyChatClient {
     if (ret != 0) {
       _unregisterCallback(callbackId);
       final errorPtr = _bindings.anychat_get_last_error();
-      final error = errorPtr.cast<Utf8>().toDartString();
+      String error = 'Unknown error';
+      try {
+        error = errorPtr.cast<Utf8>().toDartString();
+      } catch (e) {
+        error = 'Encoding issue';
+      }
       completer.completeError(Exception('Failed to get friends: $error'));
     }
 

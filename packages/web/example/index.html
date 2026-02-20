@@ -249,6 +249,36 @@
             text-align: center;
         }
 
+        .form-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 32px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.2s;
+            margin-bottom: -2px;
+        }
+
+        .tab-button:hover {
+            color: #7c3aed;
+        }
+
+        .tab-button.active {
+            color: #7c3aed;
+            border-bottom-color: #7c3aed;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }

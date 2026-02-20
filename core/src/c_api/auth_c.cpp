@@ -33,19 +33,25 @@ int anychat_auth_login(
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
+    auto* parent = handle->parent;
     handle->impl->login(
         account, password, device_type ? device_type : "",
-        [userdata, callback](bool success,
+        [parent, userdata, callback](bool success,
                              const anychat::AuthToken& token,
                              const std::string& error)
         {
             if (!callback) return;
             if (success) {
-                AnyChatAuthToken_C c_token{};
-                tokenToCStruct(token, &c_token);
-                callback(userdata, 1, &c_token, "");
+                // Store token in parent handle's buffer so it persists across async boundary
+                AnyChatAuthToken_C* c_token_ptr = nullptr;
+                if (parent) {
+                    std::lock_guard<std::mutex> lock(parent->auth_token_mutex);
+                    tokenToCStruct(token, &parent->auth_token_buffer);
+                    c_token_ptr = &parent->auth_token_buffer;
+                }
+                callback(userdata, 1, c_token_ptr, "");
             } else {
-                callback(userdata, 0, nullptr, error.c_str());
+                callback(userdata, 0, nullptr, ANYCHAT_STORE_ERROR(parent, auth_error, error));
             }
         });
 
@@ -72,21 +78,27 @@ int anychat_auth_register(
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
+    auto* parent = handle->parent;
     handle->impl->registerUser(
         phone_or_email, password, verify_code,
         device_type ? device_type : "",
         nickname    ? nickname    : "",
-        [userdata, callback](bool success,
+        [parent, userdata, callback](bool success,
                              const anychat::AuthToken& token,
                              const std::string& error)
         {
             if (!callback) return;
             if (success) {
-                AnyChatAuthToken_C c_token{};
-                tokenToCStruct(token, &c_token);
-                callback(userdata, 1, &c_token, "");
+                // Store token in parent handle's buffer so it persists across async boundary
+                AnyChatAuthToken_C* c_token_ptr = nullptr;
+                if (parent) {
+                    std::lock_guard<std::mutex> lock(parent->auth_token_mutex);
+                    tokenToCStruct(token, &parent->auth_token_buffer);
+                    c_token_ptr = &parent->auth_token_buffer;
+                }
+                callback(userdata, 1, c_token_ptr, "");
             } else {
-                callback(userdata, 0, nullptr, error.c_str());
+                callback(userdata, 0, nullptr, ANYCHAT_STORE_ERROR(parent, auth_error, error));
             }
         });
 
@@ -103,9 +115,14 @@ int anychat_auth_logout(
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+
+    auto* parent = handle->parent;
     handle->impl->logout(
-        [userdata, callback](bool success, const std::string& error) {
-            if (callback) callback(userdata, success ? 1 : 0, error.c_str());
+        [parent, userdata, callback](bool success, const std::string& error) {
+            if (callback) {
+                callback(userdata, success ? 1 : 0,
+                         success ? "" : ANYCHAT_STORE_ERROR(parent, auth_error, error));
+            }
         });
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -126,18 +143,24 @@ int anychat_auth_refresh_token(
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
+    auto* parent = handle->parent;
     handle->impl->refreshToken(refresh_token,
-        [userdata, callback](bool success,
+        [parent, userdata, callback](bool success,
                              const anychat::AuthToken& token,
                              const std::string& error)
         {
             if (!callback) return;
             if (success) {
-                AnyChatAuthToken_C c_token{};
-                tokenToCStruct(token, &c_token);
-                callback(userdata, 1, &c_token, "");
+                // Store token in parent handle's buffer so it persists across async boundary
+                AnyChatAuthToken_C* c_token_ptr = nullptr;
+                if (parent) {
+                    std::lock_guard<std::mutex> lock(parent->auth_token_mutex);
+                    tokenToCStruct(token, &parent->auth_token_buffer);
+                    c_token_ptr = &parent->auth_token_buffer;
+                }
+                callback(userdata, 1, c_token_ptr, "");
             } else {
-                callback(userdata, 0, nullptr, error.c_str());
+                callback(userdata, 0, nullptr, ANYCHAT_STORE_ERROR(parent, auth_error, error));
             }
         });
 
@@ -160,9 +183,14 @@ int anychat_auth_change_password(
         anychat_set_last_error("passwords must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+
+    auto* parent = handle->parent;
     handle->impl->changePassword(old_password, new_password,
-        [userdata, callback](bool success, const std::string& error) {
-            if (callback) callback(userdata, success ? 1 : 0, error.c_str());
+        [parent, userdata, callback](bool success, const std::string& error) {
+            if (callback) {
+                callback(userdata, success ? 1 : 0,
+                         success ? "" : ANYCHAT_STORE_ERROR(parent, auth_error, error));
+            }
         });
     anychat_clear_last_error();
     return ANYCHAT_OK;

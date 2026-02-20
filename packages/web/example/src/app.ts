@@ -108,6 +108,10 @@ class ChatApp {
       <div class="container">
         <div class="login-form">
           <h2>Welcome to AnyChat</h2>
+          <div class="form-tabs">
+            <button class="tab-button active" id="loginTab">Login</button>
+            <button class="tab-button" id="registerTab">Register</button>
+          </div>
           <form id="loginForm">
             <div class="form-group">
               <label for="account">Email or Phone</label>
@@ -117,17 +121,62 @@ class ChatApp {
               <label for="password">Password</label>
               <input type="password" id="password" name="password" required placeholder="Enter your password">
             </div>
+            <div class="form-group register-only" style="display: none;">
+              <label for="nickname">Nickname</label>
+              <input type="text" id="nickname" name="nickname" placeholder="Your display name">
+            </div>
+            <div class="form-group register-only" style="display: none;">
+              <label for="verifyCode">Verification Code</label>
+              <input type="text" id="verifyCode" name="verifyCode" placeholder="Enter verification code">
+            </div>
             <div id="loginError"></div>
             <div class="form-actions">
-              <button type="submit">Sign In</button>
+              <button type="submit" id="submitButton">Sign In</button>
             </div>
           </form>
         </div>
       </div>
     `;
 
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const registerFields = document.querySelectorAll('.register-only');
+    const submitButton = document.getElementById('submitButton');
     const form = document.getElementById('loginForm') as HTMLFormElement;
-    form.addEventListener('submit', (e) => this.handleLogin(e));
+
+    let isRegisterMode = false;
+
+    loginTab?.addEventListener('click', () => {
+      isRegisterMode = false;
+      loginTab.classList.add('active');
+      registerTab?.classList.remove('active');
+      registerFields.forEach(field => (field as HTMLElement).style.display = 'none');
+      if (submitButton) submitButton.textContent = 'Sign In';
+      const nicknameInput = document.getElementById('nickname') as HTMLInputElement;
+      const verifyCodeInput = document.getElementById('verifyCode') as HTMLInputElement;
+      if (nicknameInput) nicknameInput.required = false;
+      if (verifyCodeInput) verifyCodeInput.required = false;
+    });
+
+    registerTab?.addEventListener('click', () => {
+      isRegisterMode = true;
+      registerTab.classList.add('active');
+      loginTab?.classList.remove('active');
+      registerFields.forEach(field => (field as HTMLElement).style.display = 'block');
+      if (submitButton) submitButton.textContent = 'Register';
+      const nicknameInput = document.getElementById('nickname') as HTMLInputElement;
+      const verifyCodeInput = document.getElementById('verifyCode') as HTMLInputElement;
+      if (nicknameInput) nicknameInput.required = true;
+      if (verifyCodeInput) verifyCodeInput.required = true;
+    });
+
+    form.addEventListener('submit', (e) => {
+      if (isRegisterMode) {
+        this.handleRegister(e);
+      } else {
+        this.handleLogin(e);
+      }
+    });
   }
 
   private async handleLogin(e: Event) {
@@ -147,7 +196,7 @@ class ChatApp {
       this.client.connect();
 
       // Login
-      const token = await this.client.login(account, password, 'web');
+      const token = await this.client.login(account, password, 'Web');
       console.log('Login successful:', token);
 
       // Store token
@@ -160,6 +209,42 @@ class ChatApp {
       console.error('Login failed:', error);
       if (errorEl) {
         errorEl.innerHTML = `<div class="error">${error.message || 'Login failed. Please try again.'}</div>`;
+      }
+    }
+  }
+
+  private async handleRegister(e: Event) {
+    e.preventDefault();
+    if (!this.client) return;
+
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const account = formData.get('account') as string;
+    const password = formData.get('password') as string;
+    const nickname = formData.get('nickname') as string;
+    const verifyCode = formData.get('verifyCode') as string;
+    const errorEl = document.getElementById('loginError');
+
+    if (errorEl) errorEl.innerHTML = '';
+
+    try {
+      // Connect to server
+      this.client.connect();
+
+      // Register
+      const token = await this.client.register(account, password, verifyCode, 'Web', nickname);
+      console.log('Registration successful:', token);
+
+      // Store token
+      localStorage.setItem('anychat_token', JSON.stringify(token));
+      this.currentUserId = account; // In a real app, this should come from user info
+
+      this.renderChatInterface();
+      await this.loadConversations();
+    } catch (error: any) {
+      console.error('Registration failed:', error);
+      if (errorEl) {
+        errorEl.innerHTML = `<div class="error">${error.message || 'Registration failed. Please try again.'}</div>`;
       }
     }
   }

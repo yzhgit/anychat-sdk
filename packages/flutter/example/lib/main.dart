@@ -40,6 +40,8 @@ class _HomePageState extends State<HomePage> {
 
   final _accountController = TextEditingController(text: 'user@example.com');
   final _passwordController = TextEditingController(text: 'password');
+  final _nicknameController = TextEditingController(text: 'Test User');
+  final _verifyCodeController = TextEditingController(text: '');
   // Local development server (change to your machine's IP)
   final _gatewayController = TextEditingController(text: 'ws://192.168.2.100:8080');
   final _apiController = TextEditingController(text: 'http://192.168.2.100:8080/api/v1');
@@ -138,6 +140,30 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _register() async {
+    if (_client == null) {
+      _log('Client not initialized');
+      return;
+    }
+
+    try {
+      _log('Registering user...');
+      final token = await _client!.register(
+        phoneOrEmail: _accountController.text,
+        password: _passwordController.text,
+        verifyCode: _verifyCodeController.text,
+        nickname: _nicknameController.text,
+      );
+      setState(() {
+        _isLoggedIn = true;
+      });
+      _log('Registration successful');
+      _log('Access token: ${token.accessToken.substring(0, 20)}...');
+    } catch (e) {
+      _log('Registration failed: $e');
+    }
+  }
+
   Future<void> _logout() async {
     if (_client == null) {
       _log('Client not initialized');
@@ -203,6 +229,8 @@ class _HomePageState extends State<HomePage> {
     _client?.dispose();
     _accountController.dispose();
     _passwordController.dispose();
+    _nicknameController.dispose();
+    _verifyCodeController.dispose();
     _gatewayController.dispose();
     _apiController.dispose();
     super.dispose();
@@ -255,7 +283,7 @@ class _HomePageState extends State<HomePage> {
                     TextField(
                       controller: _accountController,
                       decoration: const InputDecoration(
-                        labelText: 'Account',
+                        labelText: 'Account (Email or Phone)',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -268,6 +296,22 @@ class _HomePageState extends State<HomePage> {
                       ),
                       obscureText: true,
                     ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _nicknameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nickname (for registration)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _verifyCodeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Verify Code (for registration)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -279,6 +323,10 @@ class _HomePageState extends State<HomePage> {
               spacing: 8,
               runSpacing: 8,
               children: [
+                ElevatedButton(
+                  onPressed: _register,
+                  child: const Text('Register'),
+                ),
                 ElevatedButton(
                   onPressed: _login,
                   child: const Text('Login'),
