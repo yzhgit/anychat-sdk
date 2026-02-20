@@ -30,8 +30,9 @@ class AppState: ObservableObject {
             let dbPath = documentsPath + "/anychat_example.db"
 
             let config = ClientConfig(
-                gatewayURL: "wss://api.anychat.io",
-                apiBaseURL: "https://api.anychat.io/api/v1",
+                // Local development server (change to your machine's IP)
+                gatewayURL: "ws://192.168.2.100:8080",
+                apiBaseURL: "http://192.168.2.100:8080/api/v1",
                 deviceId: UIDevice.current.identifierForVendor?.uuidString ?? "unknown",
                 dbPath: dbPath
             )

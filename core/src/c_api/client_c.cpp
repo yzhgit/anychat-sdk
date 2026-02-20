@@ -49,9 +49,9 @@ AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config) {
         auto* handle = new AnyChatClient_T();
         handle->impl = std::move(cpp_client);
 
-        handle->auth_handle   = { &handle->impl->auth()         };
-        handle->msg_handle    = { &handle->impl->message()      };
-        handle->conv_handle   = { &handle->impl->conversation()  };
+        handle->auth_handle   = { &handle->impl->authMgr()         };
+        handle->msg_handle    = { &handle->impl->messageMgr()      };
+        handle->conv_handle   = { &handle->impl->conversationMgr()  };
         handle->friend_handle = { &handle->impl->friendMgr()    };
         handle->group_handle  = { &handle->impl->groupMgr()     };
         handle->file_handle   = { &handle->impl->fileMgr()      };

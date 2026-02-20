@@ -42,7 +42,7 @@ Edit `MainActivity.kt` to point to your AnyChat server:
 
 ```kotlin
 companion object {
-    private const val GATEWAY_URL = "wss://your-server.com"
+    private const val GATEWAY_URL = "wss://your-server.com/api/v1/ws"
     private const val API_BASE_URL = "https://your-server.com/api/v1"
 }
 ```

@@ -40,8 +40,9 @@ class _HomePageState extends State<HomePage> {
 
   final _accountController = TextEditingController(text: 'user@example.com');
   final _passwordController = TextEditingController(text: 'password');
-  final _gatewayController = TextEditingController(text: 'wss://api.anychat.io');
-  final _apiController = TextEditingController(text: 'https://api.anychat.io/api/v1');
+  // Local development server (change to your machine's IP)
+  final _gatewayController = TextEditingController(text: 'ws://192.168.2.100:8080');
+  final _apiController = TextEditingController(text: 'http://192.168.2.100:8080/api/v1');
 
   @override
   void initState() {

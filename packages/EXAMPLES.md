@@ -82,34 +82,110 @@ All examples demonstrate:
 
 ## Configuration
 
-Each example requires updating server URLs:
+### Development vs Production
 
-**Flutter** (`lib/main.dart`):
+All examples are pre-configured for **local development** testing:
+
+**Local Development** (Default):
+- Uses unencrypted WebSocket (`ws://`) and HTTP (`http://`)
+- Server running on local machine: `192.168.2.100:8080`
+- ⚠️ **Change IP to your actual machine IP**
+
+**Production**:
+- Uses encrypted WebSocket (`wss://`) and HTTPS (`https://`)
+- Points to production server
+- Example: `wss://api.anychat.io` and `https://api.anychat.io/api/v1`
+
+### 🔧 How to Configure
+
+#### Option 1: Local Development (Current Settings)
+
+All examples are configured for local testing at `192.168.2.100:8080`.
+
+**Update to YOUR machine's IP**:
+
+```bash
+# Find your local IP
+# Linux/Mac:
+ip addr show | grep "inet " | grep -v 127.0.0.1
+
+# Windows:
+ipconfig | findstr IPv4
+```
+
+Then update each example:
+
+**Flutter** (`packages/flutter/example/lib/main.dart`):
 ```dart
-final _gatewayController = TextEditingController(text: 'wss://api.anychat.io');
-final _apiController = TextEditingController(text: 'https://api.anychat.io/api/v1');
+// Line 42-43
+final _gatewayController = TextEditingController(text: 'ws://192.168.2.100:8080');
+final _apiController = TextEditingController(text: 'http://192.168.2.100:8080/api/v1');
 ```
 
-**Android** (`MainActivity.kt`):
+**Android** (`packages/android/example/.../MainActivity.kt`):
 ```kotlin
-private const val GATEWAY_URL = "wss://api.anychat.io"
-private const val API_BASE_URL = "https://api.anychat.io/api/v1"
+// Line 25-26
+private const val GATEWAY_URL = "ws://192.168.2.100:8080/api/v1/ws"
+private const val API_BASE_URL = "http://192.168.2.100:8080/api/v1"
 ```
 
-**iOS** (`ContentView.swift`):
+**iOS** (`packages/ios/Example/.../ContentView.swift`):
 ```swift
+// Line 33-34
 let config = ClientConfig(
-    gatewayURL: "wss://api.anychat.io",
-    apiBaseURL: "https://api.anychat.io/api/v1",
+    gatewayURL: "ws://192.168.2.100:8080",
+    apiBaseURL: "http://192.168.2.100:8080/api/v1",
     // ...
 )
 ```
 
-**Web** (`src/app.ts`):
+**Web** (`packages/web/example/src/app.ts`):
 ```typescript
-gatewayUrl: 'wss://api.anychat.io',
-apiBaseUrl: 'https://api.anychat.io/api/v1',
+// Line 16-17
+gatewayUrl: 'ws://192.168.2.100:8080',
+apiBaseUrl: 'http://192.168.2.100:8080/api/v1',
 ```
+
+#### Option 2: Production Server
+
+For production testing, change to HTTPS/WSS:
+
+```dart
+// Flutter
+'wss://your-server.com'
+'https://your-server.com/api/v1'
+```
+
+```kotlin
+// Android
+"wss://your-server.com"
+"https://your-server.com/api/v1"
+```
+
+```swift
+// iOS
+"wss://your-server.com"
+"https://your-server.com/api/v1"
+```
+
+```typescript
+// Web
+'wss://your-server.com'
+'https://your-server.com/api/v1'
+```
+
+### 📍 127.0.0.1 vs Local IP
+
+| Address | Use Case | Accessible From |
+|---------|----------|-----------------|
+| `127.0.0.1` | Single machine testing | Same machine only |
+| `192.168.x.x` | LAN testing | All devices on same network |
+| `0.0.0.0` | Server binding | Listen on all interfaces |
+
+**Recommendation**: Use your local IP (`192.168.x.x`) for development to enable:
+- ✅ Testing from mobile devices on same WiFi
+- ✅ Multi-device testing
+- ✅ More realistic testing scenario
 
 ## Testing Credentials
 

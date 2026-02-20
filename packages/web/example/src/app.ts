@@ -12,9 +12,10 @@ class ChatApp {
   async init() {
     try {
       // Initialize the AnyChat client
+      // Local development server (change to your machine's IP)
       this.client = await createAnyChatClient({
-        gatewayUrl: 'wss://api.anychat.io',
-        apiBaseUrl: 'https://api.anychat.io/api/v1',
+        gatewayUrl: 'ws://192.168.2.100:8080',
+        apiBaseUrl: 'http://192.168.2.100:8080/api/v1',
         deviceId: this.getOrCreateDeviceId(),
         dbPath: ':memory:', // Use in-memory database for web
         connectTimeoutMs: 30000,

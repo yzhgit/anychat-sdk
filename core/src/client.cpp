@@ -120,15 +120,15 @@ public:
 
     // ---- Sub-modules ---------------------------------------------------------
 
-    AuthManager& auth() override {
+    AuthManager& authMgr() override {
         return *auth_mgr_;
     }
 
-    MessageManager& message() override {
+    MessageManager& messageMgr() override {
         return *msg_mgr_;
     }
 
-    ConversationManager& conversation() override {
+    ConversationManager& conversationMgr() override {
         return *conv_mgr_;
     }
 

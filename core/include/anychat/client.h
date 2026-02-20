@@ -61,9 +61,9 @@ public:
     virtual void setOnConnectionStateChanged(ConnectionStateCallback callback) = 0;
 
     // ---- 子模块 --------------------------------------------------------------
-    virtual AuthManager&         auth()         = 0;
-    virtual MessageManager&      message()      = 0;
-    virtual ConversationManager& conversation() = 0;
+    virtual AuthManager&         authMgr()         = 0;
+    virtual MessageManager&      messageMgr()      = 0;
+    virtual ConversationManager& conversationMgr() = 0;
     virtual FriendManager&       friendMgr()    = 0;
     virtual GroupManager&        groupMgr()     = 0;
     virtual FileManager&         fileMgr()      = 0;

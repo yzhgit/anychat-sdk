@@ -22,9 +22,9 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "AnyChatExample"
 
-        // Replace with your server URLs
-        private const val GATEWAY_URL = "wss://api.anychat.io"
-        private const val API_BASE_URL = "https://api.anychat.io/api/v1"
+        // Local development server (change to your machine's IP)
+        private const val GATEWAY_URL = "ws://192.168.2.100:8080"
+        private const val API_BASE_URL = "http://192.168.2.100:8080/api/v1"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

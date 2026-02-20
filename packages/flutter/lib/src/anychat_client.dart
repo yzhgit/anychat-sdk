@@ -7,22 +7,30 @@ import 'native_loader.dart';
 import 'models.dart';
 
 // Global callback context management
-// Maps callback ID to Dart completer for async operations
-final _callbackContexts = <int, dynamic>{};
+// Maps callback ID to Dart completer and NativeCallable for async operations
+class _CallbackContext {
+  final dynamic completer;
+  final NativeCallable? callable;
+
+  _CallbackContext(this.completer, [this.callable]);
+}
+
+final _callbackContexts = <int, _CallbackContext>{};
 int _nextCallbackId = 1;
 
-int _registerCallback(dynamic completer) {
+int _registerCallback(dynamic completer, [NativeCallable? callable]) {
   final id = _nextCallbackId++;
-  _callbackContexts[id] = completer;
+  _callbackContexts[id] = _CallbackContext(completer, callable);
   return id;
 }
 
 void _unregisterCallback(int id) {
-  _callbackContexts.remove(id);
+  final context = _callbackContexts.remove(id);
+  context?.callable?.close();
 }
 
 dynamic _getCallback(int id) {
-  return _callbackContexts[id];
+  return _callbackContexts[id]?.completer;
 }
 
 // ── Static callback functions for C FFI ─────────────────────────────────────
@@ -328,16 +336,23 @@ class AnyChatClient {
     _setupConnectionStateCallback();
   }
 
+  // Keep NativeCallable alive for connection state callback
+  late final NativeCallable<Void Function(Pointer<Void>, Int)> _connectionStateCallableNative;
+
   void _setupConnectionStateCallback() {
     // Register connection state callback with client instance as userdata
     final clientId = _registerCallback(this);
-    final callback = Pointer.fromFunction<
-        Void Function(Pointer<Void>, Int)>(_connectionStateCallbackNative);
+
+    // Create listener callable for multi-invocation callback from external thread
+    _connectionStateCallableNative = NativeCallable<
+        Void Function(Pointer<Void>, Int)>.listener(
+      _connectionStateCallbackNative,
+    );
 
     _bindings.anychat_client_set_connection_callback(
       _clientHandle,
       Pointer<Void>.fromAddress(clientId),
-      callback,
+      _connectionStateCallableNative.nativeFunction,
     );
   }
 
@@ -361,6 +376,7 @@ class AnyChatClient {
   void dispose() {
     _bindings.anychat_client_disconnect(_clientHandle);
     _bindings.anychat_client_destroy(_clientHandle);
+    _connectionStateCallableNative.close();
     _connectionStateController.close();
     _messageReceivedController.close();
     _conversationUpdatedController.close();
@@ -382,19 +398,21 @@ class AnyChatClient {
     String deviceType = 'flutter',
   }) {
     final completer = Completer<AuthToken>();
-    final callbackId = _registerCallback(completer);
 
-    final accountPtr = account.toNativeUtf8();
-    final passwordPtr = password.toNativeUtf8();
-    final deviceTypePtr = deviceType.toNativeUtf8();
-
-    final callback = Pointer.fromFunction<
+    // Create listener callable for callback from external thread
+    final callable = NativeCallable<
         Void Function(
           Pointer<Void>,
           Int,
           Pointer<AnyChatAuthToken_C>,
           Pointer<Char>,
-        )>(_authCallbackNative);
+        )>.listener(_authCallbackNative);
+
+    final callbackId = _registerCallback(completer, callable);
+
+    final accountPtr = account.toNativeUtf8();
+    final passwordPtr = password.toNativeUtf8();
+    final deviceTypePtr = deviceType.toNativeUtf8();
 
     final ret = _bindings.anychat_auth_login(
       _auth,
@@ -402,7 +420,7 @@ class AnyChatClient {
       passwordPtr.cast(),
       deviceTypePtr.cast(),
       Pointer<Void>.fromAddress(callbackId),
-      callback,
+      callable.nativeFunction,
     );
 
     calloc.free(accountPtr);
@@ -449,17 +467,19 @@ class AnyChatClient {
   /// Logs out the current user.
   Future<void> logout() {
     final completer = Completer<void>();
-    final callbackId = _registerCallback(completer);
 
-    final callback = Pointer.fromFunction<
-        Void Function(Pointer<Void>, Int, Pointer<Char>)>(
+    // Create listener callable
+    final callable = NativeCallable<
+        Void Function(Pointer<Void>, Int, Pointer<Char>)>.listener(
       _resultCallbackNative,
     );
+
+    final callbackId = _registerCallback(completer, callable);
 
     final ret = _bindings.anychat_auth_logout(
       _auth,
       Pointer<Void>.fromAddress(callbackId),
-      callback,
+      callable.nativeFunction,
     );
 
     if (ret != 0) {
@@ -485,22 +505,24 @@ class AnyChatClient {
     required String content,
   }) {
     final completer = Completer<void>();
-    final callbackId = _registerCallback(completer);
+
+    // Create listener callable
+    final callable = NativeCallable<
+        Void Function(Pointer<Void>, Int, Pointer<Char>)>.listener(
+      _messageCallbackNative,
+    );
+
+    final callbackId = _registerCallback(completer, callable);
 
     final sessionIdPtr = sessionId.toNativeUtf8();
     final contentPtr = content.toNativeUtf8();
-
-    final callback = Pointer.fromFunction<
-        Void Function(Pointer<Void>, Int, Pointer<Char>)>(
-      _messageCallbackNative,
-    );
 
     final ret = _bindings.anychat_message_send_text(
       _message,
       sessionIdPtr.cast(),
       contentPtr.cast(),
       Pointer<Void>.fromAddress(callbackId),
-      callback,
+      callable.nativeFunction,
     );
 
     calloc.free(sessionIdPtr);
@@ -523,16 +545,18 @@ class AnyChatClient {
     int limit = 20,
   }) {
     final completer = Completer<List<Message>>();
-    final callbackId = _registerCallback(completer);
 
-    final sessionIdPtr = sessionId.toNativeUtf8();
-
-    final callback = Pointer.fromFunction<
+    // Create listener callable
+    final callable = NativeCallable<
         Void Function(
           Pointer<Void>,
           Pointer<AnyChatMessageList_C>,
           Pointer<Char>,
-        )>(_messageListCallbackNative);
+        )>.listener(_messageListCallbackNative);
+
+    final callbackId = _registerCallback(completer, callable);
+
+    final sessionIdPtr = sessionId.toNativeUtf8();
 
     final ret = _bindings.anychat_message_get_history(
       _message,
@@ -540,7 +564,7 @@ class AnyChatClient {
       beforeTimestampMs,
       limit,
       Pointer<Void>.fromAddress(callbackId),
-      callback,
+      callable.nativeFunction,
     );
 
     calloc.free(sessionIdPtr);
@@ -565,19 +589,21 @@ class AnyChatClient {
   /// Gets the list of conversations.
   Future<List<Conversation>> getConversations() {
     final completer = Completer<List<Conversation>>();
-    final callbackId = _registerCallback(completer);
 
-    final callback = Pointer.fromFunction<
+    // Create listener callable
+    final callable = NativeCallable<
         Void Function(
           Pointer<Void>,
           Pointer<AnyChatConversationList_C>,
           Pointer<Char>,
-        )>(_convListCallbackNative);
+        )>.listener(_convListCallbackNative);
+
+    final callbackId = _registerCallback(completer, callable);
 
     final ret = _bindings.anychat_conv_get_list(
       _conv,
       Pointer<Void>.fromAddress(callbackId),
-      callback,
+      callable.nativeFunction,
     );
 
     if (ret != 0) {
@@ -593,20 +619,22 @@ class AnyChatClient {
   /// Marks a conversation as read.
   Future<void> markConversationRead(String convId) {
     final completer = Completer<void>();
-    final callbackId = _registerCallback(completer);
 
-    final convIdPtr = convId.toNativeUtf8();
-
-    final callback = Pointer.fromFunction<
-        Void Function(Pointer<Void>, Int, Pointer<Char>)>(
+    // Create listener callable
+    final callable = NativeCallable<
+        Void Function(Pointer<Void>, Int, Pointer<Char>)>.listener(
       _convCallbackNative,
     );
+
+    final callbackId = _registerCallback(completer, callable);
+
+    final convIdPtr = convId.toNativeUtf8();
 
     final ret = _bindings.anychat_conv_mark_read(
       _conv,
       convIdPtr.cast(),
       Pointer<Void>.fromAddress(callbackId),
-      callback,
+      callable.nativeFunction,
     );
 
     calloc.free(convIdPtr);
@@ -631,19 +659,21 @@ class AnyChatClient {
   /// Gets the friend list.
   Future<List<Friend>> getFriends() {
     final completer = Completer<List<Friend>>();
-    final callbackId = _registerCallback(completer);
 
-    final callback = Pointer.fromFunction<
+    // Create listener callable
+    final callable = NativeCallable<
         Void Function(
           Pointer<Void>,
           Pointer<AnyChatFriendList_C>,
           Pointer<Char>,
-        )>(_friendListCallbackNative);
+        )>.listener(_friendListCallbackNative);
+
+    final callbackId = _registerCallback(completer, callable);
 
     final ret = _bindings.anychat_friend_get_list(
       _friend,
       Pointer<Void>.fromAddress(callbackId),
-      callback,
+      callable.nativeFunction,
     );
 
     if (ret != 0) {

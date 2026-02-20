@@ -47,7 +47,7 @@ Build from the inside out:
 - `file.h` — `FileManager` abstract interface
 - `user.h` — `UserManager` abstract interface (getProfile, updateProfile, getSettings, updateSettings, updatePushToken, searchUsers, getUserInfo)
 - `rtc.h` — `RtcManager` abstract interface (one-to-one calls + meeting rooms + incoming-call notifications)
-- `client.h` — added `db_path` to `ClientConfig`; added `conversation()`, `friendMgr()`, `groupMgr()`, `fileMgr()`, `userMgr()`, `rtcMgr()` pure virtuals
+- `client.h` — added `db_path` to `ClientConfig`; added `conversationMgr()`, `friendMgr()`, `groupMgr()`, `fileMgr()`, `userMgr()`, `rtcMgr()` pure virtuals
 
 ---
 
