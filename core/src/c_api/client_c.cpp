@@ -87,16 +87,24 @@ int anychat_client_login(AnyChatClientHandle    handle,
 
     try {
         handle->impl->login(account, password, device_type,
-            [callback, userdata](bool success, const anychat::AuthToken& token, const std::string& error) {
-                if (callback) {
-                    AnyChatAuthToken_C c_token{};
-                    if (success) {
-                        strncpy(c_token.access_token, token.access_token.c_str(), sizeof(c_token.access_token) - 1);
-                        strncpy(c_token.refresh_token, token.refresh_token.c_str(), sizeof(c_token.refresh_token) - 1);
-                        c_token.expires_at_ms = token.expires_at_ms;
-                    }
-                    callback(userdata, success ? 1 : 0, success ? &c_token : nullptr, error.empty() ? nullptr : error.c_str());
+            [handle, callback, userdata](bool success, const anychat::AuthToken& token, const std::string& error) {
+                if (!callback) return;
+
+                AnyChatAuthToken_C c_token{};
+                const char* error_ptr = nullptr;
+
+                if (success) {
+                    strncpy(c_token.access_token, token.access_token.c_str(), sizeof(c_token.access_token) - 1);
+                    strncpy(c_token.refresh_token, token.refresh_token.c_str(), sizeof(c_token.refresh_token) - 1);
+                    c_token.expires_at_ms = token.expires_at_ms;
+                } else if (!error.empty()) {
+                    // Store error in handle's buffer so it persists across async callback boundary
+                    std::lock_guard<std::mutex> lock(handle->error_mutex);
+                    handle->last_callback_error = error;
+                    error_ptr = handle->last_callback_error.c_str();
                 }
+
+                callback(userdata, success ? 1 : 0, success ? &c_token : nullptr, error_ptr);
             });
         anychat_clear_last_error();
         return 0;
@@ -116,10 +124,18 @@ int anychat_client_logout(AnyChatClientHandle   handle,
     }
 
     try {
-        handle->impl->logout([callback, userdata](bool success, const std::string& error) {
-            if (callback) {
-                callback(userdata, success ? 1 : 0, error.empty() ? nullptr : error.c_str());
+        handle->impl->logout([handle, callback, userdata](bool success, const std::string& error) {
+            if (!callback) return;
+
+            const char* error_ptr = nullptr;
+            if (!success && !error.empty()) {
+                // Store error in handle's buffer
+                std::lock_guard<std::mutex> lock(handle->error_mutex);
+                handle->last_callback_error = error;
+                error_ptr = handle->last_callback_error.c_str();
             }
+
+            callback(userdata, success ? 1 : 0, error_ptr);
         });
         anychat_clear_last_error();
         return 0;

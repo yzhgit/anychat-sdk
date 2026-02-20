@@ -54,7 +54,9 @@ void _authCallbackNative(
     );
     completer.complete(dartToken);
   } else {
-    final errorMsg = error.cast<Utf8>().toDartString();
+    final errorMsg = (error != nullptr)
+        ? error.cast<Utf8>().toDartString()
+        : 'Unknown error';
     completer.completeError(Exception(errorMsg));
   }
   _unregisterCallback(id);
@@ -73,7 +75,9 @@ void _resultCallbackNative(
   if (success != 0) {
     completer.complete();
   } else {
-    final errorMsg = error.cast<Utf8>().toDartString();
+    final errorMsg = (error != nullptr)
+        ? error.cast<Utf8>().toDartString()
+        : 'Unknown error';
     completer.completeError(Exception(errorMsg));
   }
   _unregisterCallback(id);
@@ -104,7 +108,9 @@ void _messageCallbackNative(
   if (success != 0) {
     completer.complete();
   } else {
-    final errorMsg = error.cast<Utf8>().toDartString();
+    final errorMsg = (error != nullptr)
+        ? error.cast<Utf8>().toDartString()
+        : 'Unknown error';
     completer.completeError(Exception(errorMsg));
   }
   _unregisterCallback(id);
@@ -202,7 +208,9 @@ void _convCallbackNative(
   if (success != 0) {
     completer.complete();
   } else {
-    final errorMsg = error.cast<Utf8>().toDartString();
+    final errorMsg = (error != nullptr)
+        ? error.cast<Utf8>().toDartString()
+        : 'Unknown error';
     completer.completeError(Exception(errorMsg));
   }
   _unregisterCallback(id);

@@ -45,4 +45,9 @@ struct AnyChatClient_T {
     std::mutex                         cb_mutex;
     void*                              cb_userdata = nullptr;
     AnyChatConnectionStateCallback     cb          = nullptr;
+
+    // Error message buffer for async callbacks
+    // Used to store error messages that need to persist across async callback boundaries
+    std::mutex        error_mutex;
+    std::string       last_callback_error;
 };
