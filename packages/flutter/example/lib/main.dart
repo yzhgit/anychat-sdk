@@ -1,5 +1,7 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter/material.dart';
-import 'package:anychat_sdk/anychat_sdk.dart';
+import 'package:anychat_sdk/anychat_sdk.dart' as anychat;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -31,8 +33,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  AnyChatClient? _client;
-  ConnectionState _connectionState = ConnectionState.disconnected;
+  anychat.AnyChatClient? _client;
+  anychat.ConnectionState _connectionState = anychat.ConnectionState.disconnected;
   bool _isLoggedIn = false;
   final List<String> _logs = [];
 
@@ -62,7 +64,7 @@ class _HomePageState extends State<HomePage> {
       _log('Device ID: $deviceId');
 
       // Create client
-      _client = AnyChatClient(
+      _client = anychat.AnyChatClient(
         gatewayUrl: _gatewayController.text,
         apiBaseUrl: _apiController.text,
         deviceId: deviceId,

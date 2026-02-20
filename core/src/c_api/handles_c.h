@@ -16,6 +16,9 @@
 #include <memory>
 #include <mutex>
 
+/* Forward declare C callback types to avoid circular includes */
+typedef void (*AnyChatConnectionStateCallback)(void* userdata, int state);
+
 /* Sub-module handle wrappers (non-owning pointers into the client). */
 struct AnyChatAuthManager_T   { anychat::AuthManager*         impl; };
 struct AnyChatMessage_T       { anychat::MessageManager*      impl; };

@@ -67,8 +67,6 @@ anychat-sdk/
 │   ├── ios/              # Swift bindings
 │   ├── flutter/          # Dart FFI bindings ✅
 │   └── web/              # Emscripten bindings
-├── examples/             # Sample apps per platform
-│   └── c_example/        # C API usage example ✅
 ├── thirdparty/           # Git submodules (curl, libwebsockets, etc.)
 ├── tools/                # Build and release scripts
 └── docs/                 # Platform guides + API documentation
@@ -205,8 +203,6 @@ int main() {
     return 0;
 }
 ```
-
-See [examples/c_example/main.c](examples/c_example/main.c) and [docs/c_api_guide.md](docs/c_api_guide.md).
 
 ## Documentation
 

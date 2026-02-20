@@ -25,6 +25,9 @@ target_include_directories(anychat_core
 
 target_compile_features(anychat_core PUBLIC cxx_std_17)
 
+# Enable position-independent code for static libraries (needed for shared library linking)
+set_target_properties(anychat_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # ── Dependencies ──────────────────────────────────────────────────────────────
 
 target_link_libraries(anychat_core
@@ -65,6 +68,9 @@ target_include_directories(anychat_c
 )
 
 target_compile_features(anychat_c PUBLIC cxx_std_17)
+
+# Enable position-independent code for static libraries (needed for shared library linking)
+set_target_properties(anychat_c PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(anychat_c
     PUBLIC anychat_core

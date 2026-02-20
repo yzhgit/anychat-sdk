@@ -22,7 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cross-platform support (Android, iOS, Linux, macOS, Windows)
   - Example app demonstrating core features
 - C API usage guide (`docs/c_api_guide.md`)
-- C example app (`examples/c_example/main.c`)
 - Platform build configurations:
   - Android: CMakeLists.txt for NDK build
   - iOS/macOS: CocoaPods .podspec files

@@ -1,201 +1,220 @@
 # AnyChat Android SDK Example
 
-Simple example app demonstrating how to use the AnyChat Android SDK.
+A simple example app demonstrating the AnyChat Android SDK integration.
 
 ## Features Demonstrated
 
-1. **Authentication**
-   - User registration
-   - Login/logout
-   - Token management
+This example showcases:
 
-2. **Friend Management**
-   - Search for users
-   - Send friend requests
-   - View friend list
+1. **SDK Initialization** - Configure and initialize the client
+2. **Connection Management** - WebSocket connection with automatic reconnection
+3. **User Authentication** - Registration and login
+4. **Friend Management** - Search users, send requests, view friend list
+5. **Messaging** - Send and receive messages, view history
+6. **Group Chat** - Create groups, add members, send group messages
 
-3. **Messaging**
-   - Send text messages
-   - Receive real-time messages
-   - View message history
-   - List conversations
+## Prerequisites
 
-4. **Group Chat**
-   - Create groups
-   - Add members
-   - Send group messages
-   - List group members
-
-5. **Connection Management**
-   - WebSocket connection status
-   - Auto-reconnection
-   - Connection state monitoring
-
-## Running the Example
-
-### Prerequisites
-
-- Android Studio Arctic Fox or later
-- Android SDK 24+ (Android 7.0)
-- A running instance of [AnyChat Server](https://github.com/yzhgit/anychat-server)
-
-### Setup
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yzhgit/anychat-sdk.git
-   cd anychat-sdk/packages/android/example
-   ```
-
-2. Open in Android Studio:
-   ```
-   File -> Open -> Select packages/android directory
-   ```
-
-3. Update server URLs in `MainActivity.kt`:
-   ```kotlin
-   private const val GATEWAY_URL = "wss://your-server.com"
-   private const val API_BASE_URL = "https://your-server.com/api/v1"
-   ```
-
-4. Build and run:
-   ```
-   Run -> Run 'app'
-   ```
-
-### Using the Published SDK
-
-To use the published SDK instead of the local project:
-
-1. Edit `example/build.gradle.kts`:
-   ```kotlin
-   dependencies {
-       // Comment out the project dependency
-       // implementation(project(":"))
-
-       // Use the published version
-       implementation("io.github.yzhgit:anychat-sdk-android:0.1.0")
-   }
-   ```
-
-## Code Walkthrough
-
-### 1. Initialize the SDK
-
-```kotlin
-val config = ClientConfig(
-    gatewayUrl = "wss://api.anychat.io",
-    apiBaseUrl = "https://api.anychat.io/api/v1",
-    deviceId = getDeviceId(),
-    dbPath = getDatabasePath("anychat.db").absolutePath
-)
-
-val client = AnyChatClient(config)
-```
-
-### 2. Login and Connect
-
-```kotlin
-lifecycleScope.launch {
-    val loginResult = client.auth.login(
-        username = "demo_user",
-        password = "password"
-    )
-
-    // Connect WebSocket after login
-    client.connect()
-}
-```
-
-### 3. Monitor Connection State
-
-```kotlin
-lifecycleScope.launch {
-    client.connectionStateFlow.collect { state ->
-        when (state) {
-            ConnectionState.CONNECTED -> println("Connected!")
-            ConnectionState.DISCONNECTED -> println("Disconnected")
-            // ... handle other states
-        }
-    }
-}
-```
-
-### 4. Send Messages
-
-```kotlin
-val message = client.message.send(
-    conversationId = "conv_123",
-    content = "Hello!",
-    messageType = MessageType.TEXT
-)
-```
-
-### 5. Receive Messages
-
-```kotlin
-lifecycleScope.launch {
-    client.message.messageFlow.collect { message ->
-        println("New message: ${message.content}")
-    }
-}
-```
-
-## Viewing Logs
-
-The example app logs all operations to Logcat with tag `AnyChatExample`.
-
-To filter logs in Android Studio:
-```
-View -> Tool Windows -> Logcat
-Filter: package:com.anychat.example tag:AnyChatExample
-```
-
-## Troubleshooting
-
-### Connection Issues
-
-- Verify your server is running and accessible
-- Check if the URLs are correct (no trailing slashes)
-- Ensure `INTERNET` and `ACCESS_NETWORK_STATE` permissions are granted
-
-### Build Errors
-
-- Clean and rebuild: `Build -> Clean Project` then `Build -> Rebuild Project`
-- Invalidate caches: `File -> Invalidate Caches / Restart`
-- Check that NDK is installed: `Tools -> SDK Manager -> SDK Tools -> NDK`
-
-### Runtime Crashes
-
-- Check if native libraries are included: Look for `lib/*/libanychat_jni.so` in APK
-- Verify ABI filters match your device (see `build.gradle.kts`)
-- Enable detailed logging by setting log level
+1. **Android Studio** Arctic Fox or later
+2. **Android SDK** API level 24+ (Android 7.0+)
+3. **Kotlin** 1.8+
+4. **AnyChat Server** running and accessible
 
 ## Project Structure
 
 ```
 example/
-├── build.gradle.kts           # Gradle build script
 ├── src/main/
-│   ├── AndroidManifest.xml    # App manifest
 │   ├── java/com/anychat/example/
-│   │   └── MainActivity.kt    # Main activity with examples
-│   └── res/
-│       ├── layout/
-│       │   └── activity_main.xml
-│       └── values/
-│           └── strings.xml
-└── README.md                  # This file
+│   │   └── MainActivity.kt          # Main example code
+│   ├── res/
+│   │   ├── layout/
+│   │   │   └── activity_main.xml    # Simple UI layout
+│   │   └── values/
+│   │       └── strings.xml          # String resources
+│   └── AndroidManifest.xml          # App configuration
+└── build.gradle.kts                 # Dependencies
 ```
+
+## Configuration
+
+Edit `MainActivity.kt` to point to your AnyChat server:
+
+```kotlin
+companion object {
+    private const val GATEWAY_URL = "wss://your-server.com"
+    private const val API_BASE_URL = "https://your-server.com/api/v1"
+}
+```
+
+## Running the Example
+
+### Option 1: Android Studio
+
+1. Open the `packages/android` directory in Android Studio
+2. Wait for Gradle sync to complete
+3. Connect an Android device or start an emulator
+4. Run the `example` module
+
+### Option 2: Command Line
+
+```bash
+cd packages/android
+./gradlew :example:installDebug
+adb shell am start -n com.anychat.example/.MainActivity
+```
+
+## Viewing Output
+
+All SDK operations are logged to **Android Logcat**:
+
+```bash
+# Filter by tag
+adb logcat -s AnyChatExample
+
+# Or in Android Studio:
+# View → Tool Windows → Logcat
+# Filter: "AnyChatExample"
+```
+
+You'll see detailed logs for:
+- ✅ Registration/Login results
+- 🔄 Connection state changes
+- 📩 Messages sent/received
+- 👥 Friend operations
+- 🏘️ Group operations
+
+## Example Output
+
+```
+D/AnyChatExample: AnyChat SDK initialized
+D/AnyChatExample: 🔄 Connecting to WebSocket...
+D/AnyChatExample: ✅ WebSocket connected
+D/AnyChatExample: === Example 1: Authentication ===
+D/AnyChatExample: ✅ Login successful
+D/AnyChatExample:    User ID: 123456
+D/AnyChatExample:    Token: eyJhbGciOiJIUzI1Ni...
+D/AnyChatExample: === Example 2: Friend Management ===
+D/AnyChatExample: ✅ Found 5 users matching 'john'
+D/AnyChatExample:    - john_doe (John Doe)
+D/AnyChatExample: === Example 3: Messaging ===
+D/AnyChatExample: ✅ Message sent: msg_789
+D/AnyChatExample: 📩 New message: Hello from AnyChat!
+```
+
+## Code Highlights
+
+### SDK Initialization
+
+```kotlin
+val config = ClientConfig(
+    gatewayUrl = GATEWAY_URL,
+    apiBaseUrl = API_BASE_URL,
+    deviceId = getDeviceId(),
+    dbPath = getDatabasePath("anychat.db").absolutePath,
+    autoReconnect = true
+)
+
+client = AnyChatClient(config)
+```
+
+### Authentication
+
+```kotlin
+// Login
+val loginResult = client.auth.login(
+    username = "demo_user",
+    password = "SecurePassword123!"
+)
+
+// Connect WebSocket after login
+client.connect()
+```
+
+### Send Message
+
+```kotlin
+val message = client.message.send(
+    conversationId = convId,
+    content = "Hello from Android!",
+    messageType = MessageType.TEXT
+)
+```
+
+### Listen for Messages
+
+```kotlin
+lifecycleScope.launch {
+    client.message.messageFlow.collect { message ->
+        Log.d(TAG, "📩 New message: ${message.content}")
+    }
+}
+```
+
+## Dependencies
+
+The example uses:
+
+- **AnyChat SDK** - IM functionality
+- **Kotlin Coroutines** - Async operations
+- **AndroidX Lifecycle** - Lifecycle-aware components
+- **Material Components** - UI elements
+
+See `build.gradle.kts` for complete dependency list.
+
+## Troubleshooting
+
+### Build Errors
+
+**Issue:** Missing AnyChat SDK dependency
+
+**Solution:**
+```bash
+# Build the parent SDK first
+cd packages/android
+./gradlew assemble
+```
+
+### Runtime Errors
+
+**Issue:** `UnknownHostException` or connection timeout
+
+**Solutions:**
+1. Verify server URLs in `MainActivity.kt`
+2. Check if AnyChat server is running
+3. Ensure device has internet access
+4. Add network security config if using HTTP (not recommended for production)
+
+**Issue:** `SecurityException: Permission denied`
+
+**Solution:** The app requires `INTERNET` permission (already added in `AndroidManifest.xml`)
+
+### Logcat Issues
+
+**Issue:** No logs appearing
+
+**Solutions:**
+- Ensure app is running on device/emulator
+- Check Logcat filter is set to "AnyChatExample"
+- Verify log level is set to "Debug" or "Verbose"
 
 ## Next Steps
 
-- Customize the UI with your own design
-- Add error handling and retry logic
-- Implement push notifications
-- Add file upload/download
-- Implement message encryption
+This example is intentionally simple to demonstrate basic SDK usage. For a production app, consider:
+
+- **Error Handling** - Add try/catch blocks and user-friendly error messages
+- **UI/UX** - Build proper screens with Material Design
+- **State Management** - Use ViewModel + StateFlow/LiveData
+- **Persistence** - Save user preferences with SharedPreferences or DataStore
+- **Notifications** - Implement FCM for push notifications
+- **Background Sync** - Use WorkManager for syncing messages
 
 ## License
 
-This example is part of the AnyChat SDK and is released under the MIT License.
+MIT License - see [../../LICENSE](../../LICENSE)
+
+## Links
+
+- **SDK Documentation**: [packages/android/README.md](../README.md)
+- **Backend API**: https://github.com/yzhgit/anychat-server
+- **Issues**: https://github.com/yzhgit/anychat-sdk/issues

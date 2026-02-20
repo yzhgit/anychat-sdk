@@ -110,7 +110,6 @@ anychat_client_destroy(client);
 
 详见：
 - `docs/c_api_guide.md` — C API 使用指南
-- `examples/c_example/main.c` — 完整示例
 
 
 ## 平台绑定

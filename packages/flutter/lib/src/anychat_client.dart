@@ -6,6 +6,248 @@ import 'anychat_ffi_bindings.dart';
 import 'native_loader.dart';
 import 'models.dart';
 
+// Global callback context management
+// Maps callback ID to Dart completer for async operations
+final _callbackContexts = <int, dynamic>{};
+int _nextCallbackId = 1;
+
+int _registerCallback(dynamic completer) {
+  final id = _nextCallbackId++;
+  _callbackContexts[id] = completer;
+  return id;
+}
+
+void _unregisterCallback(int id) {
+  _callbackContexts.remove(id);
+}
+
+dynamic _getCallback(int id) {
+  return _callbackContexts[id];
+}
+
+// ── Static callback functions for C FFI ─────────────────────────────────────
+
+// Auth callback: used for login, register, refreshToken
+void _authCallbackNative(
+  Pointer<Void> userdata,
+  int success,
+  Pointer<AnyChatAuthToken_C> token,
+  Pointer<Char> error,
+) {
+  final id = userdata.address;
+  final completer = _getCallback(id) as Completer<AuthToken>?;
+  if (completer == null) return;
+
+  if (success != 0 && token != nullptr) {
+    final dartToken = AuthToken(
+      accessToken: _copyFixedStringStatic(token.ref.access_token, 512),
+      refreshToken: _copyFixedStringStatic(token.ref.refresh_token, 512),
+      expiresAtMs: token.ref.expires_at_ms,
+    );
+    completer.complete(dartToken);
+  } else {
+    final errorMsg = error.cast<Utf8>().toDartString();
+    completer.completeError(Exception(errorMsg));
+  }
+  _unregisterCallback(id);
+}
+
+// Result callback: used for logout, changePassword, etc.
+void _resultCallbackNative(
+  Pointer<Void> userdata,
+  int success,
+  Pointer<Char> error,
+) {
+  final id = userdata.address;
+  final completer = _getCallback(id) as Completer<void>?;
+  if (completer == null) return;
+
+  if (success != 0) {
+    completer.complete();
+  } else {
+    final errorMsg = error.cast<Utf8>().toDartString();
+    completer.completeError(Exception(errorMsg));
+  }
+  _unregisterCallback(id);
+}
+
+// Connection state callback
+void _connectionStateCallbackNative(
+  Pointer<Void> userdata,
+  int state,
+) {
+  final client = _getCallback(userdata.address) as AnyChatClient?;
+  if (client == null) return;
+
+  final connectionState = ConnectionState.fromInt(state);
+  client._connectionStateController.add(connectionState);
+}
+
+// Message callback: used for sendTextMessage, markRead
+void _messageCallbackNative(
+  Pointer<Void> userdata,
+  int success,
+  Pointer<Char> error,
+) {
+  final id = userdata.address;
+  final completer = _getCallback(id) as Completer<void>?;
+  if (completer == null) return;
+
+  if (success != 0) {
+    completer.complete();
+  } else {
+    final errorMsg = error.cast<Utf8>().toDartString();
+    completer.completeError(Exception(errorMsg));
+  }
+  _unregisterCallback(id);
+}
+
+// Message list callback: used for getMessageHistory
+void _messageListCallbackNative(
+  Pointer<Void> userdata,
+  Pointer<AnyChatMessageList_C> list,
+  Pointer<Char> error,
+) {
+  final id = userdata.address;
+  final completer = _getCallback(id) as Completer<List<Message>>?;
+  if (completer == null) return;
+
+  if (error != nullptr) {
+    final errorMsg = error.cast<Utf8>().toDartString();
+    completer.completeError(Exception(errorMsg));
+  } else if (list != nullptr) {
+    final messages = <Message>[];
+    final count = list.ref.count;
+    for (var i = 0; i < count; i++) {
+      final item = list.ref.items.elementAt(i).ref;
+      messages.add(Message(
+        messageId: _copyFixedStringStatic(item.message_id, 64),
+        localId: _copyFixedStringStatic(item.local_id, 64),
+        convId: _copyFixedStringStatic(item.conv_id, 64),
+        senderId: _copyFixedStringStatic(item.sender_id, 64),
+        contentType: _copyFixedStringStatic(item.content_type, 32),
+        type: MessageType.fromInt(item.type),
+        content: item.content.cast<Utf8>().toDartString(),
+        seq: item.seq,
+        replyTo: _copyFixedStringStatic(item.reply_to, 64),
+        timestampMs: item.timestamp_ms,
+        status: item.status,
+        sendState: SendState.fromInt(item.send_state),
+        isRead: item.is_read != 0,
+      ));
+    }
+    completer.complete(messages);
+  } else {
+    completer.complete([]);
+  }
+  _unregisterCallback(id);
+}
+
+// Conversation list callback
+void _convListCallbackNative(
+  Pointer<Void> userdata,
+  Pointer<AnyChatConversationList_C> list,
+  Pointer<Char> error,
+) {
+  final id = userdata.address;
+  final completer = _getCallback(id) as Completer<List<Conversation>>?;
+  if (completer == null) return;
+
+  if (error != nullptr) {
+    final errorMsg = error.cast<Utf8>().toDartString();
+    completer.completeError(Exception(errorMsg));
+  } else if (list != nullptr) {
+    final conversations = <Conversation>[];
+    final count = list.ref.count;
+    for (var i = 0; i < count; i++) {
+      final item = list.ref.items.elementAt(i).ref;
+      conversations.add(Conversation(
+        convId: _copyFixedStringStatic(item.conv_id, 64),
+        convType: ConversationType.fromInt(item.conv_type),
+        targetId: _copyFixedStringStatic(item.target_id, 64),
+        lastMsgId: _copyFixedStringStatic(item.last_msg_id, 64),
+        lastMsgText: _copyFixedStringStatic(item.last_msg_text, 512),
+        lastMsgTimeMs: item.last_msg_time_ms,
+        unreadCount: item.unread_count,
+        isPinned: item.is_pinned != 0,
+        isMuted: item.is_muted != 0,
+        updatedAtMs: item.updated_at_ms,
+      ));
+    }
+    completer.complete(conversations);
+  } else {
+    completer.complete([]);
+  }
+  _unregisterCallback(id);
+}
+
+// Conversation callback: used for markConversationRead
+void _convCallbackNative(
+  Pointer<Void> userdata,
+  int success,
+  Pointer<Char> error,
+) {
+  final id = userdata.address;
+  final completer = _getCallback(id) as Completer<void>?;
+  if (completer == null) return;
+
+  if (success != 0) {
+    completer.complete();
+  } else {
+    final errorMsg = error.cast<Utf8>().toDartString();
+    completer.completeError(Exception(errorMsg));
+  }
+  _unregisterCallback(id);
+}
+
+// Friend list callback
+void _friendListCallbackNative(
+  Pointer<Void> userdata,
+  Pointer<AnyChatFriendList_C> list,
+  Pointer<Char> error,
+) {
+  final id = userdata.address;
+  final completer = _getCallback(id) as Completer<List<Friend>>?;
+  if (completer == null) return;
+
+  if (error != nullptr) {
+    final errorMsg = error.cast<Utf8>().toDartString();
+    completer.completeError(Exception(errorMsg));
+  } else if (list != nullptr) {
+    final friends = <Friend>[];
+    final count = list.ref.count;
+    for (var i = 0; i < count; i++) {
+      final item = list.ref.items.elementAt(i).ref;
+      friends.add(Friend(
+        userId: _copyFixedStringStatic(item.user_id, 64),
+        remark: _copyFixedStringStatic(item.remark, 128),
+        updatedAtMs: item.updated_at_ms,
+        isDeleted: item.is_deleted != 0,
+        userInfo: UserInfo(
+          userId: _copyFixedStringStatic(item.user_info.user_id, 64),
+          username: _copyFixedStringStatic(item.user_info.username, 128),
+          avatarUrl: _copyFixedStringStatic(item.user_info.avatar_url, 512),
+        ),
+      ));
+    }
+    completer.complete(friends);
+  } else {
+    completer.complete([]);
+  }
+  _unregisterCallback(id);
+}
+
+// Helper: Copy fixed-size C string array to Dart String (static version)
+String _copyFixedStringStatic(Array<Char> arr, int maxLength) {
+  final units = <int>[];
+  for (var i = 0; i < maxLength; i++) {
+    final char = arr[i];
+    if (char == 0) break;
+    units.add(char);
+  }
+  return String.fromCharCodes(units);
+}
+
 /// Main AnyChat client for Flutter.
 ///
 /// This is a high-level Dart wrapper around the C FFI bindings.
@@ -87,9 +329,16 @@ class AnyChatClient {
   }
 
   void _setupConnectionStateCallback() {
-    // TODO: Implement native callback registration via Dart FFI
-    // This requires using NativeCallable (Dart 2.18+) to create a C function pointer
-    // from a Dart function. For now, polling can be used as a workaround.
+    // Register connection state callback with client instance as userdata
+    final clientId = _registerCallback(this);
+    final callback = Pointer.fromFunction<
+        Void Function(Pointer<Void>, Int)>(_connectionStateCallbackNative);
+
+    _bindings.anychat_client_set_connection_callback(
+      _clientHandle,
+      Pointer<Void>.fromAddress(clientId),
+      callback,
+    );
   }
 
   /// Connects to the server.
@@ -133,32 +382,39 @@ class AnyChatClient {
     String deviceType = 'flutter',
   }) {
     final completer = Completer<AuthToken>();
-
-    // TODO: Implement using NativeCallable for callback
-    // For now, this is a placeholder structure showing the intended API
+    final callbackId = _registerCallback(completer);
 
     final accountPtr = account.toNativeUtf8();
     final passwordPtr = password.toNativeUtf8();
     final deviceTypePtr = deviceType.toNativeUtf8();
 
-    // This will require a C callback wrapper
-    // final ret = _bindings.anychat_auth_login(
-    //   _auth,
-    //   accountPtr.cast(),
-    //   passwordPtr.cast(),
-    //   deviceTypePtr.cast(),
-    //   nullptr, // userdata
-    //   nullptr, // callback (to be implemented)
-    // );
+    final callback = Pointer.fromFunction<
+        Void Function(
+          Pointer<Void>,
+          Int,
+          Pointer<AnyChatAuthToken_C>,
+          Pointer<Char>,
+        )>(_authCallbackNative);
+
+    final ret = _bindings.anychat_auth_login(
+      _auth,
+      accountPtr.cast(),
+      passwordPtr.cast(),
+      deviceTypePtr.cast(),
+      Pointer<Void>.fromAddress(callbackId),
+      callback,
+    );
 
     calloc.free(accountPtr);
     calloc.free(passwordPtr);
     calloc.free(deviceTypePtr);
 
-    // Placeholder: complete with error
-    completer.completeError(
-      UnimplementedError('Async callbacks require NativeCallable (Dart 2.18+)')
-    );
+    if (ret != 0) {
+      _unregisterCallback(callbackId);
+      final errorPtr = _bindings.anychat_get_last_error();
+      final error = errorPtr.cast<Utf8>().toDartString();
+      completer.completeError(Exception('Failed to dispatch login request: $error'));
+    }
 
     return completer.future;
   }
@@ -193,10 +449,26 @@ class AnyChatClient {
   /// Logs out the current user.
   Future<void> logout() {
     final completer = Completer<void>();
-    // TODO: Implement with NativeCallable
-    completer.completeError(
-      UnimplementedError('Async callbacks require NativeCallable')
+    final callbackId = _registerCallback(completer);
+
+    final callback = Pointer.fromFunction<
+        Void Function(Pointer<Void>, Int, Pointer<Char>)>(
+      _resultCallbackNative,
     );
+
+    final ret = _bindings.anychat_auth_logout(
+      _auth,
+      Pointer<Void>.fromAddress(callbackId),
+      callback,
+    );
+
+    if (ret != 0) {
+      _unregisterCallback(callbackId);
+      final errorPtr = _bindings.anychat_get_last_error();
+      final error = errorPtr.cast<Utf8>().toDartString();
+      completer.completeError(Exception('Failed to dispatch logout request: $error'));
+    }
+
     return completer.future;
   }
 
@@ -213,10 +485,34 @@ class AnyChatClient {
     required String content,
   }) {
     final completer = Completer<void>();
-    // TODO: Implement with NativeCallable
-    completer.completeError(
-      UnimplementedError('Async callbacks require NativeCallable')
+    final callbackId = _registerCallback(completer);
+
+    final sessionIdPtr = sessionId.toNativeUtf8();
+    final contentPtr = content.toNativeUtf8();
+
+    final callback = Pointer.fromFunction<
+        Void Function(Pointer<Void>, Int, Pointer<Char>)>(
+      _messageCallbackNative,
     );
+
+    final ret = _bindings.anychat_message_send_text(
+      _message,
+      sessionIdPtr.cast(),
+      contentPtr.cast(),
+      Pointer<Void>.fromAddress(callbackId),
+      callback,
+    );
+
+    calloc.free(sessionIdPtr);
+    calloc.free(contentPtr);
+
+    if (ret != 0) {
+      _unregisterCallback(callbackId);
+      final errorPtr = _bindings.anychat_get_last_error();
+      final error = errorPtr.cast<Utf8>().toDartString();
+      completer.completeError(Exception('Failed to send message: $error'));
+    }
+
     return completer.future;
   }
 
@@ -227,10 +523,35 @@ class AnyChatClient {
     int limit = 20,
   }) {
     final completer = Completer<List<Message>>();
-    // TODO: Implement with NativeCallable
-    completer.completeError(
-      UnimplementedError('Async callbacks require NativeCallable')
+    final callbackId = _registerCallback(completer);
+
+    final sessionIdPtr = sessionId.toNativeUtf8();
+
+    final callback = Pointer.fromFunction<
+        Void Function(
+          Pointer<Void>,
+          Pointer<AnyChatMessageList_C>,
+          Pointer<Char>,
+        )>(_messageListCallbackNative);
+
+    final ret = _bindings.anychat_message_get_history(
+      _message,
+      sessionIdPtr.cast(),
+      beforeTimestampMs,
+      limit,
+      Pointer<Void>.fromAddress(callbackId),
+      callback,
     );
+
+    calloc.free(sessionIdPtr);
+
+    if (ret != 0) {
+      _unregisterCallback(callbackId);
+      final errorPtr = _bindings.anychat_get_last_error();
+      final error = errorPtr.cast<Utf8>().toDartString();
+      completer.completeError(Exception('Failed to get message history: $error'));
+    }
+
     return completer.future;
   }
 
@@ -244,20 +565,59 @@ class AnyChatClient {
   /// Gets the list of conversations.
   Future<List<Conversation>> getConversations() {
     final completer = Completer<List<Conversation>>();
-    // TODO: Implement with NativeCallable
-    completer.completeError(
-      UnimplementedError('Async callbacks require NativeCallable')
+    final callbackId = _registerCallback(completer);
+
+    final callback = Pointer.fromFunction<
+        Void Function(
+          Pointer<Void>,
+          Pointer<AnyChatConversationList_C>,
+          Pointer<Char>,
+        )>(_convListCallbackNative);
+
+    final ret = _bindings.anychat_conv_get_list(
+      _conv,
+      Pointer<Void>.fromAddress(callbackId),
+      callback,
     );
+
+    if (ret != 0) {
+      _unregisterCallback(callbackId);
+      final errorPtr = _bindings.anychat_get_last_error();
+      final error = errorPtr.cast<Utf8>().toDartString();
+      completer.completeError(Exception('Failed to get conversations: $error'));
+    }
+
     return completer.future;
   }
 
   /// Marks a conversation as read.
   Future<void> markConversationRead(String convId) {
     final completer = Completer<void>();
-    // TODO: Implement with NativeCallable
-    completer.completeError(
-      UnimplementedError('Async callbacks require NativeCallable')
+    final callbackId = _registerCallback(completer);
+
+    final convIdPtr = convId.toNativeUtf8();
+
+    final callback = Pointer.fromFunction<
+        Void Function(Pointer<Void>, Int, Pointer<Char>)>(
+      _convCallbackNative,
     );
+
+    final ret = _bindings.anychat_conv_mark_read(
+      _conv,
+      convIdPtr.cast(),
+      Pointer<Void>.fromAddress(callbackId),
+      callback,
+    );
+
+    calloc.free(convIdPtr);
+
+    if (ret != 0) {
+      _unregisterCallback(callbackId);
+      final errorPtr = _bindings.anychat_get_last_error();
+      final error = errorPtr.cast<Utf8>().toDartString();
+      completer.completeError(Exception('Failed to mark conversation as read: $error'));
+    }
+
     return completer.future;
   }
 
@@ -271,10 +631,28 @@ class AnyChatClient {
   /// Gets the friend list.
   Future<List<Friend>> getFriends() {
     final completer = Completer<List<Friend>>();
-    // TODO: Implement with NativeCallable
-    completer.completeError(
-      UnimplementedError('Async callbacks require NativeCallable')
+    final callbackId = _registerCallback(completer);
+
+    final callback = Pointer.fromFunction<
+        Void Function(
+          Pointer<Void>,
+          Pointer<AnyChatFriendList_C>,
+          Pointer<Char>,
+        )>(_friendListCallbackNative);
+
+    final ret = _bindings.anychat_friend_get_list(
+      _friend,
+      Pointer<Void>.fromAddress(callbackId),
+      callback,
     );
+
+    if (ret != 0) {
+      _unregisterCallback(callbackId);
+      final errorPtr = _bindings.anychat_get_last_error();
+      final error = errorPtr.cast<Utf8>().toDartString();
+      completer.completeError(Exception('Failed to get friends: $error'));
+    }
+
     return completer.future;
   }
 
@@ -282,10 +660,9 @@ class AnyChatClient {
 
   /// Copies a fixed-size C string array to a Dart String.
   String _copyFixedString(Array<Char> arr, int maxLength) {
-    final ptr = Pointer<Char>.fromAddress(arr.address);
     final units = <int>[];
     for (var i = 0; i < maxLength; i++) {
-      final char = ptr.elementAt(i).value;
+      final char = arr[i];
       if (char == 0) break;
       units.add(char);
     }

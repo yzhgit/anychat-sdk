@@ -20,6 +20,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  ffigen: ^20.1.1
 
 # FFI plugin configuration
 flutter:
