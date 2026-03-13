@@ -1,9 +1,9 @@
 #include "migrations.h"
 
-#include <sqlite3.h>
-
 #include <cstdio>
 #include <string>
+
+#include <sqlite3.h>
 
 namespace anychat::db {
 
@@ -27,8 +27,7 @@ static bool execRaw(sqlite3* db, const char* sql) {
 // Read PRAGMA user_version.
 static int getUserVersion(sqlite3* db) {
     sqlite3_stmt* stmt = nullptr;
-    if (sqlite3_prepare_v2(db, "PRAGMA user_version", -1, &stmt, nullptr)
-            != SQLITE_OK) {
+    if (sqlite3_prepare_v2(db, "PRAGMA user_version", -1, &stmt, nullptr) != SQLITE_OK) {
         return -1;
     }
     int ver = 0;
@@ -119,7 +118,8 @@ CREATE TABLE IF NOT EXISTS metadata (
 
 // Apply migration to version 1.
 static bool migrateToV1(sqlite3* db) {
-    if (!execRaw(db, "BEGIN")) return false;
+    if (!execRaw(db, "BEGIN"))
+        return false;
     if (!execRaw(db, kSchemav1)) {
         execRaw(db, "ROLLBACK");
         return false;
@@ -140,17 +140,19 @@ static bool migrateToV1(sqlite3* db) {
 
 bool runMigrations(sqlite3* db) {
     int ver = getUserVersion(db);
-    if (ver < 0) return false;
+    if (ver < 0)
+        return false;
 
     if (ver < 1) {
-        if (!migrateToV1(db)) return false;
+        if (!migrateToV1(db))
+            return false;
         ver = 1;
     }
 
     // Future migrations would be added here as:
     //   if (ver < 2) { if (!migrateToV2(db)) return false; ver = 2; }
 
-    (void)ver; // suppress "unused variable" warning after last migration
+    (void) ver; // suppress "unused variable" warning after last migration
     return true;
 }
 

@@ -1,15 +1,16 @@
 #include "database.h"
+
 #include "migrations.h"
 
-#include <sqlite3.h>
-
 #include <condition_variable>
-#include <future>
 #include <mutex>
 #include <queue>
 #include <string>
 #include <thread>
 #include <utility>
+
+#include <future>
+#include <sqlite3.h>
 
 namespace anychat::db {
 
@@ -19,27 +20,30 @@ namespace anychat::db {
 
 // Bind a single DbValue to a prepared statement at the given 1-based index.
 static bool bindValue(sqlite3_stmt* stmt, int idx, const DbValue& val) {
-    return std::visit([&](auto&& v) -> bool {
-        using T = std::decay_t<decltype(v)>;
-        int rc = SQLITE_OK;
-        if constexpr (std::is_same_v<T, std::nullptr_t>) {
-            rc = sqlite3_bind_null(stmt, idx);
-        } else if constexpr (std::is_same_v<T, int64_t>) {
-            rc = sqlite3_bind_int64(stmt, idx, v);
-        } else if constexpr (std::is_same_v<T, double>) {
-            rc = sqlite3_bind_double(stmt, idx, v);
-        } else if constexpr (std::is_same_v<T, std::string>) {
-            rc = sqlite3_bind_text(stmt, idx, v.c_str(),
-                                   static_cast<int>(v.size()), SQLITE_TRANSIENT);
-        }
-        return rc == SQLITE_OK;
-    }, val);
+    return std::visit(
+        [&](auto&& v) -> bool {
+            using T = std::decay_t<decltype(v)>;
+            int rc = SQLITE_OK;
+            if constexpr (std::is_same_v<T, std::nullptr_t>) {
+                rc = sqlite3_bind_null(stmt, idx);
+            } else if constexpr (std::is_same_v<T, int64_t>) {
+                rc = sqlite3_bind_int64(stmt, idx, v);
+            } else if constexpr (std::is_same_v<T, double>) {
+                rc = sqlite3_bind_double(stmt, idx, v);
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                rc = sqlite3_bind_text(stmt, idx, v.c_str(), static_cast<int>(v.size()), SQLITE_TRANSIENT);
+            }
+            return rc == SQLITE_OK;
+        },
+        val
+    );
 }
 
 // Bind all params to a prepared statement.
 static bool bindParams(sqlite3_stmt* stmt, const Params& params) {
     for (int i = 0; i < static_cast<int>(params.size()); ++i) {
-        if (!bindValue(stmt, i + 1, params[i])) return false;
+        if (!bindValue(stmt, i + 1, params[i]))
+            return false;
     }
     return true;
 }
@@ -53,8 +57,7 @@ static std::string stepAll(sqlite3_stmt* stmt, Rows& out) {
         Row row;
         for (int c = 0; c < cols; ++c) {
             const char* name = sqlite3_column_name(stmt, c);
-            const char* text = reinterpret_cast<const char*>(
-                sqlite3_column_text(stmt, c));
+            const char* text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, c));
             row[name ? name : ""] = text ? text : "";
         }
         out.push_back(std::move(row));
@@ -66,10 +69,8 @@ static std::string stepAll(sqlite3_stmt* stmt, Rows& out) {
 }
 
 // Prepare + bind + stepAll, then finalize.  Returns error string or empty.
-static std::string execOrQuery(sqlite3* db,
-                               const std::string& sql,
-                               const Params& params,
-                               Rows* out /* nullptr = exec-only */) {
+static std::string
+execOrQuery(sqlite3* db, const std::string& sql, const Params& params, Rows* out /* nullptr = exec-only */) {
     sqlite3_stmt* stmt = nullptr;
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
@@ -97,13 +98,13 @@ struct Database::Impl {
     sqlite3* raw_db = nullptr;
 
     std::string path;
-    bool        open_ = false;
+    bool open_ = false;
 
-    std::thread              worker;
+    std::thread worker;
     std::queue<std::function<void()>> tasks;
-    std::mutex               mu;
-    std::condition_variable  cv;
-    bool                     stopping = false;
+    std::mutex mu;
+    std::condition_variable cv;
+    bool stopping = false;
 
     void start() {
         worker = std::thread([this]() {
@@ -111,8 +112,11 @@ struct Database::Impl {
                 std::function<void()> task;
                 {
                     std::unique_lock<std::mutex> lk(mu);
-                    cv.wait(lk, [this] { return stopping || !tasks.empty(); });
-                    if (stopping && tasks.empty()) break;
+                    cv.wait(lk, [this] {
+                        return stopping || !tasks.empty();
+                    });
+                    if (stopping && tasks.empty())
+                        break;
                     task = std::move(tasks.front());
                     tasks.pop();
                 }
@@ -127,7 +131,8 @@ struct Database::Impl {
             stopping = true;
         }
         cv.notify_all();
-        if (worker.joinable()) worker.join();
+        if (worker.joinable())
+            worker.join();
     }
 
     // Post a task to the worker queue (fire-and-forget).
@@ -202,7 +207,8 @@ bool Database::open() {
 }
 
 void Database::close() {
-    if (!impl_) return;
+    if (!impl_)
+        return;
     impl_->stop();
 
     if (impl_->raw_db) {
@@ -217,19 +223,19 @@ void Database::close() {
 // ---------------------------------------------------------------------------
 
 void Database::exec(std::string sql, Params params, ExecCallback cb) {
-    impl_->post([this, sql = std::move(sql), params = std::move(params),
-                 cb = std::move(cb)]() mutable {
+    impl_->post([this, sql = std::move(sql), params = std::move(params), cb = std::move(cb)]() mutable {
         std::string err = execOrQuery(impl_->raw_db, sql, params, nullptr);
-        if (cb) cb(err.empty(), err);
+        if (cb)
+            cb(err.empty(), err);
     });
 }
 
 void Database::query(std::string sql, Params params, QueryCallback cb) {
-    impl_->post([this, sql = std::move(sql), params = std::move(params),
-                 cb = std::move(cb)]() mutable {
+    impl_->post([this, sql = std::move(sql), params = std::move(params), cb = std::move(cb)]() mutable {
         Rows rows;
         std::string err = execOrQuery(impl_->raw_db, sql, params, &rows);
-        if (cb) cb(std::move(rows), err);
+        if (cb)
+            cb(std::move(rows), err);
     });
 }
 
@@ -256,34 +262,34 @@ Rows Database::querySync(const std::string& sql, Params params) {
 // Metadata helpers
 // ---------------------------------------------------------------------------
 
-std::string Database::getMeta(const std::string& key,
-                               const std::string& default_val) {
-    Rows rows = querySync("SELECT value FROM metadata WHERE key = ?",
-                          {key});
-    if (rows.empty()) return default_val;
+std::string Database::getMeta(const std::string& key, const std::string& default_val) {
+    Rows rows = querySync("SELECT value FROM metadata WHERE key = ?", { key });
+    if (rows.empty())
+        return default_val;
     auto it = rows[0].find("value");
-    if (it == rows[0].end()) return default_val;
+    if (it == rows[0].end())
+        return default_val;
     return it->second;
 }
 
 void Database::setMeta(const std::string& key, const std::string& value) {
-    execSync("INSERT INTO metadata (key, value) VALUES (?, ?) "
-             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-             {key, value});
+    execSync(
+        "INSERT INTO metadata (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        { key, value }
+    );
 }
 
 // ---------------------------------------------------------------------------
 // TxScope — direct (non-queued) DB operations used inside transactionSync
 // ---------------------------------------------------------------------------
 
-bool Database::TxScope::execDirect(const std::string& sql,
-                                    const Params& params) {
+bool Database::TxScope::execDirect(const std::string& sql, const Params& params) {
     std::string err = execOrQuery(db, sql, params, nullptr);
     return err.empty();
 }
 
-Rows Database::TxScope::queryDirect(const std::string& sql,
-                                     const Params& params) {
+Rows Database::TxScope::queryDirect(const std::string& sql, const Params& params) {
     Rows rows;
     execOrQuery(db, sql, params, &rows);
     return rows;
@@ -295,7 +301,8 @@ Rows Database::TxScope::queryDirect(const std::string& sql,
 
 bool Database::transactionSync(std::function<bool(TxScope&)> fn) {
     return impl_->postSync([this, fn = std::move(fn)]() -> bool {
-        if (execOrQuery(impl_->raw_db, "BEGIN", {}, nullptr) != "") return false;
+        if (execOrQuery(impl_->raw_db, "BEGIN", {}, nullptr) != "")
+            return false;
 
         TxScope scope;
         scope.db = impl_->raw_db;

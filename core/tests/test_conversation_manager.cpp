@@ -1,12 +1,14 @@
-#include <gtest/gtest.h>
 #include "conversation_manager.h"
 #include "notification_manager.h"
+
 #include "cache/conversation_cache.h"
 #include "db/database.h"
 #include "network/http_client.h"
 
 #include <memory>
 #include <string>
+
+#include <gtest/gtest.h>
 
 // ===========================================================================
 // Fixture
@@ -18,13 +20,12 @@ protected:
         ASSERT_TRUE(db_->open());
 
         conv_cache_ = std::make_unique<anychat::cache::ConversationCache>();
-        notif_mgr_  = std::make_unique<anychat::NotificationManager>();
+        notif_mgr_ = std::make_unique<anychat::NotificationManager>();
 
-        http_ = std::make_shared<anychat::network::HttpClient>(
-            "http://localhost:19999");
+        http_ = std::make_shared<anychat::network::HttpClient>("http://localhost:19999");
 
-        mgr_ = std::make_unique<anychat::ConversationManagerImpl>(
-            db_.get(), conv_cache_.get(), notif_mgr_.get(), http_);
+        mgr_ =
+            std::make_unique<anychat::ConversationManagerImpl>(db_.get(), conv_cache_.get(), notif_mgr_.get(), http_);
     }
 
     void TearDown() override {
@@ -36,11 +37,11 @@ protected:
         db_.reset();
     }
 
-    std::unique_ptr<anychat::db::Database>              db_;
-    std::unique_ptr<anychat::cache::ConversationCache>  conv_cache_;
-    std::unique_ptr<anychat::NotificationManager>       notif_mgr_;
-    std::shared_ptr<anychat::network::HttpClient>       http_;
-    std::unique_ptr<anychat::ConversationManagerImpl>   mgr_;
+    std::unique_ptr<anychat::db::Database> db_;
+    std::unique_ptr<anychat::cache::ConversationCache> conv_cache_;
+    std::unique_ptr<anychat::NotificationManager> notif_mgr_;
+    std::shared_ptr<anychat::network::HttpClient> http_;
+    std::unique_ptr<anychat::ConversationManagerImpl> mgr_;
 };
 
 // ---------------------------------------------------------------------------
@@ -79,8 +80,7 @@ TEST_F(ConversationManagerTest, SessionUnreadUpdatedNotificationFiresHandler) {
     })";
     notif_mgr_->handleRaw(frame);
 
-    EXPECT_GE(call_count, 1)
-        << "OnConversationUpdated should fire on session.unread_updated";
+    EXPECT_GE(call_count, 1) << "OnConversationUpdated should fire on session.unread_updated";
 }
 
 // ---------------------------------------------------------------------------

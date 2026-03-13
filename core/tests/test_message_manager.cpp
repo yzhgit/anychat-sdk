@@ -1,7 +1,7 @@
-#include <gtest/gtest.h>
 #include "message_manager.h"
 #include "notification_manager.h"
 #include "outbound_queue.h"
+
 #include "cache/message_cache.h"
 #include "db/database.h"
 #include "network/http_client.h"
@@ -9,6 +9,8 @@
 #include <atomic>
 #include <memory>
 #include <string>
+
+#include <gtest/gtest.h>
 
 // ===========================================================================
 // Fixture
@@ -19,13 +21,12 @@ protected:
         db_ = std::make_unique<anychat::db::Database>(":memory:");
         ASSERT_TRUE(db_->open()) << "Failed to open in-memory DB";
 
-        msg_cache_  = std::make_unique<anychat::cache::MessageCache>();
-        notif_mgr_  = std::make_unique<anychat::NotificationManager>();
+        msg_cache_ = std::make_unique<anychat::cache::MessageCache>();
+        notif_mgr_ = std::make_unique<anychat::NotificationManager>();
         outbound_q_ = std::make_unique<anychat::OutboundQueue>(db_.get());
 
         // Use a dummy HTTP client — no real network is needed.
-        http_ = std::make_shared<anychat::network::HttpClient>(
-            "http://localhost:19999");
+        http_ = std::make_shared<anychat::network::HttpClient>("http://localhost:19999");
 
         // Construct the message manager — this registers the notification
         // handler on notif_mgr_ internally.
@@ -35,7 +36,8 @@ protected:
             outbound_q_.get(),
             notif_mgr_.get(),
             http_,
-            "user-test-001");
+            "user-test-001"
+        );
     }
 
     void TearDown() override {
@@ -55,16 +57,15 @@ protected:
 
     // Count rows in outbound_queue.
     int outboundRowCount() {
-        return static_cast<int>(
-            db_->querySync("SELECT local_id FROM outbound_queue").size());
+        return static_cast<int>(db_->querySync("SELECT local_id FROM outbound_queue").size());
     }
 
-    std::unique_ptr<anychat::db::Database>          db_;
-    std::unique_ptr<anychat::cache::MessageCache>   msg_cache_;
-    std::unique_ptr<anychat::NotificationManager>   notif_mgr_;
-    std::unique_ptr<anychat::OutboundQueue>         outbound_q_;
-    std::shared_ptr<anychat::network::HttpClient>   http_;
-    std::unique_ptr<anychat::MessageManagerImpl>    mgr_;
+    std::unique_ptr<anychat::db::Database> db_;
+    std::unique_ptr<anychat::cache::MessageCache> msg_cache_;
+    std::unique_ptr<anychat::NotificationManager> notif_mgr_;
+    std::unique_ptr<anychat::OutboundQueue> outbound_q_;
+    std::shared_ptr<anychat::network::HttpClient> http_;
+    std::unique_ptr<anychat::MessageManagerImpl> mgr_;
 };
 
 // ---------------------------------------------------------------------------
@@ -75,18 +76,15 @@ protected:
 TEST_F(MessageManagerTest, SendTextMessageEnqueues) {
     bool cb_called = false;
 
-    mgr_->sendTextMessage("conv-1", "hello",
-        [&cb_called](bool /*success*/, const std::string& /*err*/) {
-            cb_called = true;
-        });
+    mgr_->sendTextMessage("conv-1", "hello", [&cb_called](bool /*success*/, const std::string& /*err*/) {
+        cb_called = true;
+    });
 
     // Drain DB so the async INSERT is committed.
     drainDb();
 
-    EXPECT_EQ(outboundRowCount(), 1)
-        << "One row should be present in outbound_queue";
-    EXPECT_FALSE(cb_called)
-        << "Callback should not be called before the server ack";
+    EXPECT_EQ(outboundRowCount(), 1) << "One row should be present in outbound_queue";
+    EXPECT_FALSE(cb_called) << "Callback should not be called before the server ack";
 }
 
 // ---------------------------------------------------------------------------
@@ -123,11 +121,11 @@ TEST_F(MessageManagerTest, IncomingMessageFiresHandler) {
     notif_mgr_->handleRaw(frame);
 
     ASSERT_EQ(call_count, 1) << "OnMessageReceived handler should be called once";
-    EXPECT_EQ(received_msg.message_id,   "msg-incoming-001");
-    EXPECT_EQ(received_msg.conv_id,      "conv-1");
-    EXPECT_EQ(received_msg.sender_id,    "user-sender-999");
-    EXPECT_EQ(received_msg.content,      "你好吗？");
-    EXPECT_EQ(received_msg.seq,          7);
+    EXPECT_EQ(received_msg.message_id, "msg-incoming-001");
+    EXPECT_EQ(received_msg.conv_id, "conv-1");
+    EXPECT_EQ(received_msg.sender_id, "user-sender-999");
+    EXPECT_EQ(received_msg.content, "你好吗？");
+    EXPECT_EQ(received_msg.seq, 7);
     EXPECT_EQ(received_msg.timestamp_ms, 1708329600LL * 1000LL);
 }
 
@@ -159,8 +157,7 @@ TEST_F(MessageManagerTest, IncomingMessageCacheDedup) {
     notif_mgr_->handleRaw(frame);
 
     auto cached = msg_cache_->get("conv-dedup");
-    EXPECT_EQ(cached.size(), 1u)
-        << "Message cache should store only one copy of a duplicate message_id";
+    EXPECT_EQ(cached.size(), 1u) << "Message cache should store only one copy of a duplicate message_id";
     EXPECT_EQ(cached[0].message_id, "msg-dup-001");
 }
 
@@ -171,7 +168,9 @@ TEST_F(MessageManagerTest, IncomingMessageCacheDedup) {
 // ---------------------------------------------------------------------------
 TEST_F(MessageManagerTest, NonMessageNewNotificationDoesNotFireHandler) {
     int call_count = 0;
-    mgr_->setOnMessageReceived([&](const anychat::Message&) { ++call_count; });
+    mgr_->setOnMessageReceived([&](const anychat::Message&) {
+        ++call_count;
+    });
 
     const std::string frame = R"({
         "type": "notification",
@@ -187,8 +186,7 @@ TEST_F(MessageManagerTest, NonMessageNewNotificationDoesNotFireHandler) {
 
     notif_mgr_->handleRaw(frame);
 
-    EXPECT_EQ(call_count, 0)
-        << "OnMessageReceived should not be called for non-message.new notifications";
+    EXPECT_EQ(call_count, 0) << "OnMessageReceived should not be called for non-message.new notifications";
 }
 
 // ---------------------------------------------------------------------------
@@ -196,14 +194,13 @@ TEST_F(MessageManagerTest, NonMessageNewNotificationDoesNotFireHandler) {
 //    Sending several messages enqueues each as a separate DB row.
 // ---------------------------------------------------------------------------
 TEST_F(MessageManagerTest, SendTextMessageMultiple) {
-    mgr_->sendTextMessage("conv-m", "first",  nullptr);
+    mgr_->sendTextMessage("conv-m", "first", nullptr);
     mgr_->sendTextMessage("conv-m", "second", nullptr);
-    mgr_->sendTextMessage("conv-m", "third",  nullptr);
+    mgr_->sendTextMessage("conv-m", "third", nullptr);
 
     drainDb();
 
-    EXPECT_EQ(outboundRowCount(), 3)
-        << "Each sendTextMessage call should create one outbound_queue row";
+    EXPECT_EQ(outboundRowCount(), 3) << "Each sendTextMessage call should create one outbound_queue row";
 }
 
 // ---------------------------------------------------------------------------
@@ -235,6 +232,5 @@ TEST_F(MessageManagerTest, SetCurrentUserId) {
         }
     })");
 
-    EXPECT_TRUE(handler_called)
-        << "Handler should still fire after setCurrentUserId";
+    EXPECT_TRUE(handler_called) << "Handler should still fire after setCurrentUserId";
 }

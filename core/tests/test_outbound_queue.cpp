@@ -1,14 +1,16 @@
-#include <gtest/gtest.h>
-#include "outbound_queue.h"
-#include "db/database.h"
 #include "notification_manager.h"
+#include "outbound_queue.h"
 
-#include <nlohmann/json.hpp>
+#include "db/database.h"
 
 #include <atomic>
 #include <functional>
 #include <memory>
 #include <string>
+
+#include <nlohmann/json.hpp>
+
+#include <gtest/gtest.h>
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -16,7 +18,7 @@
 class OutboundQueueTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        db_  = std::make_unique<anychat::db::Database>(":memory:");
+        db_ = std::make_unique<anychat::db::Database>(":memory:");
         ASSERT_TRUE(db_->open()) << "Failed to open in-memory DB";
         queue_ = std::make_unique<anychat::OutboundQueue>(db_.get());
     }
@@ -36,9 +38,7 @@ protected:
 
     // Count rows in outbound_queue for a given local_id.
     int rowCount(const std::string& local_id) {
-        auto rows = db_->querySync(
-            "SELECT local_id FROM outbound_queue WHERE local_id = ?",
-            {local_id});
+        auto rows = db_->querySync("SELECT local_id FROM outbound_queue WHERE local_id = ?", { local_id });
         return static_cast<int>(rows.size());
     }
 
@@ -48,7 +48,7 @@ protected:
         return static_cast<int>(rows.size());
     }
 
-    std::unique_ptr<anychat::db::Database>  db_;
+    std::unique_ptr<anychat::db::Database> db_;
     std::unique_ptr<anychat::OutboundQueue> queue_;
 };
 
@@ -59,14 +59,12 @@ protected:
 TEST_F(OutboundQueueTest, EnqueuePersists) {
     const std::string local_id = "local-001";
 
-    queue_->enqueue("conv-1", "private", "text", "Hello world", local_id,
-                    nullptr);
+    queue_->enqueue("conv-1", "private", "text", "Hello world", local_id, nullptr);
 
     // drainDb() ensures the async INSERT has been committed.
     drainDb();
 
-    EXPECT_EQ(rowCount(local_id), 1)
-        << "A row for the enqueued message should exist in outbound_queue";
+    EXPECT_EQ(rowCount(local_id), 1) << "A row for the enqueued message should exist in outbound_queue";
 }
 
 // ---------------------------------------------------------------------------
@@ -76,8 +74,7 @@ TEST_F(OutboundQueueTest, EnqueuePersists) {
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, FlushOnConnect) {
     const std::string local_id = "local-002";
-    queue_->enqueue("conv-flush", "private", "text", "Test content", local_id,
-                    nullptr);
+    queue_->enqueue("conv-flush", "private", "text", "Test content", local_id, nullptr);
     drainDb();
 
     std::vector<std::string> sent_payloads;
@@ -85,8 +82,7 @@ TEST_F(OutboundQueueTest, FlushOnConnect) {
         sent_payloads.push_back(payload);
     });
 
-    ASSERT_EQ(sent_payloads.size(), 1u)
-        << "send_fn should have been called once for the queued message";
+    ASSERT_EQ(sent_payloads.size(), 1u) << "send_fn should have been called once for the queued message";
 
     // Verify the JSON structure of the sent payload.
     nlohmann::json frame = nlohmann::json::parse(sent_payloads[0]);
@@ -105,14 +101,13 @@ TEST_F(OutboundQueueTest, FlushOnConnect) {
 TEST_F(OutboundQueueTest, AckRemovesRow) {
     const std::string local_id = "local-003";
 
-    bool cb_called  = false;
+    bool cb_called = false;
     bool cb_success = false;
 
-    queue_->enqueue("conv-ack", "private", "text", "Ack test", local_id,
-                    [&](bool success, const std::string& /*err*/) {
-                        cb_called  = true;
-                        cb_success = success;
-                    });
+    queue_->enqueue("conv-ack", "private", "text", "Ack test", local_id, [&](bool success, const std::string& /*err*/) {
+        cb_called = true;
+        cb_success = success;
+    });
     drainDb();
 
     // Connect (flush any pending rows).
@@ -120,19 +115,18 @@ TEST_F(OutboundQueueTest, AckRemovesRow) {
 
     // Simulate server ack.
     anychat::MsgSentAck ack;
-    ack.local_id   = local_id;
+    ack.local_id = local_id;
     ack.message_id = "server-msg-001";
-    ack.sequence   = 1;
-    ack.timestamp  = 1708329600;
+    ack.sequence = 1;
+    ack.timestamp = 1708329600;
     queue_->onMessageSentAck(ack);
 
     // Drain to let the async DELETE settle.
     drainDb();
 
-    EXPECT_EQ(rowCount(local_id), 0)
-        << "Row should be removed from outbound_queue after ack";
-    EXPECT_TRUE(cb_called)   << "MessageCallback should have been invoked";
-    EXPECT_TRUE(cb_success)  << "MessageCallback should indicate success";
+    EXPECT_EQ(rowCount(local_id), 0) << "Row should be removed from outbound_queue after ack";
+    EXPECT_TRUE(cb_called) << "MessageCallback should have been invoked";
+    EXPECT_TRUE(cb_success) << "MessageCallback should indicate success";
 }
 
 // ---------------------------------------------------------------------------
@@ -143,8 +137,7 @@ TEST_F(OutboundQueueTest, AckRemovesRow) {
 TEST_F(OutboundQueueTest, RetryOnReconnect) {
     const std::string local_id = "local-004";
 
-    queue_->enqueue("conv-retry", "private", "text", "Retry me", local_id,
-                    nullptr);
+    queue_->enqueue("conv-retry", "private", "text", "Retry me", local_id, nullptr);
     drainDb();
 
     // First connection — row is sent, but NOT acknowledged (no ack received).
@@ -159,16 +152,14 @@ TEST_F(OutboundQueueTest, RetryOnReconnect) {
 
     // Row should still be in the DB because no ack was received.
     drainDb();
-    EXPECT_EQ(rowCount(local_id), 1)
-        << "Unacknowledged row must remain in outbound_queue after disconnect";
+    EXPECT_EQ(rowCount(local_id), 1) << "Unacknowledged row must remain in outbound_queue after disconnect";
 
     // Second connection — row should be re-sent.
     int second_send_count = 0;
     queue_->onConnected([&second_send_count](const std::string&) {
         ++second_send_count;
     });
-    EXPECT_EQ(second_send_count, 1)
-        << "Unacknowledged message should be re-sent on reconnect";
+    EXPECT_EQ(second_send_count, 1) << "Unacknowledged message should be re-sent on reconnect";
 }
 
 // ---------------------------------------------------------------------------
@@ -178,12 +169,11 @@ TEST_F(OutboundQueueTest, RetryOnReconnect) {
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, DuplicateLocalIdIgnored) {
     const std::string local_id = "local-dup";
-    queue_->enqueue("conv-1", "private", "text", "first",  local_id, nullptr);
+    queue_->enqueue("conv-1", "private", "text", "first", local_id, nullptr);
     queue_->enqueue("conv-1", "private", "text", "second", local_id, nullptr);
     drainDb();
 
-    EXPECT_EQ(rowCount(local_id), 1)
-        << "Duplicate local_id should not create a second row";
+    EXPECT_EQ(rowCount(local_id), 1) << "Duplicate local_id should not create a second row";
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +189,9 @@ TEST_F(OutboundQueueTest, MultipleEnqueueFlushesAll) {
     EXPECT_EQ(totalRows(), 3);
 
     int send_count = 0;
-    queue_->onConnected([&send_count](const std::string&) { ++send_count; });
+    queue_->onConnected([&send_count](const std::string&) {
+        ++send_count;
+    });
 
     EXPECT_EQ(send_count, 3) << "All three queued messages should be sent on connect";
 }

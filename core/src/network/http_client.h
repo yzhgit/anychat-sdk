@@ -7,9 +7,9 @@
 namespace anychat::network {
 
 struct HttpResponse {
-    int         status_code = 0;
+    int status_code = 0;
     std::string body;
-    std::string error;  // non-empty on transport failure (not HTTP errors)
+    std::string error; // non-empty on transport failure (not HTTP errors)
 };
 
 using HttpCallback = std::function<void(HttpResponse)>;
@@ -21,7 +21,7 @@ public:
     explicit HttpClient(std::string base_url);
     ~HttpClient();
 
-    HttpClient(const HttpClient&)            = delete;
+    HttpClient(const HttpClient&) = delete;
     HttpClient& operator=(const HttpClient&) = delete;
 
     // Set/clear the Bearer token added to every request.

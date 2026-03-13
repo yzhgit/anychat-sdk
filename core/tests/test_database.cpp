@@ -1,5 +1,6 @@
-#include <gtest/gtest.h>
 #include "db/database.h"
+
+#include <gtest/gtest.h>
 // Note: runMigrations() takes a raw sqlite3*, which is only accessible internally.
 // Database::open() already calls runMigrations() internally.
 // We test the full Database API via the public interface.
@@ -46,15 +47,14 @@ TEST_F(DatabaseTest, OpenAndMigrate) {
 TEST_F(DatabaseTest, ExecAndQuerySync) {
     bool ok = db_->execSync(
         "INSERT INTO metadata (key, value) VALUES (?, ?)",
-        {std::string("testkey"), std::string("testvalue")});
+        { std::string("testkey"), std::string("testvalue") }
+    );
     ASSERT_TRUE(ok) << "execSync INSERT failed";
 
-    Rows rows = db_->querySync(
-        "SELECT key, value FROM metadata WHERE key = ?",
-        {std::string("testkey")});
+    Rows rows = db_->querySync("SELECT key, value FROM metadata WHERE key = ?", { std::string("testkey") });
 
     ASSERT_EQ(rows.size(), 1u);
-    EXPECT_EQ(rows[0].at("key"),   "testkey");
+    EXPECT_EQ(rows[0].at("key"), "testkey");
     EXPECT_EQ(rows[0].at("value"), "testvalue");
 }
 
@@ -67,16 +67,17 @@ TEST_F(DatabaseTest, TransactionCommit) {
     bool committed = db_->transactionSync([](TxScope& tx) -> bool {
         bool ok1 = tx.execDirect(
             "INSERT INTO metadata (key, value) VALUES (?, ?)",
-            {std::string("tx_key1"), std::string("val1")});
+            { std::string("tx_key1"), std::string("val1") }
+        );
         bool ok2 = tx.execDirect(
             "INSERT INTO metadata (key, value) VALUES (?, ?)",
-            {std::string("tx_key2"), std::string("val2")});
+            { std::string("tx_key2"), std::string("val2") }
+        );
         return ok1 && ok2;
     });
     ASSERT_TRUE(committed) << "Transaction should have committed";
 
-    Rows rows = db_->querySync(
-        "SELECT key FROM metadata WHERE key IN ('tx_key1','tx_key2') ORDER BY key");
+    Rows rows = db_->querySync("SELECT key FROM metadata WHERE key IN ('tx_key1','tx_key2') ORDER BY key");
     ASSERT_EQ(rows.size(), 2u);
     EXPECT_EQ(rows[0].at("key"), "tx_key1");
     EXPECT_EQ(rows[1].at("key"), "tx_key2");
@@ -90,15 +91,14 @@ TEST_F(DatabaseTest, TransactionRollback) {
     bool committed = db_->transactionSync([](TxScope& tx) -> bool {
         tx.execDirect(
             "INSERT INTO metadata (key, value) VALUES (?, ?)",
-            {std::string("rollback_key"), std::string("should_not_persist")});
+            { std::string("rollback_key"), std::string("should_not_persist") }
+        );
         // Signal rollback by returning false.
         return false;
     });
     EXPECT_FALSE(committed) << "Transaction should have rolled back";
 
-    Rows rows = db_->querySync(
-        "SELECT key FROM metadata WHERE key = ?",
-        {std::string("rollback_key")});
+    Rows rows = db_->querySync("SELECT key FROM metadata WHERE key = ?", { std::string("rollback_key") });
     EXPECT_TRUE(rows.empty()) << "Rolled-back row should not be present";
 }
 
@@ -110,15 +110,14 @@ TEST_F(DatabaseTest, TransactionRollbackOnException) {
     bool committed = db_->transactionSync([](TxScope& tx) -> bool {
         tx.execDirect(
             "INSERT INTO metadata (key, value) VALUES (?, ?)",
-            {std::string("exception_key"), std::string("nope")});
+            { std::string("exception_key"), std::string("nope") }
+        );
         throw std::runtime_error("intentional error");
         return true; // unreachable
     });
     EXPECT_FALSE(committed) << "Transaction should have rolled back on exception";
 
-    Rows rows = db_->querySync(
-        "SELECT key FROM metadata WHERE key = ?",
-        {std::string("exception_key")});
+    Rows rows = db_->querySync("SELECT key FROM metadata WHERE key = ?", { std::string("exception_key") });
     EXPECT_TRUE(rows.empty()) << "Row inserted before throw should not persist";
 }
 

@@ -1,8 +1,10 @@
-#include <gtest/gtest.h>
-#include "cache/lru_cache.h"
-#include "cache/conversation_cache.h"
-#include "cache/message_cache.h"
 #include "anychat/types.h"
+
+#include "cache/conversation_cache.h"
+#include "cache/lru_cache.h"
+#include "cache/message_cache.h"
+
+#include <gtest/gtest.h>
 
 // ===========================================================================
 // LruCache tests
@@ -47,9 +49,9 @@ TEST(LruCacheTest, LruOrdering) {
     // Insert "c": "b" is now LRU and should be evicted.
     cache.put("c", 3);
 
-    EXPECT_TRUE(cache.get("a").has_value())  << "'a' should still be present";
+    EXPECT_TRUE(cache.get("a").has_value()) << "'a' should still be present";
     EXPECT_FALSE(cache.get("b").has_value()) << "'b' should have been evicted";
-    EXPECT_TRUE(cache.get("c").has_value())  << "'c' should be present";
+    EXPECT_TRUE(cache.get("c").has_value()) << "'c' should be present";
 }
 
 TEST(LruCacheTest, UpdateExistingKey) {
@@ -85,13 +87,11 @@ TEST(LruCacheTest, Clear) {
 
 namespace {
 // Helper to build a minimal Message for the cache tests.
-anychat::Message makeMsg(const std::string& conv_id,
-                          const std::string& message_id,
-                          int64_t seq) {
+anychat::Message makeMsg(const std::string& conv_id, const std::string& message_id, int64_t seq) {
     anychat::Message m;
-    m.conv_id    = conv_id;
+    m.conv_id = conv_id;
     m.message_id = message_id;
-    m.seq        = seq;
+    m.seq = seq;
     return m;
 }
 } // anonymous namespace
@@ -121,12 +121,10 @@ TEST(MessageCacheTest, GapDetection) {
     cache.insert(makeMsg("c1", "msg-5", 5));
 
     // Next expected seq is 6. Incoming seq=7 means there is a gap.
-    EXPECT_TRUE(cache.hasGapBefore("c1", 7))
-        << "Gap expected: cached max_seq=5, incoming seq=7";
+    EXPECT_TRUE(cache.hasGapBefore("c1", 7)) << "Gap expected: cached max_seq=5, incoming seq=7";
 
     // seq=6 is the next expected — no gap.
-    EXPECT_FALSE(cache.hasGapBefore("c1", 6))
-        << "No gap: cached max_seq=5, incoming seq=6 (next in sequence)";
+    EXPECT_FALSE(cache.hasGapBefore("c1", 6)) << "No gap: cached max_seq=5, incoming seq=6 (next in sequence)";
 }
 
 TEST(MessageCacheTest, GapDetectionEmptyCache) {
@@ -178,15 +176,13 @@ TEST(MessageCacheTest, RemoveConversation) {
 
 namespace {
 // Helper to build a minimal Conversation for the cache tests.
-anychat::Conversation makeConv(const std::string& conv_id,
-                                bool is_pinned,
-                                int64_t last_msg_time_ms,
-                                int64_t pin_time_ms = 0) {
+anychat::Conversation
+makeConv(const std::string& conv_id, bool is_pinned, int64_t last_msg_time_ms, int64_t pin_time_ms = 0) {
     anychat::Conversation c;
-    c.conv_id          = conv_id;
-    c.is_pinned        = is_pinned;
+    c.conv_id = conv_id;
+    c.is_pinned = is_pinned;
     c.last_msg_time_ms = last_msg_time_ms;
-    c.pin_time_ms      = pin_time_ms;
+    c.pin_time_ms = pin_time_ms;
     return c;
 }
 } // anonymous namespace
@@ -200,7 +196,7 @@ TEST(ConversationCacheTest, UpsertAndGet) {
 
     auto result = cache.get("conv-1");
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->conv_id,   "conv-1");
+    EXPECT_EQ(result->conv_id, "conv-1");
     EXPECT_EQ(result->target_id, "user-abc");
 }
 
@@ -222,19 +218,19 @@ TEST(ConversationCacheTest, SortOrderPinnedFirst) {
     anychat::cache::ConversationCache cache;
     // Insert unpinned then pinned — the sorted list should put pinned first.
     cache.upsert(makeConv("unpinned", false, 5000));
-    cache.upsert(makeConv("pinned",   true,  1000, /*pin_time=*/100));
+    cache.upsert(makeConv("pinned", true, 1000, /*pin_time=*/100));
 
     auto all = cache.getAll();
     ASSERT_EQ(all.size(), 2u);
-    EXPECT_EQ(all[0].conv_id, "pinned")   << "Pinned conversation should come first";
+    EXPECT_EQ(all[0].conv_id, "pinned") << "Pinned conversation should come first";
     EXPECT_EQ(all[1].conv_id, "unpinned") << "Unpinned conversation should come second";
 }
 
 TEST(ConversationCacheTest, SortOrderUnpinnedByTime) {
     anychat::cache::ConversationCache cache;
     // Among unpinned, higher last_msg_time_ms should come first.
-    cache.upsert(makeConv("older",  false, 1000));
-    cache.upsert(makeConv("newer",  false, 9000));
+    cache.upsert(makeConv("older", false, 1000));
+    cache.upsert(makeConv("newer", false, 9000));
     cache.upsert(makeConv("middle", false, 5000));
 
     auto all = cache.getAll();
@@ -287,8 +283,8 @@ TEST(ConversationCacheTest, SetLastMessage) {
     cache.setLastMessage("c1", "msg-99", "Hello!", 9999);
     auto result = cache.get("c1");
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->last_msg_id,      "msg-99");
-    EXPECT_EQ(result->last_msg_text,    "Hello!");
+    EXPECT_EQ(result->last_msg_id, "msg-99");
+    EXPECT_EQ(result->last_msg_text, "Hello!");
     EXPECT_EQ(result->last_msg_time_ms, 9999);
 }
 

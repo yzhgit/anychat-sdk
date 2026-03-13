@@ -1,11 +1,12 @@
 #pragma once
 
 #include "notification_manager.h"
-#include "db/database.h"
+
 #include "../include/anychat/message.h"
+#include "db/database.h"
 
 #include <functional>
-    // `memory` include not needed (no shared_ptr)
+// `memory` include not needed (no shared_ptr)
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -32,18 +33,20 @@ public:
     explicit OutboundQueue(db::Database* db);
     ~OutboundQueue() = default;
 
-    OutboundQueue(const OutboundQueue&)            = delete;
+    OutboundQueue(const OutboundQueue&) = delete;
     OutboundQueue& operator=(const OutboundQueue&) = delete;
 
     // Persist a new outbound message and register its callback.
     // `conv_type` defaults to "private".  Pass "group" for group conversations.
     // `local_id`  must be globally unique (caller-generated UUID or similar).
-    void enqueue(const std::string& conv_id,
-                 const std::string& conv_type,
-                 const std::string& content_type,
-                 const std::string& content,
-                 const std::string& local_id,
-                 MessageCallback    cb);
+    void enqueue(
+        const std::string& conv_id,
+        const std::string& conv_type,
+        const std::string& content_type,
+        const std::string& content,
+        const std::string& local_id,
+        MessageCallback cb
+    );
 
     // Called when the WebSocket connection is established.
     // Flushes all pending rows through `send_fn`.
@@ -61,20 +64,24 @@ public:
 
 private:
     // Build the JSON payload for a message.send frame.
-    static std::string buildSendFrame(const std::string& conv_id,
-                                      const std::string& conv_type,
-                                      const std::string& content_type,
-                                      const std::string& content,
-                                      const std::string& local_id);
+    static std::string buildSendFrame(
+        const std::string& conv_id,
+        const std::string& conv_type,
+        const std::string& content_type,
+        const std::string& content,
+        const std::string& local_id
+    );
 
     // Send a single row and increment its retry_count in the DB.
     // Must be called while holding mu_ (shared or exclusive as appropriate)
     // and while send_fn_ is valid.
-    void sendRow(const std::string& conv_id,
-                 const std::string& conv_type,
-                 const std::string& content_type,
-                 const std::string& content,
-                 const std::string& local_id);
+    void sendRow(
+        const std::string& conv_id,
+        const std::string& conv_type,
+        const std::string& content_type,
+        const std::string& content,
+        const std::string& local_id
+    );
 
     db::Database* db_;
 

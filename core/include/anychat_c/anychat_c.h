@@ -18,14 +18,14 @@
  */
 #pragma once
 
-#include "errors_c.h"
-#include "types_c.h"
-#include "client_c.h"
 #include "auth_c.h"
-#include "message_c.h"
+#include "client_c.h"
 #include "conversation_c.h"
+#include "errors_c.h"
+#include "file_c.h"
 #include "friend_c.h"
 #include "group_c.h"
-#include "file_c.h"
-#include "user_c.h"
+#include "message_c.h"
 #include "rtc_c.h"
+#include "types_c.h"
+#include "user_c.h"

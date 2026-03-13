@@ -36,16 +36,16 @@ public:
 
         // Dedup by message_id.
         for (const auto& m : bucket) {
-            if (m.message_id == msg.message_id) return;
+            if (m.message_id == msg.message_id)
+                return;
         }
 
         bucket.push_back(msg);
 
         // Keep sorted by seq ascending.
-        std::sort(bucket.begin(), bucket.end(),
-                  [](const Message& a, const Message& b) {
-                      return a.seq < b.seq;
-                  });
+        std::sort(bucket.begin(), bucket.end(), [](const Message& a, const Message& b) {
+            return a.seq < b.seq;
+        });
 
         // Evict the oldest (lowest-seq) entry when over capacity.
         if (bucket.size() > bucket_size_) {
@@ -58,7 +58,8 @@ public:
     std::vector<Message> get(const std::string& conv_id) const {
         std::lock_guard<std::mutex> lk(mutex_);
         auto it = buckets_.find(conv_id);
-        if (it == buckets_.end()) return {};
+        if (it == buckets_.end())
+            return {};
         return it->second; // already sorted
     }
 
@@ -67,7 +68,8 @@ public:
     int64_t maxSeq(const std::string& conv_id) const {
         std::lock_guard<std::mutex> lk(mutex_);
         auto it = buckets_.find(conv_id);
-        if (it == buckets_.end() || it->second.empty()) return 0;
+        if (it == buckets_.end() || it->second.empty())
+            return 0;
         return it->second.back().seq; // back = highest seq (sorted asc)
     }
 

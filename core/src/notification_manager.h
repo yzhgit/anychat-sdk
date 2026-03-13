@@ -1,26 +1,27 @@
 #pragma once
 
 #include <functional>
-#include <shared_mutex>
 #include <string>
 #include <vector>
 
 #include <nlohmann/json.hpp>
+
+#include <shared_mutex>
 
 namespace anychat {
 
 // Payload delivered when the server acknowledges a sent message.
 struct MsgSentAck {
     std::string message_id;
-    int64_t     sequence  = 0;
-    int64_t     timestamp = 0;  // Unix seconds
-    std::string local_id;       // echoed client-generated local ID
+    int64_t sequence = 0;
+    int64_t timestamp = 0; // Unix seconds
+    std::string local_id; // echoed client-generated local ID
 };
 
 // Payload delivered for all server-pushed notification events.
 struct NotificationEvent {
-    std::string    notification_type;
-    int64_t        timestamp = 0;   // Unix seconds
+    std::string notification_type;
+    int64_t timestamp = 0; // Unix seconds
     nlohmann::json data;
 };
 
@@ -39,14 +40,14 @@ struct NotificationEvent {
 class NotificationManager {
 public:
     using MsgSentHandler = std::function<void(const MsgSentAck&)>;
-    using NotifHandler   = std::function<void(const NotificationEvent&)>;
-    using PongHandler    = std::function<void()>;
+    using NotifHandler = std::function<void(const NotificationEvent&)>;
+    using PongHandler = std::function<void()>;
 
-    NotificationManager()  = default;
+    NotificationManager() = default;
     ~NotificationManager() = default;
 
     // Not copyable or movable — handlers are expected to be stable pointers.
-    NotificationManager(const NotificationManager&)            = delete;
+    NotificationManager(const NotificationManager&) = delete;
     NotificationManager& operator=(const NotificationManager&) = delete;
 
     // Register callbacks. Passing nullptr clears the slot (message-sent / pong).
@@ -67,9 +68,9 @@ public:
 private:
     mutable std::shared_mutex mu_;
 
-    MsgSentHandler             on_msg_sent_;
-    std::vector<NotifHandler>  notification_handlers_;
-    PongHandler                on_pong_;
+    MsgSentHandler on_msg_sent_;
+    std::vector<NotifHandler> notification_handlers_;
+    PongHandler on_pong_;
 };
 
 } // namespace anychat

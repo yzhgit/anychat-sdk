@@ -45,11 +45,15 @@ public:
     void remove(const std::string& conv_id) {
         std::lock_guard<std::mutex> lk(mutex_);
         convs_.erase(
-            std::remove_if(convs_.begin(), convs_.end(),
-                           [&](const Conversation& c) {
-                               return c.conv_id == conv_id;
-                           }),
-            convs_.end());
+            std::remove_if(
+                convs_.begin(),
+                convs_.end(),
+                [&](const Conversation& c) {
+                    return c.conv_id == conv_id;
+                }
+            ),
+            convs_.end()
+        );
         // No sort needed after removal.
     }
 
@@ -63,7 +67,8 @@ public:
     std::optional<Conversation> get(const std::string& conv_id) const {
         std::lock_guard<std::mutex> lk(mutex_);
         for (const auto& c : convs_) {
-            if (c.conv_id == conv_id) return c;
+            if (c.conv_id == conv_id)
+                return c;
         }
         return std::nullopt;
     }
@@ -74,7 +79,8 @@ public:
         std::lock_guard<std::mutex> lk(mutex_);
         for (auto& c : convs_) {
             if (c.conv_id == conv_id) {
-                if (!c.is_muted) ++c.unread_count;
+                if (!c.is_muted)
+                    ++c.unread_count;
                 return;
             }
         }
@@ -93,14 +99,16 @@ public:
 
     // Update last-message metadata and re-sort (since last_msg_time affects
     // sort order for non-pinned conversations).
-    void setLastMessage(const std::string& conv_id,
-                        const std::string& msg_id,
-                        const std::string& text,
-                        int64_t            timestamp_ms) {
+    void setLastMessage(
+        const std::string& conv_id,
+        const std::string& msg_id,
+        const std::string& text,
+        int64_t timestamp_ms
+    ) {
         std::lock_guard<std::mutex> lk(mutex_);
         for (auto& c : convs_) {
             if (c.conv_id == conv_id) {
-                c.last_msg_id   = msg_id;
+                c.last_msg_id = msg_id;
                 c.last_msg_text = text;
                 c.last_msg_time_ms = timestamp_ms;
                 sort();
@@ -117,22 +125,21 @@ public:
 private:
     // Sort convs_ in place.  Must be called with mutex_ held.
     void sort() {
-        std::stable_sort(convs_.begin(), convs_.end(),
-            [](const Conversation& a, const Conversation& b) {
-                // Pinned conversations come first.
-                if (a.is_pinned != b.is_pinned)
-                    return a.is_pinned > b.is_pinned;
+        std::stable_sort(convs_.begin(), convs_.end(), [](const Conversation& a, const Conversation& b) {
+            // Pinned conversations come first.
+            if (a.is_pinned != b.is_pinned)
+                return a.is_pinned > b.is_pinned;
 
-                // Among pinned: higher pin_time_ms first.
-                if (a.is_pinned && b.is_pinned)
-                    return a.pin_time_ms > b.pin_time_ms;
+            // Among pinned: higher pin_time_ms first.
+            if (a.is_pinned && b.is_pinned)
+                return a.pin_time_ms > b.pin_time_ms;
 
-                // Among non-pinned: most-recently-active first.
-                return a.last_msg_time_ms > b.last_msg_time_ms;
-            });
+            // Among non-pinned: most-recently-active first.
+            return a.last_msg_time_ms > b.last_msg_time_ms;
+        });
     }
 
-    mutable std::mutex        mutex_;
+    mutable std::mutex mutex_;
     std::vector<Conversation> convs_;
 };
 

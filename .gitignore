@@ -53,6 +53,9 @@ packages/web/dist/
 *.swp
 *.swo
 
+# AI
+.claude/
+
 # macOS
 .DS_Store
 
@@ -61,9 +64,6 @@ generated/
 
 # Tool artifacts
 openapitools.json
-
-# CPM download cache
-build/cmake/CPM*.cmake
 
 # Test artifacts
 coverage/

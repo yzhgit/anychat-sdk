@@ -1,0 +1,150 @@
+---
+# C++17 Standard
+Standard: c++17
+
+# Line length and indentation
+ColumnLimit: 120
+TabWidth: 4
+UseTab: Never
+IndentWidth: 4
+AccessModifierOffset: -4
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
+ObjCBlockIndentWidth: 4
+
+# Alignment
+AlignAfterOpenBracket: BlockIndent
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignEscapedNewlines: DontAlign
+AlignOperands: Align
+AlignTrailingComments: false
+
+# Allow short constructs on a single line
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine: false
+
+# Break style
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: false
+BinPackParameters: false
+
+# Brace wrapping
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: false
+  AfterEnum: true
+  AfterFunction: false
+  AfterNamespace: false
+  AfterObjCDeclaration: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  BeforeLambdaBody: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+# Break positions
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+BreakInheritanceList: BeforeComma
+BreakStringLiterals: false
+
+# Namespace and preprocessor
+CompactNamespaces: false
+FixNamespaceComments: true
+IndentPPDirectives: AfterHash
+NamespaceIndentation: None
+
+# Case and labels
+IndentCaseLabels: true
+IndentWrappedFunctionNames: false
+
+# Empty lines
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+
+# Comments
+ReflowComments: false
+
+# Sorting
+SortUsingDeclarations: false
+SortIncludes: CaseSensitive
+
+# Spacing
+SpaceAfterCStyleCast: true
+SpaceAfterTemplateKeyword: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Pointer and reference alignment
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Include sorting and grouping
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Main header for implementation files (highest priority)
+  - Regex:           '^"[^/]*\.h"$'
+    Priority:        1
+    SortPriority:    1
+  # C API headers (anychat_c/)
+  - Regex:           '^"anychat_c/'
+    Priority:        2
+    SortPriority:    2
+  # C++ API headers (anychat/)
+  - Regex:           '^"anychat/'
+    Priority:        3
+    SortPriority:    3
+  # Other project headers
+  - Regex:           '^".*"'
+    Priority:        4
+    SortPriority:    4
+  # C++ standard library
+  - Regex:           '^<(algorithm|array|atomic|chrono|condition_variable|cstddef|cstdint|cstdio|cstdlib|cstring|deque|exception|filesystem|forward_list|fstream|functional|iomanip|ios|iosfwd|iostream|istream|iterator|limits|list|locale|map|memory|memory_resource|mutex|new|numeric|optional|ostream|queue|random|ratio|regex|set|sstream|stack|stdexcept|streambuf|string|string_view|system_error|thread|tuple|type_traits|typeindex|typeinfo|unordered_map|unordered_set|utility|valarray|variant|vector)>'
+    Priority:        5
+    SortPriority:    5
+  # Third-party libraries (curl, libwebsockets, nlohmann/json, sqlite3)
+  - Regex:           '^<(curl|websockets|nlohmann|sqlite3)/'
+    Priority:        6
+    SortPriority:    6
+  # System C libraries
+  - Regex:           '^<[a-z_]+\.h>'
+    Priority:        7
+    SortPriority:    7
+  # Other system/third-party headers
+  - Regex:           '^<.*>'
+    Priority:        8
+    SortPriority:    8
+
+# C++11 style
+Cpp11BracedListStyle: false
+
+# Language-specific
+Language: Cpp

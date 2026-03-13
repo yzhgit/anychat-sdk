@@ -3,10 +3,10 @@
 // ConnectionManager 单元测试。
 // 所有 WebSocket 和网络事件通过 Fake 对象同步驱动，不依赖真实网络或计时器。
 
-#include <gtest/gtest.h>
+#include "connection_manager.h" // 待测类（内部头）
 
-#include "connection_manager.h"           // 待测类（内部头）
 #include "anychat/network_monitor.h"
+
 #include "network/iwebsocket_client.h"
 
 #include <atomic>
@@ -14,6 +14,8 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 using namespace anychat;
 using namespace anychat::network;
@@ -30,15 +32,21 @@ public:
     explicit FakeNetworkMonitor(NetworkStatus initial = NetworkStatus::ReachableViaWiFi)
         : status_(initial) {}
 
-    NetworkStatus currentStatus() const override { return status_; }
+    NetworkStatus currentStatus() const override {
+        return status_;
+    }
 
     void setOnStatusChanged(StatusChangedCallback cb) override {
         std::lock_guard<std::mutex> lock(mu_);
         cb_ = std::move(cb);
     }
 
-    void start() override { ++start_count; }
-    void stop()  override { ++stop_count;  }
+    void start() override {
+        ++start_count;
+    }
+    void stop() override {
+        ++stop_count;
+    }
 
     // 测试辅助：模拟网络变化
     void setStatus(NetworkStatus s) {
@@ -48,16 +56,17 @@ public:
             std::lock_guard<std::mutex> lock(mu_);
             cb = cb_;
         }
-        if (cb) cb(s);
+        if (cb)
+            cb(s);
     }
 
     int start_count = 0;
-    int stop_count  = 0;
+    int stop_count = 0;
 
 private:
     std::atomic<NetworkStatus> status_;
-    mutable std::mutex         mu_;
-    StatusChangedCallback      cb_;
+    mutable std::mutex mu_;
+    StatusChangedCallback cb_;
 };
 
 // --------------------------------------------------------------------------
@@ -75,48 +84,64 @@ public:
         ++disconnect_count;
         if (connected_.exchange(false)) {
             // 真实断开时触发 on_disconnected（可选，通过 auto_fire_on_disconnect 控制）
-            if (auto_fire_on_disconnect && on_disconnected_) on_disconnected_();
+            if (auto_fire_on_disconnect && on_disconnected_)
+                on_disconnected_();
         }
     }
 
-    void send(const std::string&) override { ++send_count; }
+    void send(const std::string&) override {
+        ++send_count;
+    }
 
-    bool isConnected() const override { return connected_; }
+    bool isConnected() const override {
+        return connected_;
+    }
 
-    void setOnMessage(IWebSocketClient::MessageHandler h)           override { on_message_      = std::move(h); }
-    void setOnConnected(IWebSocketClient::ConnectedHandler h)       override { on_connected_    = std::move(h); }
-    void setOnDisconnected(IWebSocketClient::DisconnectedHandler h) override { on_disconnected_ = std::move(h); }
-    void setOnError(IWebSocketClient::ErrorHandler h)               override { on_error_        = std::move(h); }
+    void setOnMessage(IWebSocketClient::MessageHandler h) override {
+        on_message_ = std::move(h);
+    }
+    void setOnConnected(IWebSocketClient::ConnectedHandler h) override {
+        on_connected_ = std::move(h);
+    }
+    void setOnDisconnected(IWebSocketClient::DisconnectedHandler h) override {
+        on_disconnected_ = std::move(h);
+    }
+    void setOnError(IWebSocketClient::ErrorHandler h) override {
+        on_error_ = std::move(h);
+    }
 
     // ---- 测试辅助：手动触发事件 -----------------------------------------------
     void simulateConnected() {
         connected_ = true;
-        if (on_connected_) on_connected_();
+        if (on_connected_)
+            on_connected_();
     }
 
     void simulateDisconnected() {
         connected_ = false;
-        if (on_disconnected_) on_disconnected_();
+        if (on_disconnected_)
+            on_disconnected_();
     }
 
     void simulateError(const std::string& err) {
-        if (on_error_) on_error_(err);
+        if (on_error_)
+            on_error_(err);
     }
 
     // ---- 计数器 ---------------------------------------------------------------
-    int connect_count    = 0;
+    int connect_count = 0;
     int disconnect_count = 0;
-    int send_count       = 0;
+    int send_count = 0;
 
     // 控制 disconnect() 是否自动触发 on_disconnected 回调（默认不自动触发）
     bool auto_fire_on_disconnect = false;
 
 private:
-    std::atomic<bool>                        connected_{false};
-    IWebSocketClient::ConnectedHandler       on_connected_;
-    IWebSocketClient::DisconnectedHandler    on_disconnected_;
-    IWebSocketClient::ErrorHandler           on_error_;
-    IWebSocketClient::MessageHandler         on_message_;
+    std::atomic<bool> connected_{ false };
+    IWebSocketClient::ConnectedHandler on_connected_;
+    IWebSocketClient::DisconnectedHandler on_disconnected_;
+    IWebSocketClient::ErrorHandler on_error_;
+    IWebSocketClient::MessageHandler on_message_;
 };
 
 // ===========================================================================
@@ -127,24 +152,24 @@ class ConnectionManagerTest : public ::testing::Test {
 protected:
     // 状态变化历史（线程安全收集）
     std::vector<ConnectionState> state_history;
-    std::mutex                   history_mutex;
-    int                          ready_count = 0;
+    std::mutex history_mutex;
+    int ready_count = 0;
 
-    std::shared_ptr<FakeNetworkMonitor>  monitor;
+    std::shared_ptr<FakeNetworkMonitor> monitor;
     std::shared_ptr<FakeWebSocketClient> ws;
-    std::unique_ptr<ConnectionManager>   cm;
+    std::unique_ptr<ConnectionManager> cm;
 
     void SetUp() override {
         monitor = std::make_shared<FakeNetworkMonitor>();
-        ws      = std::make_shared<FakeWebSocketClient>();
+        ws = std::make_shared<FakeWebSocketClient>();
         createCM();
     }
 
     // 重建 ConnectionManager（便于测试不同初始网络状态）
     void createCM(NetworkStatus initial_net = NetworkStatus::ReachableViaWiFi) {
         monitor = std::make_shared<FakeNetworkMonitor>(initial_net);
-        ws      = std::make_shared<FakeWebSocketClient>();
-        cm.reset();  // 先销毁旧的（避免回调悬挂）
+        ws = std::make_shared<FakeWebSocketClient>();
+        cm.reset(); // 先销毁旧的（避免回调悬挂）
         cm = std::make_unique<ConnectionManager>(
             "ws://fake:9999/ws",
             monitor,
@@ -153,7 +178,9 @@ protected:
                 std::lock_guard<std::mutex> lock(history_mutex);
                 state_history.push_back(s);
             },
-            [this]() { ++ready_count; }
+            [this]() {
+                ++ready_count;
+            }
         );
         state_history.clear();
         ready_count = 0;
@@ -172,8 +199,7 @@ protected:
         ASSERT_GE(state_history.size(), expected.size());
         auto offset = state_history.size() - expected.size();
         for (size_t i = 0; i < expected.size(); ++i) {
-            EXPECT_EQ(state_history[offset + i], expected[i])
-                << "  at index " << i;
+            EXPECT_EQ(state_history[offset + i], expected[i]) << "  at index " << i;
         }
     }
 };
@@ -230,8 +256,8 @@ TEST_F(ConnectionManagerTest, Connect_StartsNetworkMonitor) {
 TEST_F(ConnectionManagerTest, Connect_ResetsSuperRetryCount) {
     // 先让重试计数增加再调用 connect()，确保被归零
     cm->connect();
-    ws->simulateDisconnected();  // → Reconnecting，retry_count = 1
-    cm->connect();               // 应重置计数，并重新 connect
+    ws->simulateDisconnected(); // → Reconnecting，retry_count = 1
+    cm->connect(); // 应重置计数，并重新 connect
     ws->simulateConnected();
     EXPECT_EQ(cm->state(), ConnectionState::Connected);
 }
@@ -249,7 +275,7 @@ TEST_F(ConnectionManagerTest, WsConnected_StateBecomesConnected) {
 TEST_F(ConnectionManagerTest, WsConnected_StateSequence_ConnectingThenConnected) {
     cm->connect();
     ws->simulateConnected();
-    expectStateSequence({ConnectionState::Connecting, ConnectionState::Connected});
+    expectStateSequence({ ConnectionState::Connecting, ConnectionState::Connected });
 }
 
 TEST_F(ConnectionManagerTest, WsConnected_OnReadyCalled) {
@@ -261,8 +287,8 @@ TEST_F(ConnectionManagerTest, WsConnected_OnReadyCalled) {
 TEST_F(ConnectionManagerTest, WsConnected_OnReadyCalledOnlyOnce) {
     cm->connect();
     ws->simulateConnected();
-    ws->simulateConnected();  // 重复触发
-    EXPECT_EQ(ready_count, 2);  // 每次连接成功都应触发（可能是重连后的重新同步）
+    ws->simulateConnected(); // 重复触发
+    EXPECT_EQ(ready_count, 2); // 每次连接成功都应触发（可能是重连后的重新同步）
 }
 
 // ===========================================================================
@@ -279,7 +305,7 @@ TEST_F(ConnectionManagerTest, WsDisconnected_WantConnected_StateBecomesReconnect
 TEST_F(ConnectionManagerTest, WsDisconnected_WantDisconnected_StateBecomesDisconnected) {
     cm->connect();
     ws->simulateConnected();
-    cm->disconnect();           // 设置 want_connected = false
+    cm->disconnect(); // 设置 want_connected = false
     ws->simulateDisconnected(); // 此时 want_connected=false，不应进入 Reconnecting
     EXPECT_EQ(cm->state(), ConnectionState::Disconnected);
 }
@@ -287,7 +313,7 @@ TEST_F(ConnectionManagerTest, WsDisconnected_WantDisconnected_StateBecomesDiscon
 TEST_F(ConnectionManagerTest, WsDisconnected_NoNetwork_StateBecomesDisconnected) {
     cm->connect();
     ws->simulateConnected();
-    monitor->setStatus(NetworkStatus::NotReachable);   // 网络丢失
+    monitor->setStatus(NetworkStatus::NotReachable); // 网络丢失
     ws->simulateDisconnected();
     EXPECT_EQ(cm->state(), ConnectionState::Disconnected);
 }
@@ -299,8 +325,7 @@ TEST_F(ConnectionManagerTest, WsDisconnected_MultipleRetries_CountsCorrectly) {
     // 第 1~5 次断开 → 应进入 Reconnecting（外层重试 0~4 次）
     for (int i = 0; i < 5; ++i) {
         ws->simulateDisconnected();
-        EXPECT_EQ(cm->state(), ConnectionState::Reconnecting)
-            << "  after disconnect #" << (i + 1);
+        EXPECT_EQ(cm->state(), ConnectionState::Reconnecting) << "  after disconnect #" << (i + 1);
         // 模拟定时器触发重连后又断开：先让 cm 重连成功再断开
         ws->simulateConnected();
     }
@@ -345,7 +370,7 @@ TEST_F(ConnectionManagerTest, Disconnect_WhileConnecting_StateBecomesDisconnecte
 TEST_F(ConnectionManagerTest, Disconnect_WhileReconnecting_CancelsReconnect) {
     cm->connect();
     ws->simulateConnected();
-    ws->simulateDisconnected();  // → Reconnecting
+    ws->simulateDisconnected(); // → Reconnecting
     EXPECT_EQ(cm->state(), ConnectionState::Reconnecting);
 
     cm->disconnect();
@@ -415,14 +440,14 @@ TEST_F(ConnectionManagerTest, NetworkLost_WhenConnecting_StateBecomesDisconnecte
 TEST_F(ConnectionManagerTest, NetworkLost_WhenReconnecting_StateBecomesDisconnected) {
     cm->connect();
     ws->simulateConnected();
-    ws->simulateDisconnected();  // → Reconnecting
+    ws->simulateDisconnected(); // → Reconnecting
     monitor->setStatus(NetworkStatus::NotReachable);
     EXPECT_EQ(cm->state(), ConnectionState::Disconnected);
 }
 
 TEST_F(ConnectionManagerTest, NetworkRestored_WhenDisconnected_WantConnected_Reconnects) {
     createCM(NetworkStatus::NotReachable);
-    cm->connect();  // 网络不可用，只设置 want_connected
+    cm->connect(); // 网络不可用，只设置 want_connected
     EXPECT_EQ(ws->connect_count, 0);
     EXPECT_EQ(cm->state(), ConnectionState::Disconnected);
 
@@ -442,7 +467,7 @@ TEST_F(ConnectionManagerTest, NetworkRestored_WhenDisconnected_WantDisconnected_
 TEST_F(ConnectionManagerTest, NetworkRestored_WhenReconnecting_TriggersImmediateConnect) {
     cm->connect();
     ws->simulateConnected();
-    ws->simulateDisconnected();  // → Reconnecting（外层定时器等待中）
+    ws->simulateDisconnected(); // → Reconnecting（外层定时器等待中）
 
     // 网络先丢失再恢复
     monitor->setStatus(NetworkStatus::NotReachable);
@@ -488,10 +513,10 @@ TEST_F(ConnectionManagerTest, NetworkStatusUnchanged_DoesNotTriggerReconnect) {
 // ===========================================================================
 
 TEST_F(ConnectionManagerTest, StateCallback_FiredForEachTransition) {
-    cm->connect();               // Disconnected → Connecting
-    ws->simulateConnected();     // Connecting   → Connected
-    ws->simulateDisconnected();  // Connected    → Reconnecting
-    cm->disconnect();            // Reconnecting → Disconnected
+    cm->connect(); // Disconnected → Connecting
+    ws->simulateConnected(); // Connecting   → Connected
+    ws->simulateDisconnected(); // Connected    → Reconnecting
+    cm->disconnect(); // Reconnecting → Disconnected
 
     std::lock_guard<std::mutex> lock(history_mutex);
     ASSERT_EQ(state_history.size(), 4u);
@@ -512,7 +537,7 @@ TEST_F(ConnectionManagerTest, StateCallback_NotFiredWhenStateUnchanged) {
     // 通过再次 simulateConnected 来验证 setState 的去重逻辑
     // （此处 onWsConnected 会调用 setState(Connected)，state 未变则不触发）
     // 解锁后触发
-    lock.~lock_guard();  // 手动提前结束 lock 作用域
+    lock.~lock_guard(); // 手动提前结束 lock 作用域
     ws->simulateConnected();
 
     {
@@ -530,7 +555,7 @@ TEST_F(ConnectionManagerTest, NullMonitor_AssumeNetworkAvailable) {
     cm.reset();
     cm = std::make_unique<ConnectionManager>(
         "ws://fake:9999/ws",
-        nullptr,  // 不传 monitor
+        nullptr, // 不传 monitor
         ws,
         nullptr,
         nullptr
@@ -551,9 +576,8 @@ TEST_F(ConnectionManagerTest, SuperRetry_ExhaustedAfterMaxRetries) {
 
     for (int i = 0; i < 5; ++i) {
         ws->simulateDisconnected();
-        EXPECT_EQ(cm->state(), ConnectionState::Reconnecting)
-            << "  retry " << i << " should still be Reconnecting";
-        ws->simulateConnected();  // 模拟重连成功，重置 super_retry_count
+        EXPECT_EQ(cm->state(), ConnectionState::Reconnecting) << "  retry " << i << " should still be Reconnecting";
+        ws->simulateConnected(); // 模拟重连成功，重置 super_retry_count
     }
 
     // 最后一次：断开后成功过，但再次断开再次累积
@@ -567,8 +591,7 @@ TEST_F(ConnectionManagerTest, SuperRetry_ExhaustedAfterMaxRetries) {
                 << "  disconnect #" << (i + 1) << " should be Reconnecting";
         }
     }
-    EXPECT_EQ(cm->state(), ConnectionState::Disconnected)
-        << "After 5 unrecovered disconnects, should give up";
+    EXPECT_EQ(cm->state(), ConnectionState::Disconnected) << "After 5 unrecovered disconnects, should give up";
 }
 
 TEST_F(ConnectionManagerTest, SuperRetry_ConnectSuccessResetsCount) {
@@ -584,7 +607,7 @@ TEST_F(ConnectionManagerTest, SuperRetry_ConnectSuccessResetsCount) {
     // 成功连接一次，重置计数
     ws->simulateConnected();
     EXPECT_EQ(cm->state(), ConnectionState::Connected);
-    EXPECT_EQ(ready_count, 5);  // 每次连接成功都应触发 on_ready
+    EXPECT_EQ(ready_count, 5); // 每次连接成功都应触发 on_ready
 
     // 之后再断开 5 次仍有充分重试次数
     for (int i = 0; i < 4; ++i) {

@@ -1,5 +1,5 @@
-#include <gtest/gtest.h>
 #include "sync_engine.h"
+
 #include "cache/conversation_cache.h"
 #include "cache/message_cache.h"
 #include "db/database.h"
@@ -7,6 +7,8 @@
 
 #include <memory>
 #include <string>
+
+#include <gtest/gtest.h>
 
 // ===========================================================================
 // Fixture
@@ -18,13 +20,11 @@ protected:
         ASSERT_TRUE(db_->open());
 
         conv_cache_ = std::make_unique<anychat::cache::ConversationCache>();
-        msg_cache_  = std::make_unique<anychat::cache::MessageCache>();
+        msg_cache_ = std::make_unique<anychat::cache::MessageCache>();
 
-        http_ = std::make_shared<anychat::network::HttpClient>(
-            "http://localhost:19999");
+        http_ = std::make_shared<anychat::network::HttpClient>("http://localhost:19999");
 
-        engine_ = std::make_unique<anychat::SyncEngine>(
-            db_.get(), conv_cache_.get(), msg_cache_.get(), http_);
+        engine_ = std::make_unique<anychat::SyncEngine>(db_.get(), conv_cache_.get(), msg_cache_.get(), http_);
     }
 
     void TearDown() override {
@@ -36,13 +36,15 @@ protected:
         db_.reset();
     }
 
-    void drainDb() { db_->querySync("SELECT 1"); }
+    void drainDb() {
+        db_->querySync("SELECT 1");
+    }
 
-    std::unique_ptr<anychat::db::Database>              db_;
-    std::unique_ptr<anychat::cache::ConversationCache>  conv_cache_;
-    std::unique_ptr<anychat::cache::MessageCache>       msg_cache_;
-    std::shared_ptr<anychat::network::HttpClient>       http_;
-    std::unique_ptr<anychat::SyncEngine>                engine_;
+    std::unique_ptr<anychat::db::Database> db_;
+    std::unique_ptr<anychat::cache::ConversationCache> conv_cache_;
+    std::unique_ptr<anychat::cache::MessageCache> msg_cache_;
+    std::shared_ptr<anychat::network::HttpClient> http_;
+    std::unique_ptr<anychat::SyncEngine> engine_;
 };
 
 // ---------------------------------------------------------------------------

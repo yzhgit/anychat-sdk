@@ -13,11 +13,11 @@ struct sqlite3;
 namespace anychat::db {
 
 using DbValue = std::variant<std::nullptr_t, int64_t, double, std::string>;
-using Params  = std::vector<DbValue>;
-using Row     = std::unordered_map<std::string, std::string>;
-using Rows    = std::vector<Row>;
+using Params = std::vector<DbValue>;
+using Row = std::unordered_map<std::string, std::string>;
+using Rows = std::vector<Row>;
 
-using ExecCallback  = std::function<void(bool ok, std::string err)>;
+using ExecCallback = std::function<void(bool ok, std::string err)>;
 using QueryCallback = std::function<void(Rows rows, std::string err)>;
 
 class Database {
@@ -25,7 +25,7 @@ public:
     explicit Database(std::string path);
     ~Database();
 
-    Database(const Database&)            = delete;
+    Database(const Database&) = delete;
     Database& operator=(const Database&) = delete;
 
     // Opens the SQLite file, enables WAL mode, runs schema migrations.
@@ -50,9 +50,8 @@ public:
     // -------------------------------------------------------------------------
     // Convenience key/value metadata store (backed by the `metadata` table).
     // -------------------------------------------------------------------------
-    std::string getMeta(const std::string& key,
-                        const std::string& default_val = "");
-    void        setMeta(const std::string& key, const std::string& value);
+    std::string getMeta(const std::string& key, const std::string& default_val = "");
+    void setMeta(const std::string& key, const std::string& value);
 
     // -------------------------------------------------------------------------
     // Atomic transaction helper.

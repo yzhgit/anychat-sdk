@@ -1,8 +1,9 @@
-#include <gtest/gtest.h>
 #include "notification_manager.h"
 
 #include <atomic>
 #include <string>
+
+#include <gtest/gtest.h>
 
 // The NotificationManager dispatches on the calling thread (handleRaw() is
 // synchronous), so no threading or async machinery is needed in these tests.
@@ -59,9 +60,9 @@ TEST(NotificationManagerTest, MessageSentDispatch) {
 
     ASSERT_EQ(call_count, 1) << "MessageSent handler should be called once";
     EXPECT_EQ(received_ack.message_id, "msg-server-001");
-    EXPECT_EQ(received_ack.sequence,   42);
-    EXPECT_EQ(received_ack.timestamp,  1708329600);
-    EXPECT_EQ(received_ack.local_id,   "local-uuid-99");
+    EXPECT_EQ(received_ack.sequence, 42);
+    EXPECT_EQ(received_ack.timestamp, 1708329600);
+    EXPECT_EQ(received_ack.local_id, "local-uuid-99");
 }
 
 // ---------------------------------------------------------------------------
@@ -101,8 +102,8 @@ TEST(NotificationManagerTest, NotificationDispatch) {
     ASSERT_EQ(call_count, 1) << "Notification handler should be called once";
     EXPECT_EQ(received_event.notification_type, "message.new");
     EXPECT_EQ(received_event.timestamp, 1708329600);
-    EXPECT_EQ(received_event.data.value("messageId", ""),       "msg-111");
-    EXPECT_EQ(received_event.data.value("conversationId", ""),  "conv-222");
+    EXPECT_EQ(received_event.data.value("messageId", ""), "msg-111");
+    EXPECT_EQ(received_event.data.value("conversationId", ""), "conv-222");
 }
 
 // ---------------------------------------------------------------------------
@@ -114,9 +115,15 @@ TEST(NotificationManagerTest, UnknownTypeIgnored) {
     anychat::NotificationManager mgr;
 
     bool any_called = false;
-    mgr.setOnPong([&]()                               { any_called = true; });
-    mgr.setOnMessageSent([&](const anychat::MsgSentAck&) { any_called = true; });
-    mgr.addNotificationHandler([&](const anychat::NotificationEvent&) { any_called = true; });
+    mgr.setOnPong([&]() {
+        any_called = true;
+    });
+    mgr.setOnMessageSent([&](const anychat::MsgSentAck&) {
+        any_called = true;
+    });
+    mgr.addNotificationHandler([&](const anychat::NotificationEvent&) {
+        any_called = true;
+    });
 
     // Should be silently ignored.
     EXPECT_NO_THROW(mgr.handleRaw(R"({"type":"unknown_event"})"));
@@ -132,9 +139,15 @@ TEST(NotificationManagerTest, MalformedJsonIgnored) {
     anychat::NotificationManager mgr;
 
     bool any_called = false;
-    mgr.setOnPong([&]()                               { any_called = true; });
-    mgr.setOnMessageSent([&](const anychat::MsgSentAck&) { any_called = true; });
-    mgr.addNotificationHandler([&](const anychat::NotificationEvent&) { any_called = true; });
+    mgr.setOnPong([&]() {
+        any_called = true;
+    });
+    mgr.setOnMessageSent([&](const anychat::MsgSentAck&) {
+        any_called = true;
+    });
+    mgr.addNotificationHandler([&](const anychat::NotificationEvent&) {
+        any_called = true;
+    });
 
     // Must not throw or crash.
     EXPECT_NO_THROW(mgr.handleRaw("not json at all {{{{"));
@@ -153,7 +166,9 @@ TEST(NotificationManagerTest, HandlerCanBeCleared) {
     anychat::NotificationManager mgr;
 
     int count = 0;
-    mgr.setOnPong([&count]() { ++count; });
+    mgr.setOnPong([&count]() {
+        ++count;
+    });
 
     mgr.handleRaw(R"({"type":"pong"})");
     EXPECT_EQ(count, 1);
@@ -206,8 +221,12 @@ TEST(NotificationManagerTest, MultipleHandlersFanOut) {
     int count_a = 0;
     int count_b = 0;
 
-    mgr.addNotificationHandler([&](const anychat::NotificationEvent&) { ++count_a; });
-    mgr.addNotificationHandler([&](const anychat::NotificationEvent&) { ++count_b; });
+    mgr.addNotificationHandler([&](const anychat::NotificationEvent&) {
+        ++count_a;
+    });
+    mgr.addNotificationHandler([&](const anychat::NotificationEvent&) {
+        ++count_b;
+    });
 
     const std::string frame = R"({
         "type": "notification",

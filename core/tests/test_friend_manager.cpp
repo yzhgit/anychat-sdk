@@ -1,11 +1,13 @@
-#include <gtest/gtest.h>
 #include "friend_manager.h"
 #include "notification_manager.h"
+
 #include "db/database.h"
 #include "network/http_client.h"
 
 #include <memory>
 #include <string>
+
+#include <gtest/gtest.h>
 
 // ===========================================================================
 // Fixture
@@ -13,13 +15,11 @@
 class FriendManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        db_        = std::make_unique<anychat::db::Database>(":memory:");
+        db_ = std::make_unique<anychat::db::Database>(":memory:");
         ASSERT_TRUE(db_->open());
         notif_mgr_ = std::make_unique<anychat::NotificationManager>();
-        http_      = std::make_shared<anychat::network::HttpClient>(
-            "http://localhost:19999");
-        mgr_ = std::make_unique<anychat::FriendManagerImpl>(
-            db_.get(), notif_mgr_.get(), http_);
+        http_ = std::make_shared<anychat::network::HttpClient>("http://localhost:19999");
+        mgr_ = std::make_unique<anychat::FriendManagerImpl>(db_.get(), notif_mgr_.get(), http_);
     }
 
     void TearDown() override {
@@ -30,10 +30,10 @@ protected:
         db_.reset();
     }
 
-    std::unique_ptr<anychat::db::Database>          db_;
-    std::unique_ptr<anychat::NotificationManager>   notif_mgr_;
-    std::shared_ptr<anychat::network::HttpClient>   http_;
-    std::unique_ptr<anychat::FriendManagerImpl>     mgr_;
+    std::unique_ptr<anychat::db::Database> db_;
+    std::unique_ptr<anychat::NotificationManager> notif_mgr_;
+    std::shared_ptr<anychat::network::HttpClient> http_;
+    std::unique_ptr<anychat::FriendManagerImpl> mgr_;
 };
 
 // ---------------------------------------------------------------------------
@@ -73,7 +73,9 @@ TEST_F(FriendManagerTest, FriendRequestNotificationFiresHandler) {
 // ---------------------------------------------------------------------------
 TEST_F(FriendManagerTest, FriendDeletedNotificationFiresListChangedHandler) {
     int call_count = 0;
-    mgr_->setOnFriendListChanged([&]() { ++call_count; });
+    mgr_->setOnFriendListChanged([&]() {
+        ++call_count;
+    });
 
     const std::string frame = R"({
         "type": "notification",
@@ -93,10 +95,14 @@ TEST_F(FriendManagerTest, FriendDeletedNotificationFiresListChangedHandler) {
 //    Group notifications must not trigger friend handlers.
 // ---------------------------------------------------------------------------
 TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
-    int req_count  = 0;
+    int req_count = 0;
     int list_count = 0;
-    mgr_->setOnFriendRequest([&](const anychat::FriendRequest&) { ++req_count; });
-    mgr_->setOnFriendListChanged([&]() { ++list_count; });
+    mgr_->setOnFriendRequest([&](const anychat::FriendRequest&) {
+        ++req_count;
+    });
+    mgr_->setOnFriendListChanged([&]() {
+        ++list_count;
+    });
 
     const std::string frame = R"({
         "type": "notification",
@@ -108,7 +114,7 @@ TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     })";
     notif_mgr_->handleRaw(frame);
 
-    EXPECT_EQ(req_count,  0);
+    EXPECT_EQ(req_count, 0);
     EXPECT_EQ(list_count, 0);
 }
 
@@ -118,7 +124,5 @@ TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
 //    an error since no server is running).  No crash is acceptable.
 // ---------------------------------------------------------------------------
 TEST_F(FriendManagerTest, GetListDoesNotCrash) {
-    EXPECT_NO_THROW(
-        mgr_->getList([](const std::vector<anychat::Friend>&, const std::string&) {})
-    );
+    EXPECT_NO_THROW(mgr_->getList([](const std::vector<anychat::Friend>&, const std::string&) {}));
 }

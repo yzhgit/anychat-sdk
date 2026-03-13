@@ -1,7 +1,7 @@
 #pragma once
 
-#include "types_c.h"
 #include "auth_c.h"
+#include "types_c.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -9,13 +9,13 @@ extern "C" {
 
 /* ---- Client configuration ---- */
 typedef struct {
-    const char* gateway_url;           /* WebSocket gateway, e.g. "wss://api.anychat.io" */
-    const char* api_base_url;          /* HTTP API base, e.g. "https://api.anychat.io/api/v1" */
-    const char* device_id;             /* Unique device identifier */
-    const char* db_path;               /* SQLite database file path */
-    int         connect_timeout_ms;    /* default: 10000 */
-    int         max_reconnect_attempts;/* default: 5 */
-    int         auto_reconnect;        /* 1 = enabled (default), 0 = disabled */
+    const char* gateway_url; /* WebSocket gateway, e.g. "wss://api.anychat.io" */
+    const char* api_base_url; /* HTTP API base, e.g. "https://api.anychat.io/api/v1" */
+    const char* device_id; /* Unique device identifier */
+    const char* db_path; /* SQLite database file path */
+    int connect_timeout_ms; /* default: 10000 */
+    int max_reconnect_attempts; /* default: 5 */
+    int auto_reconnect; /* 1 = enabled (default), 0 = disabled */
 } AnyChatClientConfig_C;
 
 /* Connection state change callback.
@@ -26,8 +26,7 @@ typedef void (*AnyChatConnectionStateCallback)(void* userdata, int state);
 
 /* Create a new client. Returns NULL on failure; call anychat_get_last_error().
  * The caller owns the handle and must destroy it with anychat_client_destroy(). */
-ANYCHAT_C_API AnyChatClientHandle anychat_client_create(
-    const AnyChatClientConfig_C* config);
+ANYCHAT_C_API AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config);
 
 /* Destroy the client and release all resources.
  * Must not be called while callbacks are in flight on other threads. */
@@ -39,27 +38,23 @@ ANYCHAT_C_API void anychat_client_destroy(AnyChatClientHandle handle);
  * Callback signature: void (*)(void* userdata, int success, AnyChatAuthToken_C* token, const char* error)
  * Note: WebSocket auto-reconnect is handled internally by the SDK. */
 ANYCHAT_C_API int anychat_client_login(
-    AnyChatClientHandle         handle,
-    const char*                 account,
-    const char*                 password,
-    const char*                 device_type,
-    void*                       userdata,
-    AnyChatAuthCallback         callback);
+    AnyChatClientHandle handle,
+    const char* account,
+    const char* password,
+    const char* device_type,
+    void* userdata,
+    AnyChatAuthCallback callback
+);
 
 /* Logout: disconnect WebSocket and call HTTP logout endpoint.
  * Callback signature: void (*)(void* userdata, int success, const char* error) */
-ANYCHAT_C_API int anychat_client_logout(
-    AnyChatClientHandle  handle,
-    void*                userdata,
-    AnyChatResultCallback callback);
+ANYCHAT_C_API int anychat_client_logout(AnyChatClientHandle handle, void* userdata, AnyChatResultCallback callback);
 
 /* Check if the user is currently logged in. Returns 1 if logged in, 0 otherwise. */
 ANYCHAT_C_API int anychat_client_is_logged_in(AnyChatClientHandle handle);
 
 /* Get current auth token (if logged in). Returns 0 on success, -1 if not logged in. */
-ANYCHAT_C_API int anychat_client_get_current_token(
-    AnyChatClientHandle   handle,
-    AnyChatAuthToken_C*   out_token);
+ANYCHAT_C_API int anychat_client_get_current_token(AnyChatClientHandle handle, AnyChatAuthToken_C* out_token);
 
 /* Returns the current connection state (ANYCHAT_STATE_*). */
 ANYCHAT_C_API int anychat_client_get_connection_state(AnyChatClientHandle handle);
@@ -68,20 +63,21 @@ ANYCHAT_C_API int anychat_client_get_connection_state(AnyChatClientHandle handle
  * Pass NULL to clear a previously registered callback.
  * userdata is passed through unchanged. */
 ANYCHAT_C_API void anychat_client_set_connection_callback(
-    AnyChatClientHandle             handle,
-    void*                           userdata,
-    AnyChatConnectionStateCallback  callback);
+    AnyChatClientHandle handle,
+    void* userdata,
+    AnyChatConnectionStateCallback callback
+);
 
 /* ---- Sub-module accessors ----
  * The returned handles are owned by the client; do NOT destroy them separately. */
-ANYCHAT_C_API AnyChatAuthHandle    anychat_client_get_auth(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatAuthHandle anychat_client_get_auth(AnyChatClientHandle handle);
 ANYCHAT_C_API AnyChatMessageHandle anychat_client_get_message(AnyChatClientHandle handle);
-ANYCHAT_C_API AnyChatConvHandle    anychat_client_get_conversation(AnyChatClientHandle handle);
-ANYCHAT_C_API AnyChatFriendHandle  anychat_client_get_friend(AnyChatClientHandle handle);
-ANYCHAT_C_API AnyChatGroupHandle   anychat_client_get_group(AnyChatClientHandle handle);
-ANYCHAT_C_API AnyChatFileHandle    anychat_client_get_file(AnyChatClientHandle handle);
-ANYCHAT_C_API AnyChatUserHandle    anychat_client_get_user(AnyChatClientHandle handle);
-ANYCHAT_C_API AnyChatRtcHandle     anychat_client_get_rtc(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatConvHandle anychat_client_get_conversation(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatFriendHandle anychat_client_get_friend(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatGroupHandle anychat_client_get_group(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatFileHandle anychat_client_get_file(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatUserHandle anychat_client_get_user(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatRtcHandle anychat_client_get_rtc(AnyChatClientHandle handle);
 
 #ifdef __cplusplus
 }

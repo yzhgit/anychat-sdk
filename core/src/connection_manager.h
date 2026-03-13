@@ -1,7 +1,8 @@
 #pragma once
 
-#include "anychat/types.h"
 #include "anychat/network_monitor.h"
+#include "anychat/types.h"
+
 #include "network/iwebsocket_client.h"
 
 #include <atomic>
@@ -35,15 +36,17 @@ public:
     // |ws|        : 已构造的 WebSocket 客户端。
     // |on_state_changed| : ConnectionState 变化时通知调用方。
     // |on_ready|  : WebSocket 成功建立后调用（用于触发增量同步等后连接动作）。
-    ConnectionManager(std::string ws_url,
-                      std::shared_ptr<NetworkMonitor> monitor,
-                      std::shared_ptr<network::IWebSocketClient> ws,
-                      std::function<void(ConnectionState)> on_state_changed,
-                      std::function<void()> on_ready);
+    ConnectionManager(
+        std::string ws_url,
+        std::shared_ptr<NetworkMonitor> monitor,
+        std::shared_ptr<network::IWebSocketClient> ws,
+        std::function<void(ConnectionState)> on_state_changed,
+        std::function<void()> on_ready
+    );
 
     ~ConnectionManager();
 
-    ConnectionManager(const ConnectionManager&)            = delete;
+    ConnectionManager(const ConnectionManager&) = delete;
     ConnectionManager& operator=(const ConnectionManager&) = delete;
 
     // 表达"我希望保持连接"的意图。
@@ -101,48 +104,48 @@ private:
     // ---- 重连参数 --------------------------------------------------------------
 
     // 外层重连（ConnectionManager 级别）基础延迟 30 s，最多 5 次。
-    static constexpr int kSuperBaseDelayMs  = 30'000;
-    static constexpr int kMaxSuperRetries   = 5;
+    static constexpr int kSuperBaseDelayMs = 30'000;
+    static constexpr int kMaxSuperRetries = 5;
 
     // Heartbeat parameters.
-    static constexpr int kHeartbeatIntervalMs = 30'000;  // send ping every 30 s
-    static constexpr int kPongTimeoutMs       = 60'000;  // 2 missed pongs = 60 s
+    static constexpr int kHeartbeatIntervalMs = 30'000; // send ping every 30 s
+    static constexpr int kPongTimeoutMs = 60'000; // 2 missed pongs = 60 s
 
     // ---- 成员 -----------------------------------------------------------------
 
-    std::string                                  ws_url_;
-    std::shared_ptr<NetworkMonitor>              monitor_;
-    std::shared_ptr<network::IWebSocketClient>    ws_;
-    std::function<void(ConnectionState)>         on_state_changed_;
-    std::function<void()>                        on_ready_;
+    std::string ws_url_;
+    std::shared_ptr<NetworkMonitor> monitor_;
+    std::shared_ptr<network::IWebSocketClient> ws_;
+    std::function<void(ConnectionState)> on_state_changed_;
+    std::function<void()> on_ready_;
 
-    std::atomic<ConnectionState>  state_{ConnectionState::Disconnected};
-    std::atomic<bool>             want_connected_{false};  // 用户意图
-    std::atomic<bool>             network_ok_{true};       // 当前网络是否可达
-    std::atomic<int>              super_retry_count_{0};   // 外层重连计数
+    std::atomic<ConnectionState> state_{ ConnectionState::Disconnected };
+    std::atomic<bool> want_connected_{ false }; // 用户意图
+    std::atomic<bool> network_ok_{ true }; // 当前网络是否可达
+    std::atomic<int> super_retry_count_{ 0 }; // 外层重连计数
 
     // 回调保护
     std::mutex cb_mutex_;
 
     // 外层重连定时器（独立线程 + condition_variable 实现可取消的 sleep）
-    std::thread              reconnect_thread_;
-    std::mutex               reconnect_mutex_;
-    std::condition_variable  reconnect_cv_;
-    bool                     reconnect_pending_  = false;
-    bool                     reconnect_cancel_   = false;
-    bool                     stopping_           = false;
-    int                      reconnect_delay_ms_ = 0;
+    std::thread reconnect_thread_;
+    std::mutex reconnect_mutex_;
+    std::condition_variable reconnect_cv_;
+    bool reconnect_pending_ = false;
+    bool reconnect_cancel_ = false;
+    bool stopping_ = false;
+    int reconnect_delay_ms_ = 0;
 
     // ---- 心跳线程成员 ----------------------------------------------------------
 
-    std::thread              heartbeat_thread_;
-    std::mutex               heartbeat_mutex_;
-    std::condition_variable  heartbeat_cv_;
-    bool                     heartbeat_stopping_ = false;
+    std::thread heartbeat_thread_;
+    std::mutex heartbeat_mutex_;
+    std::condition_variable heartbeat_cv_;
+    bool heartbeat_stopping_ = false;
 
     // Unix timestamp (ms) of the last received pong.  Initialised to "now"
     // when the heartbeat starts so the first 30 s window is clean.
-    std::atomic<int64_t>     last_pong_ms_{0};
+    std::atomic<int64_t> last_pong_ms_{ 0 };
 };
 
 } // namespace anychat

@@ -21,10 +21,12 @@ namespace anychat {
 // the in-memory caches.
 class SyncEngine {
 public:
-    SyncEngine(db::Database*                         db,
-               cache::ConversationCache*             conv_cache,
-               cache::MessageCache*                  msg_cache,
-               std::shared_ptr<network::HttpClient>  http);
+    SyncEngine(
+        db::Database* db,
+        cache::ConversationCache* conv_cache,
+        cache::MessageCache* msg_cache,
+        std::shared_ptr<network::HttpClient> http
+    );
 
     // Trigger an incremental sync.  Reads last_sync_time from the database,
     // builds the sync request, and posts it to /sync.  The response is merged
@@ -48,10 +50,10 @@ private:
     // and msg_cache_.
     void mergeConvMessages(const nlohmann::json& conversations_arr);
 
-    db::Database*                           db_;
-    cache::ConversationCache*               conv_cache_;
-    cache::MessageCache*                    msg_cache_;
-    std::shared_ptr<network::HttpClient>    http_;
+    db::Database* db_;
+    cache::ConversationCache* conv_cache_;
+    cache::MessageCache* msg_cache_;
+    std::shared_ptr<network::HttpClient> http_;
 };
 
 } // namespace anychat

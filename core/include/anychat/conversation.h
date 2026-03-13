@@ -1,5 +1,7 @@
 #pragma once
+
 #include "types.h"
+
 #include <functional>
 #include <string>
 #include <vector>
@@ -7,8 +9,8 @@
 namespace anychat {
 
 using ConversationListCallback = std::function<void(std::vector<Conversation> list, std::string err)>;
-using ConversationCallback     = std::function<void(bool ok, std::string err)>;
-using OnConversationUpdated    = std::function<void(const Conversation& conv)>;
+using ConversationCallback = std::function<void(bool ok, std::string err)>;
+using OnConversationUpdated = std::function<void(const Conversation& conv)>;
 
 class ConversationManager {
 public:

@@ -1,4 +1,5 @@
 #include "anychat_c/errors_c.h"
+
 #include <string>
 
 /* Thread-local storage for the last error message on each thread. */

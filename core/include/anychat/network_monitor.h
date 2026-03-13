@@ -5,16 +5,16 @@
 namespace anychat {
 
 // 网络可达性状态
-enum class NetworkStatus {
-    Unknown,              // 初始态，尚未检测
-    NotReachable,         // 无网络
-    ReachableViaWiFi,     // WiFi 连接
+enum class NetworkStatus
+{
+    Unknown, // 初始态，尚未检测
+    NotReachable, // 无网络
+    ReachableViaWiFi, // WiFi 连接
     ReachableViaCellular, // 蜂窝网络连接
 };
 
 inline bool isReachable(NetworkStatus s) {
-    return s == NetworkStatus::ReachableViaWiFi ||
-           s == NetworkStatus::ReachableViaCellular;
+    return s == NetworkStatus::ReachableViaWiFi || s == NetworkStatus::ReachableViaCellular;
 }
 
 // 抽象接口，由各平台 binding 实现后注入 ClientConfig。

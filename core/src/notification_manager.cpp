@@ -1,6 +1,7 @@
 #include "notification_manager.h"
 
 #include <mutex>
+
 #include <shared_mutex>
 
 namespace anychat {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "iwebsocket_client.h"
+
 #include <memory>
 #include <string>
 
@@ -16,18 +17,18 @@ public:
     explicit WebSocketClient(std::string url);
     ~WebSocketClient() override;
 
-    WebSocketClient(const WebSocketClient&)            = delete;
+    WebSocketClient(const WebSocketClient&) = delete;
     WebSocketClient& operator=(const WebSocketClient&) = delete;
 
-    void connect()    override;
+    void connect() override;
     void disconnect() override;
     void send(const std::string& message) override;
     bool isConnected() const override;
 
-    void setOnMessage(MessageHandler handler)           override;
-    void setOnConnected(ConnectedHandler handler)       override;
+    void setOnMessage(MessageHandler handler) override;
+    void setOnConnected(ConnectedHandler handler) override;
     void setOnDisconnected(DisconnectedHandler handler) override;
-    void setOnError(ErrorHandler handler)               override;
+    void setOnError(ErrorHandler handler) override;
 
 private:
     struct Impl;

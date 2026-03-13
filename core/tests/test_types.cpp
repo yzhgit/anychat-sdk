@@ -1,5 +1,6 @@
-#include <gtest/gtest.h>
 #include "anychat/types.h"
+
+#include <gtest/gtest.h>
 
 TEST(MessageTest, DefaultValues) {
     anychat::Message msg;
@@ -10,7 +11,7 @@ TEST(MessageTest, DefaultValues) {
 
 TEST(UserInfoTest, Fields) {
     anychat::UserInfo user;
-    user.user_id  = "u-001";
+    user.user_id = "u-001";
     user.username = "alice";
     EXPECT_EQ(user.user_id, "u-001");
     EXPECT_EQ(user.username, "alice");

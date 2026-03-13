@@ -1,9 +1,12 @@
 #pragma once
-#include "anychat/conversation.h"
 #include "notification_manager.h"
+
+#include "anychat/conversation.h"
+
 #include "cache/conversation_cache.h"
 #include "db/database.h"
 #include "network/http_client.h"
+
 #include <memory>
 #include <mutex>
 
@@ -11,10 +14,12 @@ namespace anychat {
 
 class ConversationManagerImpl : public ConversationManager {
 public:
-    ConversationManagerImpl(db::Database*                        db,
-                             cache::ConversationCache*            conv_cache,
-                             NotificationManager*                 notif_mgr,
-                             std::shared_ptr<network::HttpClient> http);
+    ConversationManagerImpl(
+        db::Database* db,
+        cache::ConversationCache* conv_cache,
+        NotificationManager* notif_mgr,
+        std::shared_ptr<network::HttpClient> http
+    );
 
     // ConversationManager interface
     void getList(ConversationListCallback cb) override;
@@ -37,12 +42,12 @@ private:
     // Notification handler for session-related events.
     void handleSessionNotification(const NotificationEvent& event);
 
-    db::Database*                        db_;
-    cache::ConversationCache*            conv_cache_;
-    NotificationManager*                 notif_mgr_;
+    db::Database* db_;
+    cache::ConversationCache* conv_cache_;
+    NotificationManager* notif_mgr_;
     std::shared_ptr<network::HttpClient> http_;
 
-    mutable std::mutex    handler_mutex_;
+    mutable std::mutex handler_mutex_;
     OnConversationUpdated on_updated_;
 };
 

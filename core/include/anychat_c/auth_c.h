@@ -12,19 +12,12 @@ extern "C" {
  * success: 1 on success, 0 on failure.
  * token:   valid only when success == 1.
  * error:   valid only when success == 0 (never NULL). */
-typedef void (*AnyChatAuthCallback)(
-    void*                    userdata,
-    int                      success,
-    const AnyChatAuthToken_C* token,
-    const char*              error);
+typedef void (*AnyChatAuthCallback)(void* userdata, int success, const AnyChatAuthToken_C* token, const char* error);
 
 /* Fired after logout / changePassword.
  * success: 1 on success, 0 on failure.
  * error:   valid only when success == 0 (never NULL). */
-typedef void (*AnyChatResultCallback)(
-    void*       userdata,
-    int         success,
-    const char* error);
+typedef void (*AnyChatResultCallback)(void* userdata, int success, const char* error);
 
 /* ---- Auth operations ---- */
 
@@ -32,46 +25,47 @@ typedef void (*AnyChatResultCallback)(
  * device_type: "ios" | "android" | "web"
  * Returns ANYCHAT_OK if the request was dispatched; callback fires asynchronously. */
 ANYCHAT_C_API int anychat_auth_login(
-    AnyChatAuthHandle   handle,
-    const char*         account,
-    const char*         password,
-    const char*         device_type,
-    void*               userdata,
-    AnyChatAuthCallback callback);
+    AnyChatAuthHandle handle,
+    const char* account,
+    const char* password,
+    const char* device_type,
+    void* userdata,
+    AnyChatAuthCallback callback
+);
 
 /* Register a new account.
  * verify_code: SMS/e-mail verification code.
  * nickname:    pass empty string or NULL to skip. */
 ANYCHAT_C_API int anychat_auth_register(
-    AnyChatAuthHandle   handle,
-    const char*         phone_or_email,
-    const char*         password,
-    const char*         verify_code,
-    const char*         device_type,
-    const char*         nickname,
-    void*               userdata,
-    AnyChatAuthCallback callback);
+    AnyChatAuthHandle handle,
+    const char* phone_or_email,
+    const char* password,
+    const char* verify_code,
+    const char* device_type,
+    const char* nickname,
+    void* userdata,
+    AnyChatAuthCallback callback
+);
 
 /* Logout the current device. */
-ANYCHAT_C_API int anychat_auth_logout(
-    AnyChatAuthHandle     handle,
-    void*                 userdata,
-    AnyChatResultCallback callback);
+ANYCHAT_C_API int anychat_auth_logout(AnyChatAuthHandle handle, void* userdata, AnyChatResultCallback callback);
 
 /* Exchange a refresh token for a new access token. */
 ANYCHAT_C_API int anychat_auth_refresh_token(
-    AnyChatAuthHandle   handle,
-    const char*         refresh_token,
-    void*               userdata,
-    AnyChatAuthCallback callback);
+    AnyChatAuthHandle handle,
+    const char* refresh_token,
+    void* userdata,
+    AnyChatAuthCallback callback
+);
 
 /* Change password (requires a valid access token). */
 ANYCHAT_C_API int anychat_auth_change_password(
-    AnyChatAuthHandle     handle,
-    const char*           old_password,
-    const char*           new_password,
-    void*                 userdata,
-    AnyChatResultCallback callback);
+    AnyChatAuthHandle handle,
+    const char* old_password,
+    const char* new_password,
+    void* userdata,
+    AnyChatResultCallback callback
+);
 
 /* ---- State queries ---- */
 
@@ -80,17 +74,13 @@ ANYCHAT_C_API int anychat_auth_is_logged_in(AnyChatAuthHandle handle);
 
 /* Copy the current auth token into out_token.
  * Returns ANYCHAT_OK on success or ANYCHAT_ERROR_NOT_LOGGED_IN. */
-ANYCHAT_C_API int anychat_auth_get_current_token(
-    AnyChatAuthHandle  handle,
-    AnyChatAuthToken_C* out_token);
+ANYCHAT_C_API int anychat_auth_get_current_token(AnyChatAuthHandle handle, AnyChatAuthToken_C* out_token);
 
 /* Register a callback fired when the token expires and cannot be refreshed.
  * Pass NULL to clear. */
 typedef void (*AnyChatAuthExpiredCallback)(void* userdata);
-ANYCHAT_C_API void anychat_auth_set_on_expired(
-    AnyChatAuthHandle        handle,
-    void*                    userdata,
-    AnyChatAuthExpiredCallback callback);
+ANYCHAT_C_API void
+anychat_auth_set_on_expired(AnyChatAuthHandle handle, void* userdata, AnyChatAuthExpiredCallback callback);
 
 #ifdef __cplusplus
 }
