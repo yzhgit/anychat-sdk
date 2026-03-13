@@ -32,27 +32,6 @@ AuthManagerImpl::AuthManagerImpl(std::shared_ptr<network::HttpClient> http, std:
 }
 
 // ---------------------------------------------------------------------------
-// login
-// ---------------------------------------------------------------------------
-
-void AuthManagerImpl::login(
-    const std::string& account,
-    const std::string& password,
-    const std::string& device_type,
-    AuthCallback callback
-) {
-    nlohmann::json body;
-    body["account"] = account;
-    body["password"] = password;
-    body["deviceId"] = device_id_;
-    body["deviceType"] = device_type;
-
-    http_->post("/auth/login", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
-        handleAuthResponse(std::move(resp), cb);
-    });
-}
-
-// ---------------------------------------------------------------------------
 // registerUser
 // ---------------------------------------------------------------------------
 
@@ -80,6 +59,27 @@ void AuthManagerImpl::registerUser(
         body["nickname"] = nickname;
 
     http_->post("/auth/register", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
+        handleAuthResponse(std::move(resp), cb);
+    });
+}
+
+// ---------------------------------------------------------------------------
+// login
+// ---------------------------------------------------------------------------
+
+void AuthManagerImpl::login(
+    const std::string& account,
+    const std::string& password,
+    const std::string& device_type,
+    AuthCallback callback
+) {
+    nlohmann::json body;
+    body["account"] = account;
+    body["password"] = password;
+    body["deviceId"] = device_id_;
+    body["deviceType"] = device_type;
+
+    http_->post("/auth/login", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
         handleAuthResponse(std::move(resp), cb);
     });
 }

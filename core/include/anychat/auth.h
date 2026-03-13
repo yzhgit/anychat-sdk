@@ -17,16 +17,6 @@ class AuthManager {
 public:
     virtual ~AuthManager() = default;
 
-    // Login with account (phone number or email) + password.
-    // device_type: "ios" | "android" | "web"
-    // The manager uses the device_id provided at construction time.
-    virtual void login(
-        const std::string& account,
-        const std::string& password,
-        const std::string& device_type,
-        AuthCallback callback
-    ) = 0;
-
     // Register a new account.
     // verify_code: SMS / email verification code.
     // nickname: optional display name (pass empty string to skip).
@@ -36,6 +26,16 @@ public:
         const std::string& verify_code,
         const std::string& device_type,
         const std::string& nickname,
+        AuthCallback callback
+    ) = 0;
+
+    // Login with account (phone number or email) + password.
+    // device_type: "ios" | "android" | "web"
+    // The manager uses the device_id provided at construction time.
+    virtual void login(
+        const std::string& account,
+        const std::string& password,
+        const std::string& device_type,
         AuthCallback callback
     ) = 0;
 

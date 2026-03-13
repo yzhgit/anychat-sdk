@@ -19,19 +19,19 @@ public:
     // |db|        – optional database for token persistence; may be nullptr.
     AuthManagerImpl(std::shared_ptr<network::HttpClient> http, std::string device_id, db::Database* db);
 
-    void login(
-        const std::string& account,
-        const std::string& password,
-        const std::string& device_type,
-        AuthCallback callback
-    ) override;
-
     void registerUser(
         const std::string& phone_or_email,
         const std::string& password,
         const std::string& verify_code,
         const std::string& device_type,
         const std::string& nickname,
+        AuthCallback callback
+    ) override;
+
+    void login(
+        const std::string& account,
+        const std::string& password,
+        const std::string& device_type,
         AuthCallback callback
     ) override;
 
