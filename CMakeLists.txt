@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /utf-8")
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
@@ -63,6 +64,25 @@ set(CURL_USE_LIBPSL        OFF CACHE BOOL "" FORCE)
 set(HTTP_ONLY              ON  CACHE BOOL "" FORCE)
 add_subdirectory(thirdparty/curl EXCLUDE_FROM_ALL)
 # curl's CMakeLists creates CURL::libcurl alias when BUILD_SHARED_LIBS=OFF.
+
+# ── Copy OpenSSL DLLs to runtime directory (Windows only) ────────────────
+if(WIN32 AND CURL_USE_OPENSSL)
+    # Find OpenSSL (curl already did this, we just need the DLL paths)
+    find_package(OpenSSL REQUIRED)
+
+    # Get DLL directory from include directory
+    get_filename_component(OPENSSL_ROOT_DIR "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
+    set(OPENSSL_BIN_DIR "${OPENSSL_ROOT_DIR}/bin")
+
+    if(EXISTS "${OPENSSL_BIN_DIR}")
+        # Copy OpenSSL DLLs to runtime directory
+        file(GLOB OPENSSL_DLLS "${OPENSSL_BIN_DIR}/libcrypto*.dll" "${OPENSSL_BIN_DIR}/libssl*.dll")
+        if(OPENSSL_DLLS)
+            file(COPY ${OPENSSL_DLLS} DESTINATION ${RUNTIME_OUTPUT_DIR})
+            message(STATUS "Copied OpenSSL DLLs to ${RUNTIME_OUTPUT_DIR}")
+        endif()
+    endif()
+endif()
 
 # ── libwebsockets ─────────────────────────────────────────────────────────────
 set(LWS_WITHOUT_TESTAPPS          ON  CACHE BOOL "" FORCE)

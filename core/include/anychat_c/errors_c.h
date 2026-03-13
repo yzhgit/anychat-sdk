@@ -1,15 +1,6 @@
 #pragma once
 
-/* Platform visibility macros */
-#ifdef _WIN32
-#    ifdef ANYCHAT_C_EXPORTS
-#        define ANYCHAT_C_API __declspec(dllexport)
-#    else
-#        define ANYCHAT_C_API __declspec(dllimport)
-#    endif
-#else
-#    define ANYCHAT_C_API __attribute__((visibility("default")))
-#endif
+#include "anychat_c_export.h"
 
 #ifdef __cplusplus
 extern "C" {

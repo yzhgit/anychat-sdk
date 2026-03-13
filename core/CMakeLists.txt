@@ -92,7 +92,10 @@ if(BUILD_ANYCHAT_C_SHARED)
         src/c_api/user_c.cpp
         src/c_api/rtc_c.cpp
     )
-    target_compile_definitions(anychat_c_shared PRIVATE ANYCHAT_C_EXPORTS)
+    target_compile_definitions(anychat_c_shared
+        PRIVATE ANYCHAT_C_EXPORTS
+        PUBLIC ANYCHAT_C_SHARED
+    )
     target_include_directories(anychat_c_shared
         PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api
