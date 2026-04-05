@@ -33,8 +33,8 @@ protected:
 
 // ---------------------------------------------------------------------------
 // 1. IncomingCallNotificationFiresHandler
-//    A livekit.call_invite WebSocket notification should invoke the
-//    OnIncomingCall handler with the correct CallSession fields.
+//    A real livekit.call_invite WebSocket notification should invoke the
+//    OnIncomingCall handler with the normalized payload fields.
 // ---------------------------------------------------------------------------
 TEST_F(CallManagerTest, IncomingCallNotificationFiresHandler) {
     anychat::CallSession received{};
@@ -48,16 +48,13 @@ TEST_F(CallManagerTest, IncomingCallNotificationFiresHandler) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "livekit.call_invite",
+            "notification_id": "notif-call-001",
+            "type": "livekit.call_invite",
             "timestamp": 1708329600,
-            "data": {
-                "callId":   "call-001",
-                "callerId": "user-caller-111",
-                "calleeId": "user-callee-222",
-                "callType": "video",
-                "status":   "ringing",
-                "roomName": "room-abc",
-                "token":    "rtc-jwt-xxx"
+            "payload": {
+                "call_id": "call-001",
+                "caller_id": "user-caller-111",
+                "call_type": "video"
             }
         }
     })";
@@ -68,12 +65,12 @@ TEST_F(CallManagerTest, IncomingCallNotificationFiresHandler) {
     EXPECT_EQ(received.caller_id, "user-caller-111");
     EXPECT_EQ(received.call_type, anychat::CallType::Video);
     EXPECT_EQ(received.status, anychat::CallStatus::Ringing);
-    EXPECT_EQ(received.room_name, "room-abc");
+    EXPECT_TRUE(received.room_name.empty());
 }
 
 // ---------------------------------------------------------------------------
 // 2. CallStatusChangedNotificationFiresHandler
-//    A livekit.call_status notification should invoke OnCallStatusChanged
+//    A real livekit.call_status notification should invoke OnCallStatusChanged
 //    with the correct call_id and parsed status.
 // ---------------------------------------------------------------------------
 TEST_F(CallManagerTest, CallStatusChangedNotificationFiresHandler) {
@@ -90,10 +87,11 @@ TEST_F(CallManagerTest, CallStatusChangedNotificationFiresHandler) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "livekit.call_status",
+            "notification_id": "notif-call-002",
+            "type": "livekit.call_status",
             "timestamp": 1708329601,
-            "data": {
-                "callId": "call-002",
+            "payload": {
+                "call_id": "call-002",
                 "status": "connected"
             }
         }
@@ -107,14 +105,16 @@ TEST_F(CallManagerTest, CallStatusChangedNotificationFiresHandler) {
 
 // ---------------------------------------------------------------------------
 // 3. CallRejectedNotificationFiresHandler
-//    A livekit.call_rejected notification should invoke OnCallStatusChanged
-//    with status = Rejected.
+//    A real livekit.call_rejected notification should invoke
+//    OnCallStatusChanged with status = Rejected.
 // ---------------------------------------------------------------------------
 TEST_F(CallManagerTest, CallRejectedNotificationFiresHandler) {
+    std::string received_id;
     anychat::CallStatus received_status = anychat::CallStatus::Ringing;
     int call_count = 0;
 
-    mgr_->setOnCallStatusChanged([&](const std::string& /*id*/, anychat::CallStatus st) {
+    mgr_->setOnCallStatusChanged([&](const std::string& id, anychat::CallStatus st) {
+        received_id = id;
         received_status = st;
         ++call_count;
     });
@@ -122,14 +122,19 @@ TEST_F(CallManagerTest, CallRejectedNotificationFiresHandler) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "livekit.call_rejected",
+            "notification_id": "notif-call-003",
+            "type": "livekit.call_rejected",
             "timestamp": 1708329602,
-            "data": { "callId": "call-003" }
+            "payload": {
+                "call_id": "call-003",
+                "callee_id": "user-callee-222"
+            }
         }
     })";
     notif_mgr_->handleRaw(frame);
 
     ASSERT_EQ(call_count, 1);
+    EXPECT_EQ(received_id, "call-003");
     EXPECT_EQ(received_status, anychat::CallStatus::Rejected);
 }
 
@@ -149,9 +154,10 @@ TEST_F(CallManagerTest, UnrelatedNotificationDoesNotFireCallHandlers) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "message.new",
+            "notification_id": "notif-msg-999",
+            "type": "message.new",
             "timestamp": 1708329603,
-            "data": { "messageId": "msg-999" }
+            "payload": { "message_id": "msg-999" }
         }
     })";
     notif_mgr_->handleRaw(frame);

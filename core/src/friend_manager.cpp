@@ -10,6 +10,27 @@ namespace anychat {
 // Helpers
 // ---------------------------------------------------------------------------
 
+static int64_t jsonIntValue(const nlohmann::json& item, const char* key) {
+    auto it = item.find(key);
+    if (it == item.end()) {
+        return 0;
+    }
+    if (it->is_number_integer()) {
+        return it->get<int64_t>();
+    }
+    if (it->is_number_unsigned()) {
+        return static_cast<int64_t>(it->get<uint64_t>());
+    }
+    if (it->is_string()) {
+        try {
+            return std::stoll(it->get<std::string>());
+        } catch (...) {
+            return 0;
+        }
+    }
+    return 0;
+}
+
 static Friend parseFriend(const nlohmann::json& item) {
     Friend f;
     f.user_id = item.value("userId", "");
@@ -31,7 +52,7 @@ static Friend parseFriend(const nlohmann::json& item) {
 
 static FriendRequest parseFriendRequest(const nlohmann::json& item) {
     FriendRequest r;
-    r.request_id = item.value("requestId", int64_t{ 0 });
+    r.request_id = jsonIntValue(item, "requestId");
     r.from_user_id = item.value("fromUserId", "");
     r.to_user_id = item.value("toUserId", "");
     r.message = item.value("message", "");
@@ -350,7 +371,7 @@ void FriendManagerImpl::handleFriendNotification(const NotificationEvent& event)
             FriendRequest req;
             try {
                 const auto& d = event.data;
-                req.request_id = d.value("requestId", int64_t{ 0 });
+                req.request_id = jsonIntValue(d, "requestId");
                 req.from_user_id = d.value("fromUserId", "");
                 req.message = d.value("message", "");
                 req.status = "pending";

@@ -301,10 +301,24 @@ void ConversationManagerImpl::handleSessionNotification(const NotificationEvent&
         const auto& nt = event.notification_type;
 
         if (nt == "session.deleted") {
-            std::string conv_id = d.value("sessionId", "");
-            if (!conv_id.empty()) {
-                conv_cache_->remove(conv_id);
-                db_->exec("DELETE FROM conversations WHERE conv_id=?", { conv_id });
+            Conversation removed;
+            removed.conv_id = d.value("sessionId", "");
+            if (!removed.conv_id.empty()) {
+                auto existing = conv_cache_->get(removed.conv_id);
+                if (existing) {
+                    removed = *existing;
+                }
+                conv_cache_->remove(removed.conv_id);
+                db_->exec("DELETE FROM conversations WHERE conv_id=?", { removed.conv_id });
+            }
+
+            OnConversationUpdated handler;
+            {
+                std::lock_guard<std::mutex> lk(handler_mutex_);
+                handler = on_updated_;
+            }
+            if (handler) {
+                handler(removed);
             }
             return;
         }

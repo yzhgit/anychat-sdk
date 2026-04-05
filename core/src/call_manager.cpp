@@ -1,10 +1,146 @@
 #include "call_manager.h"
 
+#include <initializer_list>
 #include <string>
 
 #include <nlohmann/json.hpp>
 
 namespace anychat {
+namespace {
+
+const nlohmann::json* findField(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
+    if (!obj.is_object()) {
+        return nullptr;
+    }
+
+    for (const char* key : keys) {
+        auto it = obj.find(key);
+        if (it != obj.end()) {
+            return &(*it);
+        }
+    }
+    return nullptr;
+}
+
+std::string getString(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
+    const auto* value = findField(obj, keys);
+    return value != nullptr && value->is_string() ? value->get<std::string>() : "";
+}
+
+int64_t getInt64(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
+    const auto* value = findField(obj, keys);
+    if (value == nullptr) {
+        return 0;
+    }
+    if (value->is_number_integer()) {
+        return value->get<int64_t>();
+    }
+    if (value->is_number_unsigned()) {
+        return static_cast<int64_t>(value->get<uint64_t>());
+    }
+    return 0;
+}
+
+int32_t getInt32(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
+    return static_cast<int32_t>(getInt64(obj, keys));
+}
+
+bool getBool(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
+    const auto* value = findField(obj, keys);
+    return value != nullptr && value->is_boolean() ? value->get<bool>() : false;
+}
+
+CallType parseCallTypeValue(const nlohmann::json& obj) {
+    const auto* value = findField(obj, { "callType", "call_type" });
+    if (value == nullptr) {
+        return CallType::Audio;
+    }
+    if (value->is_number_integer() || value->is_number_unsigned()) {
+        return getInt64(obj, { "callType", "call_type" }) == 1 ? CallType::Video : CallType::Audio;
+    }
+    if (value->is_string()) {
+        return value->get<std::string>() == "video" ? CallType::Video : CallType::Audio;
+    }
+    return CallType::Audio;
+}
+
+CallStatus parseCallStatusValue(const nlohmann::json& obj) {
+    const auto* value = findField(obj, { "status" });
+    if (value == nullptr) {
+        return CallStatus::Ringing;
+    }
+
+    if (value->is_number_integer() || value->is_number_unsigned()) {
+        switch (getInt64(obj, { "status" })) {
+            case 1:
+                return CallStatus::Connected;
+            case 2:
+                return CallStatus::Ended;
+            case 3:
+                return CallStatus::Rejected;
+            case 4:
+                return CallStatus::Missed;
+            case 5:
+                return CallStatus::Cancelled;
+            default:
+                return CallStatus::Ringing;
+        }
+    }
+
+    if (!value->is_string()) {
+        return CallStatus::Ringing;
+    }
+
+    const std::string status = value->get<std::string>();
+    if (status == "connected")
+        return CallStatus::Connected;
+    if (status == "ended")
+        return CallStatus::Ended;
+    if (status == "rejected")
+        return CallStatus::Rejected;
+    if (status == "missed")
+        return CallStatus::Missed;
+    if (status == "cancelled")
+        return CallStatus::Cancelled;
+    return CallStatus::Ringing;
+}
+
+bool parseMeetingIsActive(const nlohmann::json& obj) {
+    const auto* value = findField(obj, { "status" });
+    if (value == nullptr) {
+        return true;
+    }
+    if (value->is_number_integer() || value->is_number_unsigned()) {
+        return getInt64(obj, { "status" }) != 1;
+    }
+    if (value->is_string()) {
+        return value->get<std::string>() != "ended";
+    }
+    return true;
+}
+
+MeetingRoom parseMeetingResult(const nlohmann::json& data) {
+    const auto* meeting = findField(data, { "meeting" });
+    const nlohmann::json& room_data = meeting != nullptr && meeting->is_object() ? *meeting : data;
+
+    MeetingRoom room;
+    room.room_id = getString(room_data, { "roomId", "room_id" });
+    room.creator_id = getString(room_data, { "creatorId", "creator_id" });
+    room.title = getString(room_data, { "title" });
+    room.room_name = getString(room_data, { "roomName", "room_name" });
+    room.token = getString(data, { "token" });
+    if (room.token.empty()) {
+        room.token = getString(room_data, { "token" });
+    }
+    room.has_password = getBool(room_data, { "hasPassword", "has_password" });
+    room.max_participants = getInt32(room_data, { "maxParticipants", "max_participants" });
+    room.started_at = getInt64(room_data, { "startedAt", "started_at" });
+    room.created_at_ms = getInt64(room_data, { "createdAt", "created_at" }) * 1000;
+    room.is_active = parseMeetingIsActive(room_data);
+    return room;
+}
+
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Constructor
@@ -39,31 +175,32 @@ CallManagerImpl::CallManagerImpl(std::shared_ptr<network::HttpClient> http, Noti
 
 /*static*/ CallSession CallManagerImpl::parseCallSession(const nlohmann::json& j) {
     CallSession s;
-    s.call_id = j.value("callId", "");
-    s.caller_id = j.value("callerId", "");
-    s.callee_id = j.value("calleeId", "");
-    s.room_name = j.value("roomName", "");
-    s.token = j.value("token", "");
-    s.started_at = j.value("startedAt", int64_t{ 0 });
-    s.ended_at = j.value("endedAt", int64_t{ 0 });
-    s.duration = j.value("duration", 0);
-    s.call_type = (j.value("callType", "audio") == "video") ? CallType::Video : CallType::Audio;
-    s.status = parseCallStatus(j.value("status", "ringing"));
+    s.call_id = getString(j, { "callId", "call_id" });
+    s.caller_id = getString(j, { "callerId", "caller_id" });
+    s.callee_id = getString(j, { "calleeId", "callee_id" });
+    s.room_name = getString(j, { "roomName", "room_name" });
+    s.token = getString(j, { "token" });
+    s.started_at = getInt64(j, { "startedAt", "started_at" });
+    s.connected_at = getInt64(j, { "connectedAt", "connected_at" });
+    s.ended_at = getInt64(j, { "endedAt", "ended_at" });
+    s.duration = getInt32(j, { "duration" });
+    s.call_type = parseCallTypeValue(j);
+    s.status = parseCallStatusValue(j);
     return s;
 }
 
 /*static*/ MeetingRoom CallManagerImpl::parseMeetingRoom(const nlohmann::json& j) {
     MeetingRoom m;
-    m.room_id = j.value("roomId", "");
-    m.creator_id = j.value("creatorId", "");
-    m.title = j.value("title", "");
-    m.room_name = j.value("roomName", "");
-    m.token = j.value("token", "");
-    m.has_password = j.value("hasPassword", false);
-    m.max_participants = j.value("maxParticipants", 0);
-    m.started_at = j.value("startedAt", int64_t{ 0 });
-    const std::string status = j.value("status", "active");
-    m.is_active = (status != "ended");
+    m.room_id = getString(j, { "roomId", "room_id" });
+    m.creator_id = getString(j, { "creatorId", "creator_id" });
+    m.title = getString(j, { "title" });
+    m.room_name = getString(j, { "roomName", "room_name" });
+    m.token = getString(j, { "token" });
+    m.has_password = getBool(j, { "hasPassword", "has_password" });
+    m.max_participants = getInt32(j, { "maxParticipants", "max_participants" });
+    m.started_at = getInt64(j, { "startedAt", "started_at" });
+    m.created_at_ms = getInt64(j, { "createdAt", "created_at" }) * 1000;
+    m.is_active = parseMeetingIsActive(j);
     return m;
 }
 
@@ -76,7 +213,7 @@ void CallManagerImpl::initiateCall(const std::string& callee_id, CallType type, 
     body["calleeId"] = callee_id;
     body["callType"] = (type == CallType::Video) ? "video" : "audio";
 
-    http_->post("/rtc/calls", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
+    http_->post("/calling/calls", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, {}, resp.error);
             return;
@@ -95,7 +232,7 @@ void CallManagerImpl::initiateCall(const std::string& callee_id, CallType type, 
 }
 
 void CallManagerImpl::joinCall(const std::string& call_id, CallCallback callback) {
-    http_->post("/rtc/calls/" + call_id + "/join", "", [cb = std::move(callback)](network::HttpResponse resp) {
+    http_->post("/calling/calls/" + call_id + "/join", "", [cb = std::move(callback), call_id](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, {}, resp.error);
             return;
@@ -106,7 +243,11 @@ void CallManagerImpl::joinCall(const std::string& call_id, CallCallback callback
                 cb(false, {}, root.value("message", "server error"));
                 return;
             }
-            cb(true, parseCallSession(root["data"]), "");
+            CallSession session = parseCallSession(root["data"]);
+            if (session.call_id.empty()) {
+                session.call_id = call_id;
+            }
+            cb(true, session, "");
         } catch (const std::exception& e) {
             cb(false, {}, std::string("parse error: ") + e.what());
         }
@@ -114,7 +255,7 @@ void CallManagerImpl::joinCall(const std::string& call_id, CallCallback callback
 }
 
 void CallManagerImpl::rejectCall(const std::string& call_id, ResultCallback callback) {
-    http_->post("/rtc/calls/" + call_id + "/reject", "", [cb = std::move(callback)](network::HttpResponse resp) {
+    http_->post("/calling/calls/" + call_id + "/reject", "", [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);
             return;
@@ -130,7 +271,7 @@ void CallManagerImpl::rejectCall(const std::string& call_id, ResultCallback call
 }
 
 void CallManagerImpl::endCall(const std::string& call_id, ResultCallback callback) {
-    http_->post("/rtc/calls/" + call_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
+    http_->post("/calling/calls/" + call_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);
             return;
@@ -146,7 +287,7 @@ void CallManagerImpl::endCall(const std::string& call_id, ResultCallback callbac
 }
 
 void CallManagerImpl::getCallSession(const std::string& call_id, CallCallback callback) {
-    http_->get("/rtc/calls/" + call_id, [cb = std::move(callback)](network::HttpResponse resp) {
+    http_->get("/calling/calls/" + call_id, [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, {}, resp.error);
             return;
@@ -165,7 +306,7 @@ void CallManagerImpl::getCallSession(const std::string& call_id, CallCallback ca
 }
 
 void CallManagerImpl::getCallLogs(int page, int page_size, CallListCallback callback) {
-    std::string path = "/rtc/calls?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
+    std::string path = "/calling/calls?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
@@ -179,10 +320,13 @@ void CallManagerImpl::getCallLogs(int page, int page_size, CallListCallback call
                 return;
             }
             const auto& data = root["data"];
-            int64_t total = data.value("total", int64_t{ 0 });
+            int64_t total = getInt64(data, { "total" });
             std::vector<CallSession> calls;
-            for (const auto& item : data["list"]) {
-                calls.push_back(parseCallSession(item));
+            const auto* sessions = findField(data, { "sessions", "list" });
+            if (sessions != nullptr && sessions->is_array()) {
+                for (const auto& item : *sessions) {
+                    calls.push_back(parseCallSession(item));
+                }
             }
             cb(calls, total, "");
         } catch (const std::exception& e) {
@@ -208,7 +352,7 @@ void CallManagerImpl::createMeeting(
     if (max_participants > 0)
         body["maxParticipants"] = max_participants;
 
-    http_->post("/rtc/meetings", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
+    http_->post("/calling/meetings", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, {}, resp.error);
             return;
@@ -219,7 +363,7 @@ void CallManagerImpl::createMeeting(
                 cb(false, {}, root.value("message", "server error"));
                 return;
             }
-            cb(true, parseMeetingRoom(root["data"]), "");
+            cb(true, parseMeetingResult(root["data"]), "");
         } catch (const std::exception& e) {
             cb(false, {}, std::string("parse error: ") + e.what());
         }
@@ -232,7 +376,7 @@ void CallManagerImpl::joinMeeting(const std::string& room_id, const std::string&
         body["password"] = password;
 
     http_->post(
-        "/rtc/meetings/" + room_id + "/join",
+        "/calling/meetings/" + room_id + "/join",
         body.dump(),
         [cb = std::move(callback)](network::HttpResponse resp) {
             if (!resp.error.empty()) {
@@ -245,7 +389,7 @@ void CallManagerImpl::joinMeeting(const std::string& room_id, const std::string&
                     cb(false, {}, root.value("message", "server error"));
                     return;
                 }
-                cb(true, parseMeetingRoom(root["data"]), "");
+                cb(true, parseMeetingResult(root["data"]), "");
             } catch (const std::exception& e) {
                 cb(false, {}, std::string("parse error: ") + e.what());
             }
@@ -254,7 +398,7 @@ void CallManagerImpl::joinMeeting(const std::string& room_id, const std::string&
 }
 
 void CallManagerImpl::endMeeting(const std::string& room_id, ResultCallback callback) {
-    http_->post("/rtc/meetings/" + room_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
+    http_->post("/calling/meetings/" + room_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);
             return;
@@ -270,7 +414,7 @@ void CallManagerImpl::endMeeting(const std::string& room_id, ResultCallback call
 }
 
 void CallManagerImpl::getMeeting(const std::string& room_id, MeetingCallback callback) {
-    http_->get("/rtc/meetings/" + room_id, [cb = std::move(callback)](network::HttpResponse resp) {
+    http_->get("/calling/meetings/" + room_id, [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, {}, resp.error);
             return;
@@ -281,7 +425,7 @@ void CallManagerImpl::getMeeting(const std::string& room_id, MeetingCallback cal
                 cb(false, {}, root.value("message", "server error"));
                 return;
             }
-            cb(true, parseMeetingRoom(root["data"]), "");
+            cb(true, parseMeetingResult(root["data"]), "");
         } catch (const std::exception& e) {
             cb(false, {}, std::string("parse error: ") + e.what());
         }
@@ -289,7 +433,7 @@ void CallManagerImpl::getMeeting(const std::string& room_id, MeetingCallback cal
 }
 
 void CallManagerImpl::listMeetings(int page, int page_size, MeetingListCallback callback) {
-    std::string path = "/rtc/meetings?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
+    std::string path = "/calling/meetings?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
@@ -303,10 +447,13 @@ void CallManagerImpl::listMeetings(int page, int page_size, MeetingListCallback 
                 return;
             }
             const auto& data = root["data"];
-            int64_t total = data.value("total", int64_t{ 0 });
+            int64_t total = getInt64(data, { "total" });
             std::vector<MeetingRoom> rooms;
-            for (const auto& item : data["list"]) {
-                rooms.push_back(parseMeetingRoom(item));
+            const auto* meetings = findField(data, { "meetings", "list" });
+            if (meetings != nullptr && meetings->is_array()) {
+                for (const auto& item : *meetings) {
+                    rooms.push_back(parseMeetingRoom(item));
+                }
             }
             cb(rooms, total, "");
         } catch (const std::exception& e) {
@@ -355,10 +502,10 @@ void CallManagerImpl::handleCallNotification(const NotificationEvent& event) {
         }
         if (handler) {
             try {
-                std::string call_id = event.data.value("callId", "");
+                std::string call_id = getString(event.data, { "callId", "call_id" });
                 CallStatus status = (nt == "livekit.call_rejected")
                                         ? CallStatus::Rejected
-                                        : parseCallStatus(event.data.value("status", "ended"));
+                                        : parseCallStatusValue(event.data);
                 handler(call_id, status);
             } catch (...) {
             }

@@ -26,27 +26,27 @@ public:
 
     // ---- One-to-one calls ------------------------------------------------
 
-    // POST /rtc/calls
+    // POST /calling/calls
     virtual void initiateCall(const std::string& callee_id, CallType type, CallCallback callback) = 0;
 
-    // POST /rtc/calls/{callId}/join
+    // POST /calling/calls/{callId}/join
     virtual void joinCall(const std::string& call_id, CallCallback callback) = 0;
 
-    // POST /rtc/calls/{callId}/reject
+    // POST /calling/calls/{callId}/reject
     virtual void rejectCall(const std::string& call_id, ResultCallback callback) = 0;
 
-    // POST /rtc/calls/{callId}/end
+    // POST /calling/calls/{callId}/end
     virtual void endCall(const std::string& call_id, ResultCallback callback) = 0;
 
-    // GET  /rtc/calls/{callId}
+    // GET  /calling/calls/{callId}
     virtual void getCallSession(const std::string& call_id, CallCallback callback) = 0;
 
-    // GET  /rtc/calls?page=&pageSize=
+    // GET  /calling/calls?page=&pageSize=
     virtual void getCallLogs(int page, int page_size, CallListCallback callback) = 0;
 
     // ---- Meetings --------------------------------------------------------
 
-    // POST /rtc/meetings
+    // POST /calling/meetings
     virtual void createMeeting(
         const std::string& title,
         const std::string& password,
@@ -54,16 +54,16 @@ public:
         MeetingCallback callback
     ) = 0;
 
-    // POST /rtc/meetings/{roomId}/join
+    // POST /calling/meetings/{roomId}/join
     virtual void joinMeeting(const std::string& room_id, const std::string& password, MeetingCallback callback) = 0;
 
-    // POST /rtc/meetings/{roomId}/end
+    // POST /calling/meetings/{roomId}/end
     virtual void endMeeting(const std::string& room_id, ResultCallback callback) = 0;
 
-    // GET  /rtc/meetings/{roomId}
+    // GET  /calling/meetings/{roomId}
     virtual void getMeeting(const std::string& room_id, MeetingCallback callback) = 0;
 
-    // GET  /rtc/meetings?page=&pageSize=
+    // GET  /calling/meetings?page=&pageSize=
     virtual void listMeetings(int page, int page_size, MeetingListCallback callback) = 0;
 
     // ---- WebSocket notification handlers ---------------------------------

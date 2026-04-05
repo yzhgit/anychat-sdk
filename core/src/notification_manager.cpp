@@ -1,10 +1,144 @@
 #include "notification_manager.h"
 
+#include <cctype>
+#include <initializer_list>
 #include <mutex>
-
 #include <shared_mutex>
+#include <string>
 
 namespace anychat {
+namespace {
+
+const nlohmann::json* findField(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
+    if (!obj.is_object()) {
+        return nullptr;
+    }
+
+    for (const char* key : keys) {
+        auto it = obj.find(key);
+        if (it != obj.end()) {
+            return &(*it);
+        }
+    }
+    return nullptr;
+}
+
+std::string snakeToCamel(const std::string& key) {
+    std::string out;
+    out.reserve(key.size());
+
+    bool upper_next = false;
+    for (unsigned char ch : key) {
+        if (ch == '_') {
+            upper_next = true;
+            continue;
+        }
+        if (upper_next) {
+            out.push_back(static_cast<char>(std::toupper(ch)));
+            upper_next = false;
+            continue;
+        }
+        out.push_back(static_cast<char>(ch));
+    }
+    return out;
+}
+
+void addCommonAliases(nlohmann::json& obj, const std::string& key, const nlohmann::json& value) {
+    if (key == "fromUserId") {
+        if (!obj.contains("senderId")) {
+            obj["senderId"] = value;
+        }
+        return;
+    }
+    if (key == "seq") {
+        if (!obj.contains("sequence")) {
+            obj["sequence"] = value;
+        }
+        return;
+    }
+    if (key == "sentAt") {
+        if (!obj.contains("timestamp")) {
+            obj["timestamp"] = value;
+        }
+        return;
+    }
+    if (key == "groupName") {
+        if (!obj.contains("name")) {
+            obj["name"] = value;
+        }
+        return;
+    }
+    if (key == "groupAvatar") {
+        if (!obj.contains("avatarUrl")) {
+            obj["avatarUrl"] = value;
+        }
+        if (!obj.contains("avatar")) {
+            obj["avatar"] = value;
+        }
+        return;
+    }
+    if (key == "inviterUserId") {
+        if (!obj.contains("inviterId")) {
+            obj["inviterId"] = value;
+        }
+        return;
+    }
+    if (key == "friendUserId" && !obj.contains("userId")) {
+        obj["userId"] = value;
+    }
+}
+
+nlohmann::json normalizeKeys(const nlohmann::json& value) {
+    if (value.is_object()) {
+        nlohmann::json normalized = nlohmann::json::object();
+        for (auto it = value.begin(); it != value.end(); ++it) {
+            const std::string key = snakeToCamel(it.key());
+            nlohmann::json normalized_value = normalizeKeys(it.value());
+            normalized[key] = normalized_value;
+            addCommonAliases(normalized, key, normalized_value);
+        }
+        return normalized;
+    }
+
+    if (value.is_array()) {
+        nlohmann::json normalized = nlohmann::json::array();
+        for (const auto& item : value) {
+            normalized.push_back(normalizeKeys(item));
+        }
+        return normalized;
+    }
+
+    return value;
+}
+
+std::string getString(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
+    const auto* value = findField(obj, keys);
+    return value != nullptr && value->is_string() ? value->get<std::string>() : "";
+}
+
+int64_t getInt64(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
+    const auto* value = findField(obj, keys);
+    if (value == nullptr) {
+        return 0;
+    }
+    if (value->is_number_integer()) {
+        return value->get<int64_t>();
+    }
+    if (value->is_number_unsigned()) {
+        return static_cast<int64_t>(value->get<uint64_t>());
+    }
+    return 0;
+}
+
+nlohmann::json getObject(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
+    const auto* value = findField(obj, keys);
+    if (value == nullptr || !value->is_object()) {
+        return nlohmann::json::object();
+    }
+    return normalizeKeys(*value);
+}
+
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Handler registration
@@ -65,18 +199,10 @@ void NotificationManager::handleRaw(const std::string& raw_json) {
         const auto& p = frame["payload"];
 
         MsgSentAck ack;
-        if (p.contains("messageId") && p["messageId"].is_string()) {
-            ack.message_id = p["messageId"].get<std::string>();
-        }
-        if (p.contains("sequence") && p["sequence"].is_number_integer()) {
-            ack.sequence = p["sequence"].get<int64_t>();
-        }
-        if (p.contains("timestamp") && p["timestamp"].is_number_integer()) {
-            ack.timestamp = p["timestamp"].get<int64_t>();
-        }
-        if (p.contains("localId") && p["localId"].is_string()) {
-            ack.local_id = p["localId"].get<std::string>();
-        }
+        ack.message_id = getString(p, { "messageId", "message_id" });
+        ack.sequence = getInt64(p, { "sequence" });
+        ack.timestamp = getInt64(p, { "timestamp" });
+        ack.local_id = getString(p, { "localId", "local_id" });
 
         MsgSentHandler handler;
         {
@@ -97,15 +223,9 @@ void NotificationManager::handleRaw(const std::string& raw_json) {
         const auto& p = frame["payload"];
 
         NotificationEvent evt;
-        if (p.contains("notificationType") && p["notificationType"].is_string()) {
-            evt.notification_type = p["notificationType"].get<std::string>();
-        }
-        if (p.contains("timestamp") && p["timestamp"].is_number_integer()) {
-            evt.timestamp = p["timestamp"].get<int64_t>();
-        }
-        if (p.contains("data") && p["data"].is_object()) {
-            evt.data = p["data"];
-        }
+        evt.notification_type = getString(p, { "notificationType", "type" });
+        evt.timestamp = getInt64(p, { "timestamp" });
+        evt.data = getObject(p, { "data", "payload" });
 
         std::vector<NotifHandler> handlers;
         {

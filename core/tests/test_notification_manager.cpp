@@ -12,11 +12,6 @@
 // NotificationManager tests
 // ===========================================================================
 
-// ---------------------------------------------------------------------------
-// 1. PongDispatch
-//    Registering a pong handler and calling handleRaw with {"type":"pong"}
-//    should invoke the handler exactly once.
-// ---------------------------------------------------------------------------
 TEST(NotificationManagerTest, PongDispatch) {
     anychat::NotificationManager mgr;
 
@@ -30,11 +25,6 @@ TEST(NotificationManagerTest, PongDispatch) {
     EXPECT_EQ(call_count, 1) << "Pong handler should be called exactly once";
 }
 
-// ---------------------------------------------------------------------------
-// 2. MessageSentDispatch
-//    Registering a message-sent handler and calling handleRaw with a valid
-//    message.sent frame should invoke the handler with correct MsgSentAck data.
-// ---------------------------------------------------------------------------
 TEST(NotificationManagerTest, MessageSentDispatch) {
     anychat::NotificationManager mgr;
 
@@ -65,11 +55,6 @@ TEST(NotificationManagerTest, MessageSentDispatch) {
     EXPECT_EQ(received_ack.local_id, "local-uuid-99");
 }
 
-// ---------------------------------------------------------------------------
-// 3. NotificationDispatch
-//    Registering a notification handler and calling handleRaw with a
-//    notification frame should deliver the correct NotificationEvent.
-// ---------------------------------------------------------------------------
 TEST(NotificationManagerTest, NotificationDispatch) {
     anychat::NotificationManager mgr;
 
@@ -84,15 +69,17 @@ TEST(NotificationManagerTest, NotificationDispatch) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "message.new",
+            "notification_id": "notif-001",
+            "type": "message.new",
             "timestamp": 1708329600,
-            "data": {
-                "messageId": "msg-111",
-                "conversationId": "conv-222",
-                "senderId": "user-333",
-                "contentType": "text",
+            "payload": {
+                "message_id": "msg-111",
+                "conversation_id": "conv-222",
+                "from_user_id": "user-333",
+                "content_type": "text",
                 "content": "你好吗？",
-                "sequence": 43
+                "sent_at": 1708329595,
+                "seq": 43
             }
         }
     })";
@@ -104,13 +91,13 @@ TEST(NotificationManagerTest, NotificationDispatch) {
     EXPECT_EQ(received_event.timestamp, 1708329600);
     EXPECT_EQ(received_event.data.value("messageId", ""), "msg-111");
     EXPECT_EQ(received_event.data.value("conversationId", ""), "conv-222");
+    EXPECT_EQ(received_event.data.value("fromUserId", ""), "user-333");
+    EXPECT_EQ(received_event.data.value("senderId", ""), "user-333");
+    EXPECT_EQ(received_event.data.value("contentType", ""), "text");
+    EXPECT_EQ(received_event.data.value("sequence", int64_t{ 0 }), 43);
+    EXPECT_EQ(received_event.data.value("timestamp", int64_t{ 0 }), 1708329595);
 }
 
-// ---------------------------------------------------------------------------
-// 4. UnknownTypeIgnored
-//    A frame with an unrecognized type should not invoke any handler and
-//    should not crash.
-// ---------------------------------------------------------------------------
 TEST(NotificationManagerTest, UnknownTypeIgnored) {
     anychat::NotificationManager mgr;
 
@@ -125,16 +112,10 @@ TEST(NotificationManagerTest, UnknownTypeIgnored) {
         any_called = true;
     });
 
-    // Should be silently ignored.
     EXPECT_NO_THROW(mgr.handleRaw(R"({"type":"unknown_event"})"));
     EXPECT_FALSE(any_called) << "No handler should be called for an unknown frame type";
 }
 
-// ---------------------------------------------------------------------------
-// 5. MalformedJsonIgnored
-//    handleRaw() with invalid JSON should not crash and should not invoke
-//    any handler.
-// ---------------------------------------------------------------------------
 TEST(NotificationManagerTest, MalformedJsonIgnored) {
     anychat::NotificationManager mgr;
 
@@ -149,7 +130,6 @@ TEST(NotificationManagerTest, MalformedJsonIgnored) {
         any_called = true;
     });
 
-    // Must not throw or crash.
     EXPECT_NO_THROW(mgr.handleRaw("not json at all {{{{"));
     EXPECT_NO_THROW(mgr.handleRaw(""));
     EXPECT_NO_THROW(mgr.handleRaw("{"));
@@ -157,11 +137,6 @@ TEST(NotificationManagerTest, MalformedJsonIgnored) {
     EXPECT_FALSE(any_called) << "No handler should be called for malformed JSON";
 }
 
-// ---------------------------------------------------------------------------
-// 6. HandlerCanBeCleared
-//    Passing nullptr to a setter should clear the handler; subsequent frames
-//    of that type should not crash.
-// ---------------------------------------------------------------------------
 TEST(NotificationManagerTest, HandlerCanBeCleared) {
     anychat::NotificationManager mgr;
 
@@ -173,18 +148,12 @@ TEST(NotificationManagerTest, HandlerCanBeCleared) {
     mgr.handleRaw(R"({"type":"pong"})");
     EXPECT_EQ(count, 1);
 
-    // Clear the pong handler.
     mgr.setOnPong(nullptr);
 
-    // Second pong should not crash and should not increment count.
     EXPECT_NO_THROW(mgr.handleRaw(R"({"type":"pong"})"));
     EXPECT_EQ(count, 1) << "Cleared handler should not be invoked";
 }
 
-// ---------------------------------------------------------------------------
-// 7. MultipleNotificationTypes
-//    Verify that each notification type frame reaches the correct handler.
-// ---------------------------------------------------------------------------
 TEST(NotificationManagerTest, FriendRequestNotificationDispatch) {
     anychat::NotificationManager mgr;
 
@@ -196,11 +165,12 @@ TEST(NotificationManagerTest, FriendRequestNotificationDispatch) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "friend.request",
+            "notification_id": "notif-002",
+            "type": "friend.request",
             "timestamp": 1708329601,
-            "data": {
-                "requestId": "req-444",
-                "fromUserId": "user-555",
+            "payload": {
+                "request_id": 444,
+                "from_user_id": "user-555",
                 "message": "你好，我是张三"
             }
         }
@@ -210,11 +180,6 @@ TEST(NotificationManagerTest, FriendRequestNotificationDispatch) {
     EXPECT_EQ(received_type, "friend.request");
 }
 
-// ---------------------------------------------------------------------------
-// 8. MultipleHandlersFanOut
-//    Registering two notification handlers should cause both to be called for
-//    every notification frame (fan-out semantics).
-// ---------------------------------------------------------------------------
 TEST(NotificationManagerTest, MultipleHandlersFanOut) {
     anychat::NotificationManager mgr;
 
@@ -231,9 +196,10 @@ TEST(NotificationManagerTest, MultipleHandlersFanOut) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "message.new",
+            "notification_id": "notif-003",
+            "type": "message.new",
             "timestamp": 1708329600,
-            "data": {}
+            "payload": {}
         }
     })";
 
@@ -242,7 +208,6 @@ TEST(NotificationManagerTest, MultipleHandlersFanOut) {
     EXPECT_EQ(count_a, 1) << "First handler should be called";
     EXPECT_EQ(count_b, 1) << "Second handler should also be called";
 
-    // A second frame should invoke both handlers again.
     mgr.handleRaw(frame);
     EXPECT_EQ(count_a, 2);
     EXPECT_EQ(count_b, 2);

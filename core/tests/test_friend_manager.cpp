@@ -9,9 +9,6 @@
 
 #include <gtest/gtest.h>
 
-// ===========================================================================
-// Fixture
-// ===========================================================================
 class FriendManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -36,10 +33,6 @@ protected:
     std::unique_ptr<anychat::FriendManagerImpl> mgr_;
 };
 
-// ---------------------------------------------------------------------------
-// 1. FriendRequestNotificationFiresHandler
-//    A friend.request WebSocket notification should invoke OnFriendRequest.
-// ---------------------------------------------------------------------------
 TEST_F(FriendManagerTest, FriendRequestNotificationFiresHandler) {
     anychat::FriendRequest received{};
     int call_count = 0;
@@ -52,25 +45,25 @@ TEST_F(FriendManagerTest, FriendRequestNotificationFiresHandler) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "friend.request",
+            "notification_id": "notif-friend-req-001",
+            "type": "friend.request",
             "timestamp": 1708329600,
-            "data": {
-                "requestId": "req-001",
-                "fromUserId": "user-sender-111",
-                "message": "你好，加个好友"
+            "payload": {
+                "request_id": 1001,
+                "from_user_id": "user-sender-111",
+                "message": "你好，加个好友",
+                "created_at": 1708329500
             }
         }
     })";
     notif_mgr_->handleRaw(frame);
 
     ASSERT_EQ(call_count, 1);
+    EXPECT_EQ(received.request_id, 1001);
     EXPECT_EQ(received.from_user_id, "user-sender-111");
+    EXPECT_EQ(received.message, "你好，加个好友");
 }
 
-// ---------------------------------------------------------------------------
-// 2. FriendDeletedNotificationFiresListChangedHandler
-//    A friend.deleted notification should invoke OnFriendListChanged.
-// ---------------------------------------------------------------------------
 TEST_F(FriendManagerTest, FriendDeletedNotificationFiresListChangedHandler) {
     int call_count = 0;
     mgr_->setOnFriendListChanged([&]() {
@@ -80,9 +73,10 @@ TEST_F(FriendManagerTest, FriendDeletedNotificationFiresListChangedHandler) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "friend.deleted",
+            "notification_id": "notif-friend-del-001",
+            "type": "friend.deleted",
             "timestamp": 1708329601,
-            "data": { "userId": "user-deleted-222" }
+            "payload": { "friend_user_id": "user-deleted-222" }
         }
     })";
     notif_mgr_->handleRaw(frame);
@@ -90,10 +84,6 @@ TEST_F(FriendManagerTest, FriendDeletedNotificationFiresListChangedHandler) {
     EXPECT_GE(call_count, 1);
 }
 
-// ---------------------------------------------------------------------------
-// 3. UnrelatedNotificationDoesNotFireHandlers
-//    Group notifications must not trigger friend handlers.
-// ---------------------------------------------------------------------------
 TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     int req_count = 0;
     int list_count = 0;
@@ -107,9 +97,10 @@ TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "group.invited",
+            "notification_id": "notif-group-001",
+            "type": "group.info_updated",
             "timestamp": 1708329602,
-            "data": { "groupId": "grp-999" }
+            "payload": { "group_id": "grp-999" }
         }
     })";
     notif_mgr_->handleRaw(frame);
@@ -118,11 +109,6 @@ TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     EXPECT_EQ(list_count, 0);
 }
 
-// ---------------------------------------------------------------------------
-// 4. GetListDoesNotCrash
-//    getList() initiates an HTTP call and invokes the callback (possibly with
-//    an error since no server is running).  No crash is acceptable.
-// ---------------------------------------------------------------------------
 TEST_F(FriendManagerTest, GetListDoesNotCrash) {
     EXPECT_NO_THROW(mgr_->getList([](const std::vector<anychat::Friend>&, const std::string&) {}));
 }

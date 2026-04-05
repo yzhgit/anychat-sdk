@@ -9,9 +9,6 @@
 
 #include <gtest/gtest.h>
 
-// ===========================================================================
-// Fixture
-// ===========================================================================
 class GroupManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -36,28 +33,27 @@ protected:
     std::unique_ptr<anychat::GroupManagerImpl> mgr_;
 };
 
-// ---------------------------------------------------------------------------
-// 1. GroupInvitedNotificationFiresHandler
-//    A group.invited notification should invoke the OnGroupInvited handler.
-// ---------------------------------------------------------------------------
 TEST_F(GroupManagerTest, GroupInvitedNotificationFiresHandler) {
     anychat::Group received{};
+    std::string inviter_id;
     int call_count = 0;
 
-    mgr_->setOnGroupInvited([&](const anychat::Group& g, const std::string& /*inviter_id*/) {
+    mgr_->setOnGroupInvited([&](const anychat::Group& g, const std::string& inviter) {
         received = g;
+        inviter_id = inviter;
         ++call_count;
     });
 
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "group.invited",
+            "notification_id": "notif-group-invite-001",
+            "type": "group.invited",
             "timestamp": 1708329600,
-            "data": {
-                "groupId": "grp-001",
-                "groupName": "项目讨论组",
-                "inviterId": "user-inviter-111"
+            "payload": {
+                "group_id": "grp-001",
+                "group_name": "项目讨论组",
+                "inviter_user_id": "user-inviter-111"
             }
         }
     })";
@@ -65,38 +61,40 @@ TEST_F(GroupManagerTest, GroupInvitedNotificationFiresHandler) {
 
     ASSERT_EQ(call_count, 1);
     EXPECT_EQ(received.group_id, "grp-001");
+    EXPECT_EQ(received.name, "项目讨论组");
+    EXPECT_EQ(inviter_id, "user-inviter-111");
 }
 
-// ---------------------------------------------------------------------------
-// 2. GroupInfoUpdatedNotificationFiresUpdatedHandler
-//    A group.info_updated notification should invoke OnGroupUpdated.
-// ---------------------------------------------------------------------------
 TEST_F(GroupManagerTest, GroupInfoUpdatedNotificationFiresUpdatedHandler) {
+    anychat::Group updated{};
     int call_count = 0;
-    mgr_->setOnGroupUpdated([&](const anychat::Group&) {
+    mgr_->setOnGroupUpdated([&](const anychat::Group& g) {
+        updated = g;
         ++call_count;
     });
 
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "group.info_updated",
+            "notification_id": "notif-group-update-001",
+            "type": "group.info_updated",
             "timestamp": 1708329601,
-            "data": {
-                "groupId": "grp-002",
-                "groupName": "新名称"
+            "payload": {
+                "group_id": "grp-002",
+                "group_name": "新名称",
+                "group_avatar": "https://cdn.example/avatar.png",
+                "updated_fields": ["name", "avatar"]
             }
         }
     })";
     notif_mgr_->handleRaw(frame);
 
-    EXPECT_GE(call_count, 1);
+    EXPECT_EQ(call_count, 1);
+    EXPECT_EQ(updated.group_id, "grp-002");
+    EXPECT_EQ(updated.name, "新名称");
+    EXPECT_EQ(updated.avatar_url, "https://cdn.example/avatar.png");
 }
 
-// ---------------------------------------------------------------------------
-// 3. UnrelatedNotificationDoesNotFireHandlers
-//    Friend notifications must not trigger group handlers.
-// ---------------------------------------------------------------------------
 TEST_F(GroupManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     int invited_count = 0;
     int updated_count = 0;
@@ -110,9 +108,10 @@ TEST_F(GroupManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notificationType": "friend.request",
+            "notification_id": "notif-friend-003",
+            "type": "friend.request",
             "timestamp": 1708329602,
-            "data": { "fromUserId": "user-X" }
+            "payload": { "from_user_id": "user-X" }
         }
     })";
     notif_mgr_->handleRaw(frame);
@@ -121,9 +120,6 @@ TEST_F(GroupManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     EXPECT_EQ(updated_count, 0);
 }
 
-// ---------------------------------------------------------------------------
-// 4. GetListDoesNotCrash
-// ---------------------------------------------------------------------------
 TEST_F(GroupManagerTest, GetListDoesNotCrash) {
     EXPECT_NO_THROW(mgr_->getList([](const std::vector<anychat::Group>&, const std::string&) {}));
 }

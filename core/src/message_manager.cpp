@@ -173,12 +173,12 @@ void MessageManagerImpl::handleIncomingMessage(const NotificationEvent& event) {
         msg.message_id = d.value("messageId", "");
         msg.conv_id = d.value("conversationId", "");
         msg.session_id = msg.conv_id;
-        msg.sender_id = d.value("senderId", "");
+        msg.sender_id = d.value("senderId", d.value("fromUserId", ""));
         msg.content_type = d.value("contentType", "text");
         msg.content = d.value("content", "");
-        msg.seq = d.value("sequence", int64_t{ 0 });
-        // event.timestamp is in Unix seconds.
-        msg.timestamp_ms = event.timestamp * 1000;
+        msg.seq = d.value("sequence", d.value("seq", int64_t{ 0 }));
+        const int64_t timestamp = d.value("timestamp", d.value("sentAt", event.timestamp));
+        msg.timestamp_ms = timestamp * 1000;
 
         // Insert into cache (dedup by message_id is handled inside insert()).
         msg_cache_->insert(msg);
