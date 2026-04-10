@@ -78,6 +78,14 @@ void anychat_free_friend_request_list(AnyChatFriendRequestList_C* list) {
     list->count = 0;
 }
 
+void anychat_free_blacklist_list(AnyChatBlacklistList_C* list) {
+    if (!list)
+        return;
+    std::free(list->items);
+    list->items = nullptr;
+    list->count = 0;
+}
+
 void anychat_free_group_list(AnyChatGroupList_C* list) {
     if (!list)
         return;

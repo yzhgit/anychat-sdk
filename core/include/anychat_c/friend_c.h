@@ -15,6 +15,7 @@ typedef void (*AnyChatFriendRequestListCallback)(
     const AnyChatFriendRequestList_C* list,
     const char* error
 );
+typedef void (*AnyChatBlacklistListCallback)(void* userdata, const AnyChatBlacklistList_C* list, const char* error);
 
 typedef void (*AnyChatFriendCallback)(void* userdata, int success, const char* error);
 
@@ -37,6 +38,15 @@ ANYCHAT_C_API int anychat_friend_send_request(
     AnyChatFriendCallback callback
 );
 
+ANYCHAT_C_API int anychat_friend_send_request_with_source(
+    AnyChatFriendHandle handle,
+    const char* to_user_id,
+    const char* message,
+    const char* source,
+    void* userdata,
+    AnyChatFriendCallback callback
+);
+
 /* accept: 1 to accept, 0 to reject */
 ANYCHAT_C_API int anychat_friend_handle_request(
     AnyChatFriendHandle handle,
@@ -48,6 +58,14 @@ ANYCHAT_C_API int anychat_friend_handle_request(
 
 ANYCHAT_C_API int anychat_friend_get_pending_requests(
     AnyChatFriendHandle handle,
+    void* userdata,
+    AnyChatFriendRequestListCallback callback
+);
+
+/* request_type: "received" | "sent", NULL defaults to "received" */
+ANYCHAT_C_API int anychat_friend_get_requests(
+    AnyChatFriendHandle handle,
+    const char* request_type,
     void* userdata,
     AnyChatFriendRequestListCallback callback
 );
@@ -79,6 +97,12 @@ ANYCHAT_C_API int anychat_friend_remove_from_blacklist(
     const char* user_id,
     void* userdata,
     AnyChatFriendCallback callback
+);
+
+ANYCHAT_C_API int anychat_friend_get_blacklist(
+    AnyChatFriendHandle handle,
+    void* userdata,
+    AnyChatBlacklistListCallback callback
 );
 
 /* ---- Incoming event handlers ---- */

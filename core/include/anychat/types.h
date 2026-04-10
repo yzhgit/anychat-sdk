@@ -107,9 +107,18 @@ struct FriendRequest {
     std::string from_user_id;
     std::string to_user_id;
     std::string message;
+    std::string source; // "search" | "qrcode" | "group" | "contacts"
     std::string status; // "pending" | "accepted" | "rejected"
     int64_t created_at_ms = 0;
     UserInfo from_user_info;
+};
+
+struct BlacklistItem {
+    int64_t id = 0;
+    std::string user_id;
+    std::string blocked_user_id;
+    int64_t created_at_ms = 0;
+    UserInfo blocked_user_info;
 };
 
 // ---- Group ---------------------------------------------------------------

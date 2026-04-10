@@ -153,6 +153,7 @@ typedef struct {
     char from_user_id[64];
     char to_user_id[64];
     char message[256];
+    char source[32]; /* "search"|"qrcode"|"group"|"contacts" */
     char status[32]; /* "pending"|"accepted"|"rejected" */
     int64_t created_at_ms;
     AnyChatUserInfo_C from_user_info;
@@ -162,6 +163,19 @@ typedef struct {
     AnyChatFriendRequest_C* items;
     int count;
 } AnyChatFriendRequestList_C;
+
+typedef struct {
+    int64_t id;
+    char user_id[64];
+    char blocked_user_id[64];
+    int64_t created_at_ms;
+    AnyChatUserInfo_C blocked_user_info;
+} AnyChatBlacklistItem_C;
+
+typedef struct {
+    AnyChatBlacklistItem_C* items;
+    int count;
+} AnyChatBlacklistList_C;
 
 typedef struct {
     char group_id[64];
@@ -319,6 +333,7 @@ ANYCHAT_C_API void anychat_free_message_list(AnyChatMessageList_C* list);
 ANYCHAT_C_API void anychat_free_conversation_list(AnyChatConversationList_C* list);
 ANYCHAT_C_API void anychat_free_friend_list(AnyChatFriendList_C* list);
 ANYCHAT_C_API void anychat_free_friend_request_list(AnyChatFriendRequestList_C* list);
+ANYCHAT_C_API void anychat_free_blacklist_list(AnyChatBlacklistList_C* list);
 ANYCHAT_C_API void anychat_free_group_list(AnyChatGroupList_C* list);
 ANYCHAT_C_API void anychat_free_group_member_list(AnyChatGroupMemberList_C* list);
 ANYCHAT_C_API void anychat_free_user_list(AnyChatUserList_C* list);

@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 
 namespace {
@@ -33,9 +34,18 @@ void friendRequestToC(const anychat::FriendRequest& src, AnyChatFriendRequest_C*
     anychat_strlcpy(dst->from_user_id, src.from_user_id.c_str(), sizeof(dst->from_user_id));
     anychat_strlcpy(dst->to_user_id, src.to_user_id.c_str(), sizeof(dst->to_user_id));
     anychat_strlcpy(dst->message, src.message.c_str(), sizeof(dst->message));
+    anychat_strlcpy(dst->source, src.source.c_str(), sizeof(dst->source));
     anychat_strlcpy(dst->status, src.status.c_str(), sizeof(dst->status));
     dst->created_at_ms = src.created_at_ms;
     userInfoToC(src.from_user_info, &dst->from_user_info);
+}
+
+void blacklistItemToC(const anychat::BlacklistItem& src, AnyChatBlacklistItem_C* dst) {
+    dst->id = src.id;
+    anychat_strlcpy(dst->user_id, src.user_id.c_str(), sizeof(dst->user_id));
+    anychat_strlcpy(dst->blocked_user_id, src.blocked_user_id.c_str(), sizeof(dst->blocked_user_id));
+    dst->created_at_ms = src.created_at_ms;
+    userInfoToC(src.blocked_user_info, &dst->blocked_user_info);
 }
 
 struct FriendCbState {
@@ -95,14 +105,37 @@ int anychat_friend_send_request(
     void* userdata,
     AnyChatFriendCallback callback
 ) {
+    return anychat_friend_send_request_with_source(handle, to_user_id, message, nullptr, userdata, callback);
+}
+
+int anychat_friend_send_request_with_source(
+    AnyChatFriendHandle handle,
+    const char* to_user_id,
+    const char* message,
+    const char* source,
+    void* userdata,
+    AnyChatFriendCallback callback
+) {
     if (!handle || !handle->impl || !to_user_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->sendRequest(to_user_id, message ? message : "", [userdata, callback](bool ok, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, err.c_str());
-    });
+    if (source && source[0] != '\0') {
+        handle->impl->sendRequest(
+            to_user_id,
+            message ? message : "",
+            source,
+            [userdata, callback](bool ok, std::string err) {
+                if (callback)
+                    callback(userdata, ok ? 1 : 0, err.c_str());
+            }
+        );
+    } else {
+        handle->impl->sendRequest(to_user_id, message ? message : "", [userdata, callback](bool ok, std::string err) {
+            if (callback)
+                callback(userdata, ok ? 1 : 0, err.c_str());
+        });
+    }
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -131,11 +164,21 @@ int anychat_friend_get_pending_requests(
     void* userdata,
     AnyChatFriendRequestListCallback callback
 ) {
+    return anychat_friend_get_requests(handle, "received", userdata, callback);
+}
+
+int anychat_friend_get_requests(
+    AnyChatFriendHandle handle,
+    const char* request_type,
+    void* userdata,
+    AnyChatFriendRequestListCallback callback
+) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->getPendingRequests([userdata, callback](std::vector<anychat::FriendRequest> list, std::string err) {
+    const std::string type = (request_type && request_type[0] != '\0') ? request_type : "received";
+    handle->impl->getRequests(type, [userdata, callback](std::vector<anychat::FriendRequest> list, std::string err) {
         if (!callback)
             return;
         int count = static_cast<int>(list.size());
@@ -221,6 +264,33 @@ int anychat_friend_remove_from_blacklist(
     handle->impl->removeFromBlacklist(user_id, [userdata, callback](bool ok, std::string err) {
         if (callback)
             callback(userdata, ok ? 1 : 0, err.c_str());
+    });
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_friend_get_blacklist(
+    AnyChatFriendHandle handle,
+    void* userdata,
+    AnyChatBlacklistListCallback callback
+) {
+    if (!handle || !handle->impl) {
+        anychat_set_last_error("invalid handle");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    handle->impl->getBlacklist([userdata, callback](std::vector<anychat::BlacklistItem> list, std::string err) {
+        if (!callback)
+            return;
+        int count = static_cast<int>(list.size());
+        AnyChatBlacklistList_C c_list{};
+        c_list.count = count;
+        c_list.items =
+            count > 0 ? static_cast<AnyChatBlacklistItem_C*>(std::calloc(count, sizeof(AnyChatBlacklistItem_C)))
+                      : nullptr;
+        for (int i = 0; i < count; ++i)
+            blacklistItemToC(list[i], &c_list.items[i]);
+        callback(userdata, &c_list, err.empty() ? nullptr : err.c_str());
+        std::free(c_list.items);
     });
     anychat_clear_last_error();
     return ANYCHAT_OK;

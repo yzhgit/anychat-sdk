@@ -84,6 +84,26 @@ TEST_F(FriendManagerTest, FriendDeletedNotificationFiresListChangedHandler) {
     EXPECT_GE(call_count, 1);
 }
 
+TEST_F(FriendManagerTest, FriendAddedNotificationFiresListChangedHandler) {
+    int call_count = 0;
+    mgr_->setOnFriendListChanged([&]() {
+        ++call_count;
+    });
+
+    const std::string frame = R"({
+        "type": "notification",
+        "payload": {
+            "notification_id": "notif-friend-added-001",
+            "type": "friend.added",
+            "timestamp": 1708329603,
+            "payload": { "added_by_user_id": "user-added-by-333" }
+        }
+    })";
+    notif_mgr_->handleRaw(frame);
+
+    EXPECT_GE(call_count, 1);
+}
+
 TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     int req_count = 0;
     int list_count = 0;
@@ -111,4 +131,20 @@ TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
 
 TEST_F(FriendManagerTest, GetListDoesNotCrash) {
     EXPECT_NO_THROW(mgr_->getList([](const std::vector<anychat::Friend>&, const std::string&) {}));
+}
+
+TEST_F(FriendManagerTest, SendRequestWithSourceDoesNotCrash) {
+    EXPECT_NO_THROW(
+        mgr_->sendRequest("user-target-001", "hi", "search", [](bool /*ok*/, const std::string& /*err*/) {})
+    );
+}
+
+TEST_F(FriendManagerTest, GetRequestsDoesNotCrash) {
+    EXPECT_NO_THROW(
+        mgr_->getRequests("received", [](const std::vector<anychat::FriendRequest>&, const std::string&) {})
+    );
+}
+
+TEST_F(FriendManagerTest, GetBlacklistDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getBlacklist([](const std::vector<anychat::BlacklistItem>&, const std::string&) {}));
 }
