@@ -186,6 +186,13 @@ typedef struct {
     int my_role; /* ANYCHAT_GROUP_ROLE_* */
     int join_verify;
     int64_t updated_at_ms;
+    char display_name[128];
+    char announcement[512];
+    char description[512];
+    char group_remark[64];
+    int32_t max_members;
+    int is_muted;
+    int64_t created_at_ms;
 } AnyChatGroup_C;
 
 typedef struct {
@@ -198,6 +205,7 @@ typedef struct {
     char group_nickname[128];
     int role; /* ANYCHAT_GROUP_ROLE_* */
     int is_muted;
+    int64_t muted_until_ms;
     int64_t joined_at_ms;
     AnyChatUserInfo_C user_info;
 } AnyChatGroupMember_C;
@@ -206,6 +214,29 @@ typedef struct {
     AnyChatGroupMember_C* items;
     int count;
 } AnyChatGroupMemberList_C;
+
+typedef struct {
+    int64_t request_id;
+    char group_id[64];
+    char user_id[64];
+    char inviter_id[64];
+    char message[256];
+    char status[32]; /* "pending"|"accepted"|"rejected" */
+    int64_t created_at_ms;
+    AnyChatUserInfo_C user_info;
+} AnyChatGroupJoinRequest_C;
+
+typedef struct {
+    AnyChatGroupJoinRequest_C* items;
+    int count;
+} AnyChatGroupJoinRequestList_C;
+
+typedef struct {
+    char group_id[64];
+    char token[128];
+    char deep_link[512];
+    int64_t expire_at_ms;
+} AnyChatGroupQRCode_C;
 
 typedef struct {
     char file_id[64];
@@ -336,6 +367,7 @@ ANYCHAT_C_API void anychat_free_friend_request_list(AnyChatFriendRequestList_C* 
 ANYCHAT_C_API void anychat_free_blacklist_list(AnyChatBlacklistList_C* list);
 ANYCHAT_C_API void anychat_free_group_list(AnyChatGroupList_C* list);
 ANYCHAT_C_API void anychat_free_group_member_list(AnyChatGroupMemberList_C* list);
+ANYCHAT_C_API void anychat_free_group_join_request_list(AnyChatGroupJoinRequestList_C* list);
 ANYCHAT_C_API void anychat_free_user_list(AnyChatUserList_C* list);
 ANYCHAT_C_API void anychat_free_call_list(AnyChatCallList_C* list);
 ANYCHAT_C_API void anychat_free_meeting_list(AnyChatMeetingList_C* list);

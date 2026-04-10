@@ -102,6 +102,14 @@ void anychat_free_group_member_list(AnyChatGroupMemberList_C* list) {
     list->count = 0;
 }
 
+void anychat_free_group_join_request_list(AnyChatGroupJoinRequestList_C* list) {
+    if (!list)
+        return;
+    std::free(list->items);
+    list->items = nullptr;
+    list->count = 0;
+}
+
 void anychat_free_user_list(AnyChatUserList_C* list) {
     if (!list)
         return;

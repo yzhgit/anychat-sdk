@@ -120,6 +120,34 @@ TEST_F(GroupManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     EXPECT_EQ(updated_count, 0);
 }
 
+TEST_F(GroupManagerTest, GroupMutedNotificationFiresUpdatedHandler) {
+    anychat::Group updated{};
+    int call_count = 0;
+
+    mgr_->setOnGroupUpdated([&](const anychat::Group& g) {
+        updated = g;
+        ++call_count;
+    });
+
+    const std::string frame = R"({
+        "type": "notification",
+        "payload": {
+            "notification_id": "notif-group-muted-001",
+            "type": "group.muted",
+            "timestamp": 1708329603,
+            "payload": {
+                "group_id": "grp-003",
+                "is_muted": true
+            }
+        }
+    })";
+    notif_mgr_->handleRaw(frame);
+
+    EXPECT_EQ(call_count, 1);
+    EXPECT_EQ(updated.group_id, "grp-003");
+    EXPECT_TRUE(updated.is_muted);
+}
+
 TEST_F(GroupManagerTest, GetListDoesNotCrash) {
     EXPECT_NO_THROW(mgr_->getList([](const std::vector<anychat::Group>&, const std::string&) {}));
 }

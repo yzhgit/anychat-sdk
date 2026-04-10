@@ -132,11 +132,18 @@ enum class GroupRole
 struct Group {
     std::string group_id;
     std::string name;
+    std::string display_name;
     std::string avatar_url;
+    std::string announcement;
+    std::string description;
+    std::string group_remark;
     std::string owner_id;
     int32_t member_count = 0;
+    int32_t max_members = 0;
     GroupRole my_role = GroupRole::Member;
     bool join_verify = false;
+    bool is_muted = false;
+    int64_t created_at_ms = 0;
     int64_t updated_at_ms = 0;
 };
 
@@ -145,8 +152,27 @@ struct GroupMember {
     std::string group_nickname;
     GroupRole role = GroupRole::Member;
     bool is_muted = false;
+    int64_t muted_until_ms = 0;
     int64_t joined_at_ms = 0;
     UserInfo user_info;
+};
+
+struct GroupJoinRequest {
+    int64_t request_id = 0;
+    std::string group_id;
+    std::string user_id;
+    std::string inviter_id;
+    std::string message;
+    std::string status; // "pending" | "accepted" | "rejected"
+    int64_t created_at_ms = 0;
+    UserInfo user_info;
+};
+
+struct GroupQRCode {
+    std::string group_id;
+    std::string token;
+    std::string deep_link;
+    int64_t expire_at_ms = 0;
 };
 
 // ---- File ----------------------------------------------------------------

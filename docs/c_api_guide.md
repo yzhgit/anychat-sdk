@@ -249,12 +249,22 @@ void anychat_friend_set_list_changed_callback(handle, userdata, callback);
 
 ```c
 int  anychat_group_get_list(handle, userdata, callback);
+int  anychat_group_get_info(handle, group_id, userdata, callback);
 int  anychat_group_create(handle, name, member_ids, member_count, userdata, callback);
 int  anychat_group_join(handle, group_id, message, userdata, callback);
 int  anychat_group_invite(handle, group_id, user_ids, user_count, userdata, callback);
 int  anychat_group_quit(handle, group_id, userdata, callback);
+int  anychat_group_disband(handle, group_id, userdata, callback);
 int  anychat_group_update(handle, group_id, name, avatar_url, userdata, callback);
 int  anychat_group_get_members(handle, group_id, page, page_size, userdata, callback);
+int  anychat_group_remove_member(handle, group_id, user_id, userdata, callback);
+int  anychat_group_update_member_role(handle, group_id, user_id, role, userdata, callback);
+int  anychat_group_update_nickname(handle, group_id, nickname, userdata, callback);
+int  anychat_group_transfer_ownership(handle, group_id, new_owner_id, userdata, callback);
+int  anychat_group_get_join_requests(handle, group_id, status, userdata, callback);
+int  anychat_group_handle_join_request(handle, group_id, request_id, accept, userdata, callback);
+int  anychat_group_get_qrcode(handle, group_id, userdata, callback);
+int  anychat_group_refresh_qrcode(handle, group_id, userdata, callback);
 void anychat_group_set_invited_callback(handle, userdata, callback);
 void anychat_group_set_updated_callback(handle, userdata, callback);
 ```

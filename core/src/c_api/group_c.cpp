@@ -3,6 +3,7 @@
 #include "handles_c.h"
 #include "utils_c.h"
 
+#include <cctype>
 #include <cstdlib>
 #include <mutex>
 #include <string>
@@ -31,6 +32,14 @@ void groupToC(const anychat::Group& src, AnyChatGroup_C* dst) {
     dst->my_role = static_cast<int>(src.my_role);
     dst->join_verify = src.join_verify ? 1 : 0;
     dst->updated_at_ms = src.updated_at_ms;
+
+    anychat_strlcpy(dst->display_name, src.display_name.c_str(), sizeof(dst->display_name));
+    anychat_strlcpy(dst->announcement, src.announcement.c_str(), sizeof(dst->announcement));
+    anychat_strlcpy(dst->description, src.description.c_str(), sizeof(dst->description));
+    anychat_strlcpy(dst->group_remark, src.group_remark.c_str(), sizeof(dst->group_remark));
+    dst->max_members = src.max_members;
+    dst->is_muted = src.is_muted ? 1 : 0;
+    dst->created_at_ms = src.created_at_ms;
 }
 
 void memberToC(const anychat::GroupMember& src, AnyChatGroupMember_C* dst) {
@@ -38,8 +47,46 @@ void memberToC(const anychat::GroupMember& src, AnyChatGroupMember_C* dst) {
     anychat_strlcpy(dst->group_nickname, src.group_nickname.c_str(), sizeof(dst->group_nickname));
     dst->role = static_cast<int>(src.role);
     dst->is_muted = src.is_muted ? 1 : 0;
+    dst->muted_until_ms = src.muted_until_ms;
     dst->joined_at_ms = src.joined_at_ms;
     userInfoToC(src.user_info, &dst->user_info);
+}
+
+void joinRequestToC(const anychat::GroupJoinRequest& src, AnyChatGroupJoinRequest_C* dst) {
+    dst->request_id = src.request_id;
+    anychat_strlcpy(dst->group_id, src.group_id.c_str(), sizeof(dst->group_id));
+    anychat_strlcpy(dst->user_id, src.user_id.c_str(), sizeof(dst->user_id));
+    anychat_strlcpy(dst->inviter_id, src.inviter_id.c_str(), sizeof(dst->inviter_id));
+    anychat_strlcpy(dst->message, src.message.c_str(), sizeof(dst->message));
+    anychat_strlcpy(dst->status, src.status.c_str(), sizeof(dst->status));
+    dst->created_at_ms = src.created_at_ms;
+    userInfoToC(src.user_info, &dst->user_info);
+}
+
+void qrcodeToC(const anychat::GroupQRCode& src, AnyChatGroupQRCode_C* dst) {
+    anychat_strlcpy(dst->group_id, src.group_id.c_str(), sizeof(dst->group_id));
+    anychat_strlcpy(dst->token, src.token.c_str(), sizeof(dst->token));
+    anychat_strlcpy(dst->deep_link, src.deep_link.c_str(), sizeof(dst->deep_link));
+    dst->expire_at_ms = src.expire_at_ms;
+}
+
+anychat::GroupRole parseRoleArg(const char* role) {
+    if (!role) {
+        return anychat::GroupRole::Member;
+    }
+
+    std::string role_str(role);
+    for (char& ch : role_str) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+
+    if (role_str == "owner") {
+        return anychat::GroupRole::Owner;
+    }
+    if (role_str == "admin") {
+        return anychat::GroupRole::Admin;
+    }
+    return anychat::GroupRole::Member;
 }
 
 struct GroupCbState {
@@ -86,6 +133,29 @@ int anychat_group_get_list(AnyChatGroupHandle handle, void* userdata, AnyChatGro
         callback(userdata, &c_list, err.empty() ? nullptr : err.c_str());
         std::free(c_list.items);
     });
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_group_get_info(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    void* userdata,
+    AnyChatGroupInfoCallback callback
+) {
+    if (!handle || !handle->impl || !group_id) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    handle->impl->getInfo(group_id, [userdata, callback](anychat::Group group, std::string err) {
+        if (!callback)
+            return;
+        AnyChatGroup_C c_group{};
+        groupToC(group, &c_group);
+        callback(userdata, &c_group, err.empty() ? nullptr : err.c_str());
+    });
+
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -174,6 +244,24 @@ int anychat_group_quit(AnyChatGroupHandle handle, const char* group_id, void* us
     return ANYCHAT_OK;
 }
 
+int anychat_group_disband(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    void* userdata,
+    AnyChatGroupCallback callback
+) {
+    if (!handle || !handle->impl || !group_id) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    handle->impl->disband(group_id, [userdata, callback](bool ok, std::string err) {
+        if (callback)
+            callback(userdata, ok ? 1 : 0, err.c_str());
+    });
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
 int anychat_group_update(
     AnyChatGroupHandle handle,
     const char* group_id,
@@ -230,6 +318,202 @@ int anychat_group_get_members(
             std::free(c_list.items);
         }
     );
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_group_remove_member(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* user_id,
+    void* userdata,
+    AnyChatGroupCallback callback
+) {
+    if (!handle || !handle->impl || !group_id || !user_id) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    handle->impl->removeMember(group_id, user_id, [userdata, callback](bool ok, std::string err) {
+        if (callback)
+            callback(userdata, ok ? 1 : 0, err.c_str());
+    });
+
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_group_update_member_role(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* user_id,
+    const char* role,
+    void* userdata,
+    AnyChatGroupCallback callback
+) {
+    if (!handle || !handle->impl || !group_id || !user_id || !role) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    handle->impl->updateMemberRole(
+        group_id,
+        user_id,
+        parseRoleArg(role),
+        [userdata, callback](bool ok, std::string err) {
+            if (callback)
+                callback(userdata, ok ? 1 : 0, err.c_str());
+        }
+    );
+
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_group_update_nickname(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* nickname,
+    void* userdata,
+    AnyChatGroupCallback callback
+) {
+    if (!handle || !handle->impl || !group_id || !nickname) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    handle->impl->updateNickname(group_id, nickname, [userdata, callback](bool ok, std::string err) {
+        if (callback)
+            callback(userdata, ok ? 1 : 0, err.c_str());
+    });
+
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_group_transfer_ownership(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* new_owner_id,
+    void* userdata,
+    AnyChatGroupCallback callback
+) {
+    if (!handle || !handle->impl || !group_id || !new_owner_id) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    handle->impl->transferOwnership(group_id, new_owner_id, [userdata, callback](bool ok, std::string err) {
+        if (callback)
+            callback(userdata, ok ? 1 : 0, err.c_str());
+    });
+
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_group_get_join_requests(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* status,
+    void* userdata,
+    AnyChatGroupJoinRequestListCallback callback
+) {
+    if (!handle || !handle->impl || !group_id) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    const std::string status_arg = (status && status[0] != '\0') ? status : "";
+    handle->impl->getJoinRequests(
+        group_id,
+        status_arg,
+        [userdata, callback](std::vector<anychat::GroupJoinRequest> list, std::string err) {
+            if (!callback)
+                return;
+            int count = static_cast<int>(list.size());
+            AnyChatGroupJoinRequestList_C c_list{};
+            c_list.count = count;
+            c_list.items = count > 0
+                               ? static_cast<AnyChatGroupJoinRequest_C*>(
+                                     std::calloc(count, sizeof(AnyChatGroupJoinRequest_C))
+                                 )
+                               : nullptr;
+            for (int i = 0; i < count; ++i)
+                joinRequestToC(list[i], &c_list.items[i]);
+            callback(userdata, &c_list, err.empty() ? nullptr : err.c_str());
+            std::free(c_list.items);
+        }
+    );
+
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_group_handle_join_request(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    int64_t request_id,
+    int accept,
+    void* userdata,
+    AnyChatGroupCallback callback
+) {
+    if (!handle || !handle->impl || !group_id) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    handle->impl->handleJoinRequest(group_id, request_id, accept != 0, [userdata, callback](bool ok, std::string err) {
+        if (callback)
+            callback(userdata, ok ? 1 : 0, err.c_str());
+    });
+
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_group_get_qrcode(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    void* userdata,
+    AnyChatGroupQRCodeCallback callback
+) {
+    if (!handle || !handle->impl || !group_id) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    handle->impl->getQRCode(group_id, [userdata, callback](anychat::GroupQRCode qrcode, std::string err) {
+        if (!callback)
+            return;
+        AnyChatGroupQRCode_C c_qrcode{};
+        qrcodeToC(qrcode, &c_qrcode);
+        callback(userdata, &c_qrcode, err.empty() ? nullptr : err.c_str());
+    });
+
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_group_refresh_qrcode(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    void* userdata,
+    AnyChatGroupQRCodeCallback callback
+) {
+    if (!handle || !handle->impl || !group_id) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    handle->impl->refreshQRCode(group_id, [userdata, callback](anychat::GroupQRCode qrcode, std::string err) {
+        if (!callback)
+            return;
+        AnyChatGroupQRCode_C c_qrcode{};
+        qrcodeToC(qrcode, &c_qrcode);
+        callback(userdata, &c_qrcode, err.empty() ? nullptr : err.c_str());
+    });
+
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
