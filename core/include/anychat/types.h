@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace anychat {
 
@@ -26,6 +27,11 @@ struct UserInfo {
     std::string user_id;
     std::string username;
     std::string avatar_url;
+    std::string signature;
+    int32_t gender = 0;
+    std::string region;
+    bool is_friend = false;
+    bool is_blocked = false;
 };
 
 struct Message {
@@ -163,10 +169,13 @@ struct UserProfile {
     std::string signature;
     std::string region;
     int32_t gender = 0; // 0=unknown, 1=male, 2=female
+    int64_t birthday_ms = 0;
+    std::string qrcode_url;
     int64_t created_at_ms = 0;
 };
 
 struct UserSettings {
+    std::string user_id;
     bool notification_enabled = true;
     bool sound_enabled = true;
     bool vibration_enabled = true;
@@ -175,6 +184,38 @@ struct UserSettings {
     bool search_by_phone = true;
     bool search_by_id = true;
     std::string language;
+};
+
+struct UserQRCode {
+    std::string qrcode_url;
+    int64_t expires_at_ms = 0;
+};
+
+struct BindPhoneResult {
+    std::string phone_number;
+    bool is_primary = false;
+};
+
+struct ChangePhoneResult {
+    std::string old_phone_number;
+    std::string new_phone_number;
+};
+
+struct BindEmailResult {
+    std::string email;
+    bool is_primary = false;
+};
+
+struct ChangeEmailResult {
+    std::string old_email;
+    std::string new_email;
+};
+
+struct UserStatusEvent {
+    std::string user_id;
+    std::string status; // "online" | "offline" | "away"
+    int64_t last_active_at_ms = 0;
+    std::string platform;
 };
 
 // ---- Call -----------------------------------------------------------------

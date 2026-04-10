@@ -5,6 +5,8 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
+#include <unordered_map>
 
 namespace {
 
@@ -12,6 +14,11 @@ void userInfoToC(const anychat::UserInfo& src, AnyChatUserInfo_C* dst) {
     anychat_strlcpy(dst->user_id, src.user_id.c_str(), sizeof(dst->user_id));
     anychat_strlcpy(dst->username, src.username.c_str(), sizeof(dst->username));
     anychat_strlcpy(dst->avatar_url, src.avatar_url.c_str(), sizeof(dst->avatar_url));
+    anychat_strlcpy(dst->signature, src.signature.c_str(), sizeof(dst->signature));
+    dst->gender = src.gender;
+    anychat_strlcpy(dst->region, src.region.c_str(), sizeof(dst->region));
+    dst->is_friend = src.is_friend ? 1 : 0;
+    dst->is_blocked = src.is_blocked ? 1 : 0;
 }
 
 void profileToC(const anychat::UserProfile& src, AnyChatUserProfile_C* dst) {
@@ -23,6 +30,8 @@ void profileToC(const anychat::UserProfile& src, AnyChatUserProfile_C* dst) {
     anychat_strlcpy(dst->signature, src.signature.c_str(), sizeof(dst->signature));
     anychat_strlcpy(dst->region, src.region.c_str(), sizeof(dst->region));
     dst->gender = src.gender;
+    dst->birthday_ms = src.birthday_ms;
+    anychat_strlcpy(dst->qrcode_url, src.qrcode_url.c_str(), sizeof(dst->qrcode_url));
     dst->created_at_ms = src.created_at_ms;
 }
 
@@ -35,9 +44,12 @@ void profileFromC(const AnyChatUserProfile_C* src, anychat::UserProfile& dst) {
     dst.signature = src->signature;
     dst.region = src->region;
     dst.gender = src->gender;
+    dst.birthday_ms = src->birthday_ms;
+    dst.qrcode_url = src->qrcode_url;
 }
 
 void settingsToC(const anychat::UserSettings& src, AnyChatUserSettings_C* dst) {
+    anychat_strlcpy(dst->user_id, src.user_id.c_str(), sizeof(dst->user_id));
     dst->notification_enabled = src.notification_enabled ? 1 : 0;
     dst->sound_enabled = src.sound_enabled ? 1 : 0;
     dst->vibration_enabled = src.vibration_enabled ? 1 : 0;
@@ -49,6 +61,7 @@ void settingsToC(const anychat::UserSettings& src, AnyChatUserSettings_C* dst) {
 }
 
 void settingsFromC(const AnyChatUserSettings_C* src, anychat::UserSettings& dst) {
+    dst.user_id = src->user_id;
     dst.notification_enabled = src->notification_enabled != 0;
     dst.sound_enabled = src->sound_enabled != 0;
     dst.vibration_enabled = src->vibration_enabled != 0;
@@ -59,7 +72,66 @@ void settingsFromC(const AnyChatUserSettings_C* src, anychat::UserSettings& dst)
     dst.language = src->language;
 }
 
+void qrcodeToC(const anychat::UserQRCode& src, AnyChatUserQRCode_C* dst) {
+    anychat_strlcpy(dst->qrcode_url, src.qrcode_url.c_str(), sizeof(dst->qrcode_url));
+    dst->expires_at_ms = src.expires_at_ms;
+}
+
+void bindPhoneToC(const anychat::BindPhoneResult& src, AnyChatBindPhoneResult_C* dst) {
+    anychat_strlcpy(dst->phone_number, src.phone_number.c_str(), sizeof(dst->phone_number));
+    dst->is_primary = src.is_primary ? 1 : 0;
+}
+
+void changePhoneToC(const anychat::ChangePhoneResult& src, AnyChatChangePhoneResult_C* dst) {
+    anychat_strlcpy(dst->old_phone_number, src.old_phone_number.c_str(), sizeof(dst->old_phone_number));
+    anychat_strlcpy(dst->new_phone_number, src.new_phone_number.c_str(), sizeof(dst->new_phone_number));
+}
+
+void bindEmailToC(const anychat::BindEmailResult& src, AnyChatBindEmailResult_C* dst) {
+    anychat_strlcpy(dst->email, src.email.c_str(), sizeof(dst->email));
+    dst->is_primary = src.is_primary ? 1 : 0;
+}
+
+void changeEmailToC(const anychat::ChangeEmailResult& src, AnyChatChangeEmailResult_C* dst) {
+    anychat_strlcpy(dst->old_email, src.old_email.c_str(), sizeof(dst->old_email));
+    anychat_strlcpy(dst->new_email, src.new_email.c_str(), sizeof(dst->new_email));
+}
+
+void statusEventToC(const anychat::UserStatusEvent& src, AnyChatUserStatusEvent_C* dst) {
+    anychat_strlcpy(dst->user_id, src.user_id.c_str(), sizeof(dst->user_id));
+    anychat_strlcpy(dst->status, src.status.c_str(), sizeof(dst->status));
+    dst->last_active_at_ms = src.last_active_at_ms;
+    anychat_strlcpy(dst->platform, src.platform.c_str(), sizeof(dst->platform));
+}
+
+struct UserCbState {
+    std::mutex profile_mutex;
+    void* profile_userdata = nullptr;
+    AnyChatUserProfileUpdatedCallback profile_cb = nullptr;
+
+    std::mutex friend_profile_mutex;
+    void* friend_profile_userdata = nullptr;
+    AnyChatUserFriendProfileChangedCallback friend_profile_cb = nullptr;
+
+    std::mutex status_mutex;
+    void* status_userdata = nullptr;
+    AnyChatUserStatusChangedCallback status_cb = nullptr;
+};
+
 } // namespace
+
+static std::mutex g_user_cb_map_mutex;
+static std::unordered_map<anychat::UserManager*, UserCbState*> g_user_cb_map;
+
+static UserCbState* getOrCreateUserState(anychat::UserManager* impl) {
+    std::lock_guard<std::mutex> lock(g_user_cb_map_mutex);
+    auto it = g_user_cb_map.find(impl);
+    if (it != g_user_cb_map.end())
+        return it->second;
+    auto* s = new UserCbState();
+    g_user_cb_map[impl] = s;
+    return s;
+}
 
 extern "C" {
 
@@ -182,6 +254,31 @@ int anychat_user_update_push_token(
     return ANYCHAT_OK;
 }
 
+int anychat_user_update_push_token_with_device(
+    AnyChatUserHandle handle,
+    const char* push_token,
+    const char* platform,
+    const char* device_id,
+    void* userdata,
+    AnyChatUserResultCallback callback
+) {
+    if (!handle || !handle->impl || !push_token || !platform || !device_id) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    handle->impl->updatePushToken(
+        push_token,
+        platform,
+        device_id,
+        [userdata, callback](bool ok, const std::string& err) {
+            if (callback)
+                callback(userdata, ok ? 1 : 0, err.c_str());
+        }
+    );
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
 int anychat_user_search(
     AnyChatUserHandle handle,
     const char* keyword,
@@ -201,7 +298,7 @@ int anychat_user_search(
         [userdata, callback](const std::vector<anychat::UserInfo>& users, int64_t total, const std::string& err) {
             if (!callback)
                 return;
-            int count = static_cast<int>(users.size());
+            const int count = static_cast<int>(users.size());
             AnyChatUserList_C c_list{};
             c_list.count = count;
             c_list.total = total;
@@ -243,6 +340,281 @@ int anychat_user_get_info(
     );
     anychat_clear_last_error();
     return ANYCHAT_OK;
+}
+
+int anychat_user_bind_phone(
+    AnyChatUserHandle handle,
+    const char* phone_number,
+    const char* verify_code,
+    void* userdata,
+    AnyChatBindPhoneCallback callback
+) {
+    if (!handle || !handle->impl || !phone_number || !verify_code) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    handle->impl->bindPhone(
+        phone_number,
+        verify_code,
+        [userdata, callback](bool ok, const anychat::BindPhoneResult& result, const std::string& err) {
+            if (!callback)
+                return;
+            if (ok) {
+                AnyChatBindPhoneResult_C c_result{};
+                bindPhoneToC(result, &c_result);
+                callback(userdata, 1, &c_result, "");
+            } else {
+                callback(userdata, 0, nullptr, err.c_str());
+            }
+        }
+    );
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_user_change_phone(
+    AnyChatUserHandle handle,
+    const char* old_phone_number,
+    const char* new_phone_number,
+    const char* new_verify_code,
+    const char* old_verify_code,
+    void* userdata,
+    AnyChatChangePhoneCallback callback
+) {
+    if (!handle || !handle->impl || !old_phone_number || !new_phone_number || !new_verify_code) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    handle->impl->changePhone(
+        old_phone_number,
+        new_phone_number,
+        new_verify_code,
+        old_verify_code ? old_verify_code : "",
+        [userdata, callback](bool ok, const anychat::ChangePhoneResult& result, const std::string& err) {
+            if (!callback)
+                return;
+            if (ok) {
+                AnyChatChangePhoneResult_C c_result{};
+                changePhoneToC(result, &c_result);
+                callback(userdata, 1, &c_result, "");
+            } else {
+                callback(userdata, 0, nullptr, err.c_str());
+            }
+        }
+    );
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_user_bind_email(
+    AnyChatUserHandle handle,
+    const char* email,
+    const char* verify_code,
+    void* userdata,
+    AnyChatBindEmailCallback callback
+) {
+    if (!handle || !handle->impl || !email || !verify_code) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    handle->impl->bindEmail(
+        email,
+        verify_code,
+        [userdata, callback](bool ok, const anychat::BindEmailResult& result, const std::string& err) {
+            if (!callback)
+                return;
+            if (ok) {
+                AnyChatBindEmailResult_C c_result{};
+                bindEmailToC(result, &c_result);
+                callback(userdata, 1, &c_result, "");
+            } else {
+                callback(userdata, 0, nullptr, err.c_str());
+            }
+        }
+    );
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_user_change_email(
+    AnyChatUserHandle handle,
+    const char* old_email,
+    const char* new_email,
+    const char* new_verify_code,
+    const char* old_verify_code,
+    void* userdata,
+    AnyChatChangeEmailCallback callback
+) {
+    if (!handle || !handle->impl || !old_email || !new_email || !new_verify_code) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    handle->impl->changeEmail(
+        old_email,
+        new_email,
+        new_verify_code,
+        old_verify_code ? old_verify_code : "",
+        [userdata, callback](bool ok, const anychat::ChangeEmailResult& result, const std::string& err) {
+            if (!callback)
+                return;
+            if (ok) {
+                AnyChatChangeEmailResult_C c_result{};
+                changeEmailToC(result, &c_result);
+                callback(userdata, 1, &c_result, "");
+            } else {
+                callback(userdata, 0, nullptr, err.c_str());
+            }
+        }
+    );
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_user_refresh_qrcode(AnyChatUserHandle handle, void* userdata, AnyChatUserQRCodeCallback callback) {
+    if (!handle || !handle->impl) {
+        anychat_set_last_error("invalid handle");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    handle->impl->refreshQRCode([userdata, callback](bool ok, const anychat::UserQRCode& qrcode, const std::string& err) {
+        if (!callback)
+            return;
+        if (ok) {
+            AnyChatUserQRCode_C c_qrcode{};
+            qrcodeToC(qrcode, &c_qrcode);
+            callback(userdata, 1, &c_qrcode, "");
+        } else {
+            callback(userdata, 0, nullptr, err.c_str());
+        }
+    });
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+int anychat_user_get_by_qrcode(
+    AnyChatUserHandle handle,
+    const char* qrcode,
+    void* userdata,
+    AnyChatUserInfoCallback callback
+) {
+    if (!handle || !handle->impl || !qrcode) {
+        anychat_set_last_error("invalid arguments");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    handle->impl->getUserByQRCode(
+        qrcode,
+        [userdata, callback](bool ok, const anychat::UserInfo& info, const std::string& err) {
+            if (!callback)
+                return;
+            if (ok) {
+                AnyChatUserInfo_C c_info{};
+                userInfoToC(info, &c_info);
+                callback(userdata, 1, &c_info, "");
+            } else {
+                callback(userdata, 0, nullptr, err.c_str());
+            }
+        }
+    );
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
+}
+
+void anychat_user_set_profile_updated_callback(
+    AnyChatUserHandle handle,
+    void* userdata,
+    AnyChatUserProfileUpdatedCallback callback
+) {
+    if (!handle || !handle->impl)
+        return;
+    UserCbState* state = getOrCreateUserState(handle->impl);
+    {
+        std::lock_guard<std::mutex> lock(state->profile_mutex);
+        state->profile_userdata = userdata;
+        state->profile_cb = callback;
+    }
+    if (callback) {
+        handle->impl->setOnProfileUpdated([state](const anychat::UserInfo& info) {
+            AnyChatUserProfileUpdatedCallback cb;
+            void* ud;
+            {
+                std::lock_guard<std::mutex> lock(state->profile_mutex);
+                cb = state->profile_cb;
+                ud = state->profile_userdata;
+            }
+            if (!cb)
+                return;
+            AnyChatUserInfo_C c_info{};
+            userInfoToC(info, &c_info);
+            cb(ud, &c_info);
+        });
+    } else {
+        handle->impl->setOnProfileUpdated(nullptr);
+    }
+}
+
+void anychat_user_set_friend_profile_changed_callback(
+    AnyChatUserHandle handle,
+    void* userdata,
+    AnyChatUserFriendProfileChangedCallback callback
+) {
+    if (!handle || !handle->impl)
+        return;
+    UserCbState* state = getOrCreateUserState(handle->impl);
+    {
+        std::lock_guard<std::mutex> lock(state->friend_profile_mutex);
+        state->friend_profile_userdata = userdata;
+        state->friend_profile_cb = callback;
+    }
+    if (callback) {
+        handle->impl->setOnFriendProfileChanged([state](const anychat::UserInfo& info) {
+            AnyChatUserFriendProfileChangedCallback cb;
+            void* ud;
+            {
+                std::lock_guard<std::mutex> lock(state->friend_profile_mutex);
+                cb = state->friend_profile_cb;
+                ud = state->friend_profile_userdata;
+            }
+            if (!cb)
+                return;
+            AnyChatUserInfo_C c_info{};
+            userInfoToC(info, &c_info);
+            cb(ud, &c_info);
+        });
+    } else {
+        handle->impl->setOnFriendProfileChanged(nullptr);
+    }
+}
+
+void anychat_user_set_status_changed_callback(
+    AnyChatUserHandle handle,
+    void* userdata,
+    AnyChatUserStatusChangedCallback callback
+) {
+    if (!handle || !handle->impl)
+        return;
+    UserCbState* state = getOrCreateUserState(handle->impl);
+    {
+        std::lock_guard<std::mutex> lock(state->status_mutex);
+        state->status_userdata = userdata;
+        state->status_cb = callback;
+    }
+    if (callback) {
+        handle->impl->setOnUserStatusChanged([state](const anychat::UserStatusEvent& event) {
+            AnyChatUserStatusChangedCallback cb;
+            void* ud;
+            {
+                std::lock_guard<std::mutex> lock(state->status_mutex);
+                cb = state->status_cb;
+                ud = state->status_userdata;
+            }
+            if (!cb)
+                return;
+            AnyChatUserStatusEvent_C c_event{};
+            statusEventToC(event, &c_event);
+            cb(ud, &c_event);
+        });
+    } else {
+        handle->impl->setOnUserStatusChanged(nullptr);
+    }
 }
 
 } // extern "C"

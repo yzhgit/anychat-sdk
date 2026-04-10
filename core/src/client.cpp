@@ -78,7 +78,7 @@ public:
         friend_mgr_ = std::make_unique<FriendManagerImpl>(db_.get(), notif_mgr_.get(), http_);
         group_mgr_ = std::make_unique<GroupManagerImpl>(db_.get(), notif_mgr_.get(), http_);
         file_mgr_ = std::make_unique<FileManagerImpl>(http_);
-        user_mgr_ = std::make_unique<UserManagerImpl>(http_);
+        user_mgr_ = std::make_unique<UserManagerImpl>(http_, notif_mgr_.get(), config.device_id);
         call_mgr_ = std::make_unique<CallManagerImpl>(http_, notif_mgr_.get());
 
         // Note: WebSocket and ConnectionManager will be created after login

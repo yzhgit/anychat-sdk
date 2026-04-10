@@ -13,6 +13,11 @@ void userInfoToC(const anychat::UserInfo& src, AnyChatUserInfo_C* dst) {
     anychat_strlcpy(dst->user_id, src.user_id.c_str(), sizeof(dst->user_id));
     anychat_strlcpy(dst->username, src.username.c_str(), sizeof(dst->username));
     anychat_strlcpy(dst->avatar_url, src.avatar_url.c_str(), sizeof(dst->avatar_url));
+    anychat_strlcpy(dst->signature, src.signature.c_str(), sizeof(dst->signature));
+    dst->gender = src.gender;
+    anychat_strlcpy(dst->region, src.region.c_str(), sizeof(dst->region));
+    dst->is_friend = src.is_friend ? 1 : 0;
+    dst->is_blocked = src.is_blocked ? 1 : 0;
 }
 
 void friendToC(const anychat::Friend& src, AnyChatFriend_C* dst) {

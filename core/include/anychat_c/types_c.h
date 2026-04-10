@@ -89,6 +89,11 @@ typedef struct {
     char user_id[64];
     char username[128];
     char avatar_url[512];
+    char signature[256];
+    int32_t gender; /* 0=unknown, 1=male, 2=female */
+    char region[64];
+    int is_friend;
+    int is_blocked;
 } AnyChatUserInfo_C;
 
 typedef struct {
@@ -207,10 +212,13 @@ typedef struct {
     char signature[256];
     char region[64];
     int32_t gender; /* 0=unknown, 1=male, 2=female */
+    int64_t birthday_ms;
+    char qrcode_url[512];
     int64_t created_at_ms;
 } AnyChatUserProfile_C;
 
 typedef struct {
+    char user_id[64];
     int notification_enabled;
     int sound_enabled;
     int vibration_enabled;
@@ -226,6 +234,38 @@ typedef struct {
     int count;
     int64_t total;
 } AnyChatUserList_C;
+
+typedef struct {
+    char qrcode_url[512];
+    int64_t expires_at_ms;
+} AnyChatUserQRCode_C;
+
+typedef struct {
+    char phone_number[32];
+    int is_primary;
+} AnyChatBindPhoneResult_C;
+
+typedef struct {
+    char old_phone_number[32];
+    char new_phone_number[32];
+} AnyChatChangePhoneResult_C;
+
+typedef struct {
+    char email[128];
+    int is_primary;
+} AnyChatBindEmailResult_C;
+
+typedef struct {
+    char old_email[128];
+    char new_email[128];
+} AnyChatChangeEmailResult_C;
+
+typedef struct {
+    char user_id[64];
+    char status[32];
+    int64_t last_active_at_ms;
+    char platform[32];
+} AnyChatUserStatusEvent_C;
 
 typedef struct {
     char call_id[64];
