@@ -29,3 +29,4 @@
 #include "call_c.h"
 #include "types_c.h"
 #include "user_c.h"
+#include "version_c.h"

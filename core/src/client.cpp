@@ -12,6 +12,7 @@
 #include "call_manager.h"
 #include "sync_engine.h"
 #include "user_manager.h"
+#include "version_manager.h"
 
 #include "anychat/auth.h"
 #include "anychat/message.h"
@@ -80,6 +81,7 @@ public:
         file_mgr_ = std::make_unique<FileManagerImpl>(http_);
         user_mgr_ = std::make_unique<UserManagerImpl>(http_, notif_mgr_.get(), config.device_id);
         call_mgr_ = std::make_unique<CallManagerImpl>(http_, notif_mgr_.get());
+        version_mgr_ = std::make_unique<VersionManagerImpl>(http_);
 
         // Note: WebSocket and ConnectionManager will be created after login
     }
@@ -183,6 +185,10 @@ public:
         return *call_mgr_;
     }
 
+    VersionManager& versionMgr() override {
+        return *version_mgr_;
+    }
+
 private:
     // ---- Helpers -------------------------------------------------------------
 
@@ -276,6 +282,7 @@ private:
     std::unique_ptr<FileManager> file_mgr_;
     std::unique_ptr<UserManager> user_mgr_;
     std::unique_ptr<CallManager> call_mgr_;
+    std::unique_ptr<VersionManager> version_mgr_;
 
     mutable std::mutex cb_mutex_;
     ConnectionStateCallback state_cb_;

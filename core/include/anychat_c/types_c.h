@@ -18,6 +18,7 @@ typedef struct AnyChatGroup_T* AnyChatGroupHandle;
 typedef struct AnyChatFile_T* AnyChatFileHandle;
 typedef struct AnyChatUser_T* AnyChatUserHandle;
 typedef struct AnyChatCall_T* AnyChatCallHandle;
+typedef struct AnyChatVersion_T* AnyChatVersionHandle;
 
 /* ---- Connection states ---- */
 #define ANYCHAT_STATE_DISCONNECTED 0
@@ -359,6 +360,50 @@ typedef struct {
     int64_t total;
 } AnyChatMeetingList_C;
 
+typedef struct {
+    char title[128];
+    char content[2048];
+    char download_url[1024];
+    int64_t file_size;
+    char file_hash[128];
+} AnyChatVersionUpdateInfo_C;
+
+typedef struct {
+    int has_update;
+    char latest_version[64];
+    int32_t latest_build_number;
+    int force_update;
+    char min_version[64];
+    int32_t min_build_number;
+    AnyChatVersionUpdateInfo_C update_info;
+} AnyChatVersionCheckResult_C;
+
+typedef struct {
+    int64_t id;
+    char platform[32];
+    char version[64];
+    int32_t build_number;
+    int32_t version_code;
+    char min_version[64];
+    int32_t min_build_number;
+    int force_update;
+    char release_type[32];
+    char title[128];
+    char content[2048];
+    char download_url[1024];
+    int64_t file_size;
+    char file_hash[128];
+    int64_t published_at_ms;
+} AnyChatVersionInfo_C;
+
+typedef struct {
+    AnyChatVersionInfo_C* items;
+    int count;
+    int64_t total;
+    int32_t page;
+    int32_t page_size;
+} AnyChatVersionList_C;
+
 /* ---- Memory management ---- */
 
 /* Free a string allocated by the SDK. */
@@ -381,6 +426,7 @@ ANYCHAT_C_API void anychat_free_call_list(AnyChatCallList_C* list);
 ANYCHAT_C_API void anychat_free_meeting_list(AnyChatMeetingList_C* list);
 ANYCHAT_C_API void anychat_free_auth_device_list(AnyChatAuthDeviceList_C* list);
 ANYCHAT_C_API void anychat_free_file_list(AnyChatFileList_C* list);
+ANYCHAT_C_API void anychat_free_version_list(AnyChatVersionList_C* list);
 
 #ifdef __cplusplus
 }

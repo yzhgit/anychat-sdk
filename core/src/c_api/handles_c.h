@@ -14,6 +14,7 @@
 #include "anychat/message.h"
 #include "anychat/call.h"
 #include "anychat/user.h"
+#include "anychat/version.h"
 
 #include <memory>
 #include <mutex>
@@ -57,6 +58,10 @@ struct AnyChatCall_T {
     anychat::CallManager* impl;
     AnyChatClient_T* parent;
 };
+struct AnyChatVersion_T {
+    anychat::VersionManager* impl;
+    AnyChatClient_T* parent;
+};
 
 /* Main client handle. */
 struct AnyChatClient_T {
@@ -70,6 +75,7 @@ struct AnyChatClient_T {
     AnyChatFile_T file_handle;
     AnyChatUser_T user_handle;
     AnyChatCall_T call_handle;
+    AnyChatVersion_T version_handle;
 
     std::mutex cb_mutex;
     void* cb_userdata = nullptr;
@@ -95,6 +101,9 @@ struct AnyChatClient_T {
 
     std::mutex client_error_mutex;
     std::string client_error_buffer;
+
+    std::mutex version_error_mutex;
+    std::string version_error_buffer;
 
     // Token buffer for async auth callbacks
     // Must persist until Dart callback completes

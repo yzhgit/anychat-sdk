@@ -253,6 +253,43 @@ struct UserStatusEvent {
     std::string platform;
 };
 
+// ---- Version --------------------------------------------------------------
+struct VersionUpdateInfo {
+    std::string title;
+    std::string content;
+    std::string download_url;
+    int64_t file_size = 0;
+    std::string file_hash;
+};
+
+struct VersionCheckResult {
+    bool has_update = false;
+    std::string latest_version;
+    int32_t latest_build_number = 0;
+    bool force_update = false;
+    std::string min_version;
+    int32_t min_build_number = 0;
+    VersionUpdateInfo update_info;
+};
+
+struct AppVersionInfo {
+    int64_t id = 0;
+    std::string platform;
+    std::string version;
+    int32_t build_number = 0;
+    int32_t version_code = 0;
+    std::string min_version;
+    int32_t min_build_number = 0;
+    bool force_update = false;
+    std::string release_type;
+    std::string title;
+    std::string content;
+    std::string download_url;
+    int64_t file_size = 0;
+    std::string file_hash;
+    int64_t published_at_ms = 0;
+};
+
 // ---- Call -----------------------------------------------------------------
 enum class CallType
 {

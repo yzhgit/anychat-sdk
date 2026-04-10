@@ -153,4 +153,15 @@ void anychat_free_file_list(AnyChatFileList_C* list) {
     list->page_size = 0;
 }
 
+void anychat_free_version_list(AnyChatVersionList_C* list) {
+    if (!list)
+        return;
+    std::free(list->items);
+    list->items = nullptr;
+    list->count = 0;
+    list->total = 0;
+    list->page = 0;
+    list->page_size = 0;
+}
+
 } // extern "C"

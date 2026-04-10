@@ -12,6 +12,7 @@ add_library(anychat_core STATIC
     src/file_manager.cpp
     src/user_manager.cpp
     src/call_manager.cpp
+    src/version_manager.cpp
     src/db/database.cpp
     src/db/migrations.cpp
     src/network/http_client.cpp
@@ -60,6 +61,7 @@ add_library(anychat_c STATIC
     src/c_api/file_c.cpp
     src/c_api/user_c.cpp
     src/c_api/call_c.cpp
+    src/c_api/version_c.cpp
 )
 
 target_include_directories(anychat_c
@@ -90,7 +92,8 @@ if(BUILD_ANYCHAT_C_SHARED)
         src/c_api/group_c.cpp
         src/c_api/file_c.cpp
         src/c_api/user_c.cpp
-    src/c_api/call_c.cpp
+        src/c_api/call_c.cpp
+        src/c_api/version_c.cpp
     )
     target_compile_definitions(anychat_c_shared
         PRIVATE ANYCHAT_C_EXPORTS

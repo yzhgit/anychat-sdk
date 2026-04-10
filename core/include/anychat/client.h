@@ -10,6 +10,7 @@
 #include "call.h"
 #include "types.h"
 #include "user.h"
+#include "version.h"
 
 #include <functional>
 #include <memory>
@@ -82,6 +83,7 @@ public:
     virtual FileManager& fileMgr() = 0;
     virtual UserManager& userMgr() = 0;
     virtual CallManager& callMgr() = 0;
+    virtual VersionManager& versionMgr() = 0;
 };
 
 } // namespace anychat

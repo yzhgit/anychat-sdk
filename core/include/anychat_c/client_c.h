@@ -80,6 +80,7 @@ ANYCHAT_C_API AnyChatGroupHandle anychat_client_get_group(AnyChatClientHandle ha
 ANYCHAT_C_API AnyChatFileHandle anychat_client_get_file(AnyChatClientHandle handle);
 ANYCHAT_C_API AnyChatUserHandle anychat_client_get_user(AnyChatClientHandle handle);
 ANYCHAT_C_API AnyChatCallHandle anychat_client_get_call(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatVersionHandle anychat_client_get_version(AnyChatClientHandle handle);
 
 #ifdef __cplusplus
 }
