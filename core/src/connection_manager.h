@@ -16,26 +16,26 @@
 
 namespace anychat {
 
-// ConnectionManager 是 SDK 网络连接的中枢状态机。
+// ConnectionManager is the central state machine for SDK network connections.
 //
-// 职责：
-//   1. 将 NetworkMonitor 的网络可达性变化映射为 WebSocket 的暂停/恢复。
-//   2. 维护对外可见的 ConnectionState，并在状态变化时触发回调。
-//   3. 在 WebSocket 的内部重试耗尽后，执行更长间隔的外层重连（最多 kMaxSuperRetries 次）。
-//   4. WebSocket 连接建立后触发 on_ready 钩子（供 SyncEngine 执行增量同步）。
-//   5. 在连接期间每 30 s 发送一次 ping 心跳，若 60 s 内未收到 pong 则触发重连。
+// Responsibilities:
+//   1. Map NetworkMonitor network reachability changes to WebSocket pause/resume.
+//   2. Maintain externally visible ConnectionState and trigger callbacks on state changes.
+//   3. Perform longer-interval outer-layer reconnection after WebSocket internal retries exhausted (up to kMaxSuperRetries times).
+//   4. Trigger on_ready hook after WebSocket connection established (for SyncEngine to perform incremental sync).
+//   5. Send ping heartbeat every 30 s during connection; reconnect if no pong received within 60 s.
 //
-// 与 WebSocketClient 的分工：
-//   WebSocketClient  — 处理连接级重试（快速，最多 5 次，指数退避至 ~16 s）
-//   ConnectionManager — 处理网络级重试（慢速，最多 5 次，退避从 30 s 开始）
-//                       以及网络可达性引起的暂停 / 恢复
+// Division with WebSocketClient:
+//   WebSocketClient  — handles connection-level retries (fast, up to 5 times, exponential backoff to ~16 s)
+//   ConnectionManager — handles network-level retries (slow, up to 5 times, backoff starts at 30 s)
+//                       and network reachability-induced pause/resume
 class ConnectionManager {
 public:
-    // |ws_url|    : 完整 WebSocket 地址，token 由 HttpClient 维护，以 query 形式附加。
-    // |monitor|   : 平台注入的网络监视器，可为 nullptr（表示始终认为网络可用）。
-    // |ws|        : 已构造的 WebSocket 客户端。
-    // |on_state_changed| : ConnectionState 变化时通知调用方。
-    // |on_ready|  : WebSocket 成功建立后调用（用于触发增量同步等后连接动作）。
+    // |ws_url|    : full WebSocket URL, token maintained by HttpClient, appended as query.
+    // |monitor|   : platform-injected network monitor, can be nullptr (means always consider network available).
+    // |ws|        : constructed WebSocket client.
+    // |on_state_changed| : notifies caller when ConnectionState changes.
+    // |on_ready|  : called after WebSocket successfully established (for post-connect actions like incremental sync).
     ConnectionManager(
         std::string ws_url,
         std::shared_ptr<NetworkMonitor> monitor,
@@ -49,12 +49,12 @@ public:
     ConnectionManager(const ConnectionManager&) = delete;
     ConnectionManager& operator=(const ConnectionManager&) = delete;
 
-    // 表达"我希望保持连接"的意图。
-    // 若网络当前可用，立即开始连接；否则等待网络恢复后自动连接。
+    // Express intent to "keep connected".
+    // If network is currently available, connect immediately; otherwise wait for network recovery then auto-connect.
     void connect();
 
-    // 表达"我希望断开连接"的意图。
-    // 取消所有待重连的计划，关闭 WebSocket，停止网络监听。
+    // Express intent to "disconnect".
+    // Cancel all pending reconnection plans, close WebSocket, stop network monitoring.
     void disconnect();
 
     ConnectionState state() const;
@@ -65,31 +65,31 @@ public:
     void onPongReceived();
 
 private:
-    // ---- 内部事件处理 ----------------------------------------------------------
+    // ---- Internal Event Handling --------------------------------------------
 
     void onNetworkChanged(NetworkStatus status);
     void onWsConnected();
     void onWsDisconnected();
     void onWsError(const std::string& error);
 
-    // ---- 动作 -----------------------------------------------------------------
+    // ---- Actions ------------------------------------------------------------
 
-    // 真正触发 WebSocket 连接（只在 want_connected_ && network_ok_ 时调用）。
+    // Actually trigger WebSocket connection (only called when want_connected_ && network_ok_).
     void doConnect();
 
-    // 关闭 WebSocket 并取消所有重连计划。
+    // Close WebSocket and cancel all reconnection plans.
     void doDisconnect();
 
-    // 调度一次外层重连（延迟 delay_ms 毫秒后调用 doConnect）。
+    // Schedule an outer-layer reconnection (calls doConnect after delay_ms milliseconds).
     void scheduleReconnect(int delay_ms);
 
-    // 唤醒重连线程，取消待定的重连计划。
+    // Wake up reconnect thread, cancel pending reconnection plans.
     void cancelReconnect();
 
-    // 线程安全地更新 state_ 并触发回调。
+    // Thread-safe update of state_ and trigger callback.
     void setState(ConnectionState s);
 
-    // ---- 心跳 -----------------------------------------------------------------
+    // ---- Heartbeat -----------------------------------------------------------
 
     // Start the heartbeat loop thread.  Called from onWsConnected().
     void startHeartbeat();
@@ -101,9 +101,9 @@ private:
     // Send a ping frame to the server.
     void sendPing();
 
-    // ---- 重连参数 --------------------------------------------------------------
+    // ---- Reconnect Parameters -----------------------------------------------
 
-    // 外层重连（ConnectionManager 级别）基础延迟 30 s，最多 5 次。
+    // Outer-layer reconnection (ConnectionManager level) base delay 30 s, max 5 times.
     static constexpr int kSuperBaseDelayMs = 30'000;
     static constexpr int kMaxSuperRetries = 5;
 
@@ -111,7 +111,7 @@ private:
     static constexpr int kHeartbeatIntervalMs = 30'000; // send ping every 30 s
     static constexpr int kPongTimeoutMs = 60'000; // 2 missed pongs = 60 s
 
-    // ---- 成员 -----------------------------------------------------------------
+    // ---- Members --------------------------------------------------------------
 
     std::string ws_url_;
     std::shared_ptr<NetworkMonitor> monitor_;
@@ -120,14 +120,14 @@ private:
     std::function<void()> on_ready_;
 
     std::atomic<ConnectionState> state_{ ConnectionState::Disconnected };
-    std::atomic<bool> want_connected_{ false }; // 用户意图
-    std::atomic<bool> network_ok_{ true }; // 当前网络是否可达
-    std::atomic<int> super_retry_count_{ 0 }; // 外层重连计数
+    std::atomic<bool> want_connected_{ false }; // user intent
+    std::atomic<bool> network_ok_{ true }; // current network reachability
+    std::atomic<int> super_retry_count_{ 0 }; // outer-layer retry count
 
-    // 回调保护
+    // callback protection
     std::mutex cb_mutex_;
 
-    // 外层重连定时器（独立线程 + condition_variable 实现可取消的 sleep）
+    // outer-layer reconnect timer (separate thread + condition_variable for cancellable sleep)
     std::thread reconnect_thread_;
     std::mutex reconnect_mutex_;
     std::condition_variable reconnect_cv_;
@@ -136,7 +136,7 @@ private:
     bool stopping_ = false;
     int reconnect_delay_ms_ = 0;
 
-    // ---- 心跳线程成员 ----------------------------------------------------------
+    // ---- Heartbeat Thread Members ----------------------------------------
 
     std::thread heartbeat_thread_;
     std::mutex heartbeat_mutex_;

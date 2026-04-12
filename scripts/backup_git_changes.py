@@ -86,7 +86,7 @@ def backup_files(target_dir, files, git_root):
         try:
             # Copy file
             shutil.copy2(source_file, dest_file)
-            print(f"已复制: {file_rel_path}")
+            print(f"Copied: {file_rel_path}")
             backup_count += 1
         except Exception as e:
             print(f"Error copying {file_rel_path}: {e}", file=sys.stderr)

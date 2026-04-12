@@ -37,7 +37,7 @@ public:
     virtual void getFileInfo(const std::string& file_id, FileInfoCallback cb) = 0;
 
     // GET /files?fileType=&page=&pageSize=
-    // file_type为空时表示不过滤类型。
+    // file_type empty means no type filter.
     virtual void listFiles(const std::string& file_type, int page, int page_size, FileListCallback cb) = 0;
 
     // Three-step client log upload: POST /logs/upload -> PUT upload_url -> POST /logs/complete

@@ -19,7 +19,7 @@ int64_t currentMs() {
 } // namespace
 
 // ---------------------------------------------------------------------------
-// 构造 / 析构
+// Constructor / Destructor
 // ---------------------------------------------------------------------------
 
 ConnectionManager::ConnectionManager(
@@ -34,7 +34,7 @@ ConnectionManager::ConnectionManager(
     , ws_(std::move(ws))
     , on_state_changed_(std::move(on_state_changed))
     , on_ready_(std::move(on_ready)) {
-    // 订阅 WebSocket 事件
+    // Subscribe to WebSocket events
     ws_->setOnConnected([this]() {
         onWsConnected();
     });
@@ -45,7 +45,7 @@ ConnectionManager::ConnectionManager(
         onWsError(e);
     });
 
-    // 初始化网络状态
+    // Initialize network status
     if (monitor_) {
         network_ok_ = isReachable(monitor_->currentStatus());
         monitor_->setOnStatusChanged([this](NetworkStatus s) {
@@ -53,23 +53,23 @@ ConnectionManager::ConnectionManager(
         });
     }
 
-    // 启动重连定时器线程（常驻，等待被唤醒）
+    // Start reconnect timer thread (resident, waiting to be woken)
     reconnect_thread_ = std::thread([this]() {
         while (true) {
             std::unique_lock<std::mutex> lock(reconnect_mutex_);
-            // 等待直到有待处理的重连或停止信号
+            // Wait until there's pending reconnect or stop signal
             reconnect_cv_.wait(lock, [this]() {
                 return reconnect_pending_ || stopping_;
             });
             if (stopping_)
                 break;
 
-            // 取出延迟时间，解锁后再 sleep
+            // Extract delay time, unlock then sleep
             reconnect_cancel_ = false;
             lock.unlock();
 
-            // 采用 condition_variable 实现可中断的等待
-            // 延迟时间已由 scheduleReconnect 设置在 reconnect_delay_ms_
+            // Use condition_variable for interruptible wait
+            // Delay time already set in reconnect_delay_ms_ by scheduleReconnect
             {
                 std::unique_lock<std::mutex> delay_lock(reconnect_mutex_);
                 reconnect_cv_.wait_for(delay_lock, std::chrono::milliseconds(reconnect_delay_ms_), [this]() {
@@ -81,7 +81,7 @@ ConnectionManager::ConnectionManager(
                     continue;
             }
 
-            // 定时器到期，且未被取消 — 执行连接
+            // Timer expired and not cancelled — execute connection
             if (want_connected_ && network_ok_) {
                 doConnect();
             }
@@ -98,7 +98,7 @@ ConnectionManager::~ConnectionManager() {
         std::lock_guard<std::mutex> lock(reconnect_mutex_);
         stopping_ = true;
         reconnect_cancel_ = true;
-        reconnect_pending_ = true; // 唤醒线程
+        reconnect_pending_ = true; // wake up thread
     }
     reconnect_cv_.notify_all();
     if (reconnect_thread_.joinable())
@@ -110,7 +110,7 @@ ConnectionManager::~ConnectionManager() {
 }
 
 // ---------------------------------------------------------------------------
-// 公开接口
+// Public Interface
 // ---------------------------------------------------------------------------
 
 void ConnectionManager::connect() {
@@ -124,7 +124,7 @@ void ConnectionManager::connect() {
     if (network_ok_) {
         doConnect();
     } else {
-        // 网络不可用，等待 onNetworkChanged 触发
+        // Network unavailable, wait for onNetworkChanged to trigger
         setState(ConnectionState::Disconnected);
     }
 }
@@ -147,7 +147,7 @@ void ConnectionManager::onPongReceived() {
 }
 
 // ---------------------------------------------------------------------------
-// 内部事件处理
+// Internal Event Handling
 // ---------------------------------------------------------------------------
 
 void ConnectionManager::onNetworkChanged(NetworkStatus status) {
@@ -155,22 +155,22 @@ void ConnectionManager::onNetworkChanged(NetworkStatus status) {
     bool was_ok = network_ok_.exchange(reachable);
 
     if (reachable == was_ok)
-        return; // 状态未变，忽略
+        return; // State unchanged, ignore
 
     if (reachable) {
-        // 网络恢复 — 如果用户意图是连接，立刻重连
+        // Network recovered — if user intent is to connect, reconnect immediately
         if (want_connected_ && (state_ == ConnectionState::Disconnected || state_ == ConnectionState::Reconnecting)) {
             super_retry_count_ = 0;
             cancelReconnect();
             doConnect();
         }
     } else {
-        // 网络丢失 — 暂停一切重连，关闭现有连接
+        // Network lost — pause all reconnection, close existing connection
         cancelReconnect();
         if (state_ != ConnectionState::Disconnected) {
             stopHeartbeat();
             doDisconnect();
-            // 保留 want_connected_ 为 true，等网络恢复后自动重连
+            // Keep want_connected_ as true, for auto-reconnect when network recovers
         }
     }
 }
@@ -182,7 +182,7 @@ void ConnectionManager::onWsConnected() {
     // Start heartbeat now that the connection is live.
     startHeartbeat();
 
-    // 触发后连接钩子（增量同步等）
+    // Trigger post-connect hook (incremental sync, etc.)
     std::function<void()> cb;
     {
         std::lock_guard<std::mutex> lock(cb_mutex_);
@@ -196,7 +196,7 @@ void ConnectionManager::onWsDisconnected() {
     // Stop heartbeat — the connection is gone.
     stopHeartbeat();
 
-    // WebSocket 内部重试已耗尽，交由 ConnectionManager 做外层重连
+    // WebSocket internal retries exhausted, hand over to ConnectionManager for outer-layer reconnection
     if (!want_connected_ || !network_ok_) {
         setState(ConnectionState::Disconnected);
         return;
@@ -209,19 +209,19 @@ void ConnectionManager::onWsDisconnected() {
     }
 
     setState(ConnectionState::Reconnecting);
-    // 外层退避：30 s × 2^n，上限 5 分钟
+    // Outer-layer backoff: 30 s × 2^n, cap at 5 minutes
     int delay = kSuperBaseDelayMs * (1 << std::min(retries, 4));
     scheduleReconnect(delay);
 }
 
 void ConnectionManager::onWsError(const std::string& /*error*/) {
-    // WebSocket 层已经在内部重试，此处仅更新上层状态
+    // WebSocket layer already retried internally, just update upper-layer state here
     if (state_ == ConnectionState::Connected)
         setState(ConnectionState::Reconnecting);
 }
 
 // ---------------------------------------------------------------------------
-// 动作
+// Actions
 // ---------------------------------------------------------------------------
 
 void ConnectionManager::doConnect() {
@@ -264,7 +264,7 @@ void ConnectionManager::setState(ConnectionState s) {
 }
 
 // ---------------------------------------------------------------------------
-// 心跳
+// Heartbeat
 // ---------------------------------------------------------------------------
 
 void ConnectionManager::startHeartbeat() {

@@ -19,30 +19,30 @@
 namespace anychat {
 
 struct ClientConfig {
-    // ---- 网络 ----------------------------------------------------------------
-    std::string gateway_url; // WebSocket 网关，e.g. "wss://api.anychat.io"
-    std::string api_base_url; // HTTP API 根路径，e.g. "https://api.anychat.io/api/v1"
+    // ---- Network ------------------------------------------------------------
+    std::string gateway_url; // WebSocket gateway, e.g. "wss://api.anychat.io"
+    std::string api_base_url; // HTTP API base path, e.g. "https://api.anychat.io/api/v1"
 
-    // ---- 设备 ----------------------------------------------------------------
-    std::string device_id; // 唯一设备标识，由平台 binding 生成并持久化
-        // Android: Settings.Secure.ANDROID_ID 或 UUID
+    // ---- Device -------------------------------------------------------------
+    std::string device_id; // Unique device identifier, generated and persisted by platform binding
+        // Android: Settings.Secure.ANDROID_ID or UUID
         // iOS: UIDevice.identifierForVendor
-        // Web: localStorage 中存储的 UUID
+        // Web: UUID stored in localStorage
 
-    // ---- 持久化 --------------------------------------------------------------
-    std::string db_path; // SQLite 数据库文件完整路径，由平台 binding 注入
+    // ---- Persistence --------------------------------------------------------
+    std::string db_path; // SQLite database file full path, injected by platform binding
         // Android: Context.getDatabasePath("anychat.db").absolutePath
         // iOS: <ApplicationSupport>/anychat.db
-        // Web: 留空（Web SDK 使用 IndexedDB，不经过 C++ Core）
+        // Web: leave empty (Web SDK uses IndexedDB, not through C++ Core)
 
-    // ---- 网络监控 ------------------------------------------------------------
-    // 可选。注入平台实现的 NetworkMonitor；为 nullptr 时 SDK 始终视网络为可用。
+    // ---- Network Monitor -----------------------------------------------------
+    // Optional. Platform-implemented NetworkMonitor; when nullptr, SDK always considers network available.
     std::shared_ptr<NetworkMonitor> network_monitor;
 
-    // ---- 连接参数 ------------------------------------------------------------
+    // ---- Connection Parameters -----------------------------------------------
     int connect_timeout_ms = 10'000;
-    int max_reconnect_attempts = 5; // WebSocket 内层最大重试次数
-    bool auto_reconnect = true; // 断线后是否自动重连
+    int max_reconnect_attempts = 5; // WebSocket inner layer max retry attempts
+    bool auto_reconnect = true; // Whether to auto-reconnect after disconnection
 };
 
 using ConnectionStateCallback = std::function<void(ConnectionState state)>;
@@ -53,11 +53,11 @@ public:
 
     virtual ~AnyChatClient() = default;
 
-    // ---- 认证与连接管理 ------------------------------------------------------
-    // login(): HTTP认证 + 自动建立WebSocket连接
-    // logout(): 断开WebSocket + HTTP登出
-    // 注意: WebSocket自动重连由SDK内部管理，无需手动调用connect
-    // client_version: 客户端版本号 (e.g. "1.0.0")
+    // ---- Auth & Connection Management ---------------------------------
+    // login(): HTTP auth + auto-establish WebSocket connection
+    // logout(): disconnect WebSocket + HTTP logout
+    // Note: WebSocket auto-reconnect is managed internally by SDK, no manual connect call needed
+    // client_version: client version string (e.g. "1.0.0")
     virtual void login(
         const std::string& account,
         const std::string& password,
@@ -74,7 +74,7 @@ public:
     virtual ConnectionState connectionState() const = 0;
     virtual void setOnConnectionStateChanged(ConnectionStateCallback callback) = 0;
 
-    // ---- 子模块 --------------------------------------------------------------
+    // ---- Sub-modules -------------------------------------------------------
     virtual AuthManager& authMgr() = 0;
     virtual MessageManager& messageMgr() = 0;
     virtual ConversationManager& conversationMgr() = 0;

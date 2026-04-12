@@ -4,47 +4,47 @@
 
 namespace anychat {
 
-// 网络可达性状态
+// Network reachability status
 enum class NetworkStatus
 {
-    Unknown, // 初始态，尚未检测
-    NotReachable, // 无网络
-    ReachableViaWiFi, // WiFi 连接
-    ReachableViaCellular, // 蜂窝网络连接
+    Unknown, // Initial state, not yet detected
+    NotReachable, // No network
+    ReachableViaWiFi, // WiFi connection
+    ReachableViaCellular, // Cellular connection
 };
 
 inline bool isReachable(NetworkStatus s) {
     return s == NetworkStatus::ReachableViaWiFi || s == NetworkStatus::ReachableViaCellular;
 }
 
-// 抽象接口，由各平台 binding 实现后注入 ClientConfig。
+// Abstract interface, implemented by each platform binding and injected into ClientConfig.
 //
-// 平台实现参考：
+// Platform implementation references:
 //   Android  : ConnectivityManager + NetworkCallback
-//   iOS/macOS: NWPathMonitor (iOS 12+) 或 SCNetworkReachability
-//   Linux    : netlink socket 监听 RTM_NEWROUTE / RTM_DELROUTE
-//   Web      : navigator.onLine + 'online'/'offline' 事件
+//   iOS/macOS: NWPathMonitor (iOS 12+) or SCNetworkReachability
+//   Linux    : netlink socket monitoring RTM_NEWROUTE / RTM_DELROUTE
+//   Web      : navigator.onLine + 'online'/'offline' events
 //
-// 线程要求：
-//   - currentStatus() 必须线程安全。
-//   - setOnStatusChanged() 注册的回调可在任意平台线程中被调用，
-//     SDK 内部会在回调时加锁，无需平台侧额外同步。
+// Thread requirements:
+//   - currentStatus() must be thread-safe.
+//   - Callbacks registered via setOnStatusChanged() may be invoked on any platform thread,
+//     SDK will lock internally when invoking callbacks, no additional synchronization needed from platform side.
 class NetworkMonitor {
 public:
     using StatusChangedCallback = std::function<void(NetworkStatus)>;
 
     virtual ~NetworkMonitor() = default;
 
-    // 返回当前网络状态（立即返回，不阻塞）。
+    // Returns current network status (returns immediately, does not block).
     virtual NetworkStatus currentStatus() const = 0;
 
-    // 注册状态变化回调。在 start() 前调用。
+    // Register status change callback. Call before start().
     virtual void setOnStatusChanged(StatusChangedCallback cb) = 0;
 
-    // 开始监听网络变化。
+    // Start listening for network changes.
     virtual void start() = 0;
 
-    // 停止监听，释放系统资源。
+    // Stop listening, release system resources.
     virtual void stop() = 0;
 };
 
