@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace anychat {
-namespace {
+namespace call_detail {
 
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
@@ -208,7 +208,9 @@ const std::vector<MeetingRoomPayload>* toMeetingRoomPayloadList(const MeetingLis
     return data.meetings.has_value() ? &(*data.meetings) : nullptr;
 }
 
-} // namespace
+} // namespace call_detail
+
+using namespace call_detail;
 
 // ---------------------------------------------------------------------------
 // Constructor

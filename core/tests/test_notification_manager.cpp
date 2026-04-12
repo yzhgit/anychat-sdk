@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-namespace {
+namespace notification_manager_test_detail {
 
 struct NotificationPayload {
     std::string message_id{};
@@ -19,7 +19,7 @@ struct NotificationPayload {
     int64_t sent_at = 0;
 };
 
-} // namespace
+} // namespace notification_manager_test_detail
 
 // The NotificationManager dispatches on the calling thread (handleRaw() is
 // synchronous), so no threading or async machinery is needed in these tests.
@@ -106,7 +106,7 @@ TEST(NotificationManagerTest, NotificationDispatch) {
     EXPECT_EQ(received_event.notification_type, "message.new");
     EXPECT_EQ(received_event.timestamp, 1708329600);
 
-    NotificationPayload payload{};
+    notification_manager_test_detail::NotificationPayload payload{};
     std::string err;
     ASSERT_TRUE(anychat::json_common::readJsonRelaxed(received_event.data, payload, err));
     EXPECT_EQ(payload.message_id, "msg-111");

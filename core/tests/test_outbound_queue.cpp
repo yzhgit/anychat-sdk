@@ -11,7 +11,7 @@
 
 #include <gtest/gtest.h>
 
-namespace {
+namespace outbound_queue_test_detail {
 
 struct SentPayload {
     std::string conversation_id{};
@@ -23,7 +23,7 @@ struct SentFrame {
     SentPayload payload{};
 };
 
-} // namespace
+} // namespace outbound_queue_test_detail
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -97,7 +97,7 @@ TEST_F(OutboundQueueTest, FlushOnConnect) {
 
     ASSERT_EQ(sent_payloads.size(), 1u) << "send_fn should have been called once for the queued message";
 
-    SentFrame frame{};
+    outbound_queue_test_detail::SentFrame frame{};
     std::string err;
     ASSERT_TRUE(anychat::json_common::readJsonRelaxed(sent_payloads[0], frame, err));
     EXPECT_EQ(frame.type, "message.send");

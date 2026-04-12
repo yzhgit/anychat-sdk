@@ -13,7 +13,7 @@
 #include <vector>
 
 namespace anychat {
-namespace {
+namespace version_detail {
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
 using json_common::parseApiStatusSuccessResponse;
@@ -123,7 +123,9 @@ const std::vector<VersionInfoPayload>* pickVersionList(const VersionListDataPayl
     return data.versions.has_value() ? &(*data.versions) : nullptr;
 }
 
-} // namespace
+} // namespace version_detail
+
+using namespace version_detail;
 
 VersionManagerImpl::VersionManagerImpl(std::shared_ptr<network::HttpClient> http)
     : http_(std::move(http)) {}
