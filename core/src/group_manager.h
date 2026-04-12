@@ -16,7 +16,7 @@ public:
     GroupManagerImpl(db::Database* db, NotificationManager* notif_mgr, std::shared_ptr<network::HttpClient> http);
 
     // GroupManager interface
-    void getList(GroupListCallback cb) override;
+    void getGroupList(GroupListCallback cb) override;
     void getInfo(const std::string& group_id, GroupInfoCallback cb) override;
     void create(const std::string& name, const std::vector<std::string>& member_ids, GroupCallback cb) override;
     void join(const std::string& group_id, const std::string& message, GroupCallback cb) override;

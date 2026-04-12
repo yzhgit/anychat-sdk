@@ -34,7 +34,7 @@ public:
     virtual ~ConversationManager() = default;
 
     // Returns cached + DB sorted list (pinned first, then by last_msg_time desc)
-    virtual void getList(ConversationListCallback cb) = 0;
+    virtual void getConversationList(ConversationListCallback cb) = 0;
 
     // GET /conversations/unread/total
     virtual void getTotalUnread(ConversationTotalUnreadCallback cb) = 0;
@@ -70,7 +70,7 @@ public:
     virtual void setAutoDelete(const std::string& conv_id, int32_t duration, ConversationCallback cb) = 0;
 
     // Delete conversation (local + DELETE /conversations/{id})
-    virtual void deleteConv(const std::string& conv_id, ConversationCallback cb) = 0;
+    virtual void deleteConversation(const std::string& conv_id, ConversationCallback cb) = 0;
 
     // GET /conversations/{id}/messages/unread-count
     // last_read_seq < 0 means "not provided".

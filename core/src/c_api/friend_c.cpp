@@ -143,7 +143,7 @@ int anychat_friend_get_list(AnyChatFriendHandle handle, void* userdata, AnyChatF
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
-    handle->impl->getList([userdata, callback](std::vector<anychat::Friend> list, std::string err) {
+    handle->impl->getFriendList([userdata, callback](std::vector<anychat::Friend> list, std::string err) {
         if (!callback)
             return;
         int count = static_cast<int>(list.size());

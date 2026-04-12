@@ -19,7 +19,7 @@ public actor GroupManager {
 
     // MARK: - Group Operations
 
-    public func getList() async throws -> [Group] {
+    public func getGroupList() async throws -> [Group] {
         try await withCheckedThrowingContinuation { continuation in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()

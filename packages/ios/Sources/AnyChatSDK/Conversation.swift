@@ -18,7 +18,7 @@ public actor ConversationManager {
 
     // MARK: - Conversation Operations
 
-    public func getList() async throws -> [Conversation] {
+    public func getConversationList() async throws -> [Conversation] {
         try await withCheckedThrowingContinuation { continuation in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()

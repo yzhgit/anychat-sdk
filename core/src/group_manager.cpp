@@ -437,7 +437,7 @@ GroupManagerImpl::GroupManagerImpl(
     }
 }
 
-void GroupManagerImpl::getList(GroupListCallback cb) {
+void GroupManagerImpl::getGroupList(GroupListCallback cb) {
     http_->get("/groups", [cb = std::move(cb), this](network::HttpResponse resp) {
         ApiEnvelope<GroupListDataPayload> root{};
         std::string err;

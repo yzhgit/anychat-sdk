@@ -353,7 +353,7 @@ ConversationManagerImpl::ConversationManagerImpl(
     });
 }
 
-void ConversationManagerImpl::getList(ConversationListCallback cb) {
+void ConversationManagerImpl::getConversationList(ConversationListCallback cb) {
     auto cached = conv_cache_->getAll();
     if (!cached.empty()) {
         cb(std::move(cached), "");
@@ -629,7 +629,7 @@ void ConversationManagerImpl::setAutoDelete(const std::string& conv_id, int32_t 
     });
 }
 
-void ConversationManagerImpl::deleteConv(const std::string& conv_id, ConversationCallback cb) {
+void ConversationManagerImpl::deleteConversation(const std::string& conv_id, ConversationCallback cb) {
     const std::string path = "/conversations/" + conv_id;
     http_->del(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
         std::string err;

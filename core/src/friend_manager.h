@@ -16,7 +16,7 @@ public:
     FriendManagerImpl(db::Database* db, NotificationManager* notif_mgr, std::shared_ptr<network::HttpClient> http);
 
     // FriendManager interface
-    void getList(FriendListCallback cb) override;
+    void getFriendList(FriendListCallback cb) override;
     void sendRequest(const std::string& to_user_id, const std::string& message, FriendCallback cb) override;
     void sendRequest(
         const std::string& to_user_id,

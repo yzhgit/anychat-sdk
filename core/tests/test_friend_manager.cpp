@@ -164,7 +164,7 @@ TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
 }
 
 TEST_F(FriendManagerTest, GetListDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getList([](const std::vector<anychat::Friend>&, const std::string&) {}));
+    EXPECT_NO_THROW(mgr_->getFriendList([](const std::vector<anychat::Friend>&, const std::string&) {}));
 }
 
 TEST_F(FriendManagerTest, SendRequestWithSourceDoesNotCrash) {

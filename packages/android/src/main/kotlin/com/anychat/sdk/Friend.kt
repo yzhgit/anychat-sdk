@@ -18,7 +18,7 @@ class Friend internal constructor(private val handle: Long) {
      *
      * @return List of friends
      */
-    suspend fun getList(): List<FriendModel> = suspendCoroutine { continuation ->
+    suspend fun getFriendList(): List<FriendModel> = suspendCoroutine { continuation ->
         nativeGetList(handle, object : FriendListCallback {
             override fun onFriendList(friends: List<FriendModel>?, error: String?) {
                 if (friends != null) {

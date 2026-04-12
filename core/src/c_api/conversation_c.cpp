@@ -59,7 +59,7 @@ int anychat_conv_get_list(AnyChatConvHandle handle, void* userdata, AnyChatConvL
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
-    handle->impl->getList([userdata, callback](std::vector<anychat::Conversation> list, std::string err) {
+    handle->impl->getConversationList([userdata, callback](std::vector<anychat::Conversation> list, std::string err) {
         if (!callback)
             return;
         int count = static_cast<int>(list.size());
@@ -283,7 +283,7 @@ int anychat_conv_delete(AnyChatConvHandle handle, const char* conv_id, void* use
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->deleteConv(conv_id, [userdata, callback](bool ok, std::string err) {
+    handle->impl->deleteConversation(conv_id, [userdata, callback](bool ok, std::string err) {
         if (callback)
             callback(userdata, ok ? 1 : 0, err.c_str());
     });

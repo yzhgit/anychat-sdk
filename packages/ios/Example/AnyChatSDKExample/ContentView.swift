@@ -268,7 +268,7 @@ struct ConversationsView: View {
         isLoading = true
         Task {
             do {
-                conversations = try await client.conversation.getList()
+                conversations = try await client.conversation.getConversationList()
             } catch {
                 print("Failed to load conversations: \(error)")
             }
@@ -470,7 +470,7 @@ struct FriendsView: View {
         isLoading = true
         Task {
             do {
-                friends = try await client.friend.getList()
+                friends = try await client.friend.getFriendList()
             } catch {
                 print("Failed to load friends: \(error)")
             }
@@ -543,7 +543,7 @@ struct GroupsView: View {
         isLoading = true
         Task {
             do {
-                groups = try await client.group.getList()
+                groups = try await client.group.getGroupList()
             } catch {
                 print("Failed to load groups: \(error)")
             }

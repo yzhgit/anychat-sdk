@@ -299,7 +299,7 @@ FriendManagerImpl::FriendManagerImpl(
     }
 }
 
-void FriendManagerImpl::getList(FriendListCallback cb) {
+void FriendManagerImpl::getFriendList(FriendListCallback cb) {
     http_->get("/friends", [cb = std::move(cb), this](network::HttpResponse resp) {
         ApiEnvelope<FriendListDataPayload> root{};
         std::string err;

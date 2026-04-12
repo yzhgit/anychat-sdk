@@ -22,7 +22,7 @@ class Conversation internal constructor(private val handle: Long) {
      *
      * @return List of conversations
      */
-    suspend fun getList(): List<ConversationModel> = suspendCoroutine { continuation ->
+    suspend fun getConversationList(): List<ConversationModel> = suspendCoroutine { continuation ->
         nativeGetList(handle, object : ConversationListCallback {
             override fun onConversationList(conversations: List<ConversationModel>?, error: String?) {
                 if (conversations != null) {

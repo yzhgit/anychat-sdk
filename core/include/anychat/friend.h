@@ -61,7 +61,7 @@ public:
     virtual ~FriendManager() = default;
 
     // Fetches friend list. Uses DB cache; incremental sync via lastUpdateTime stored in metadata.
-    virtual void getList(FriendListCallback cb) = 0;
+    virtual void getFriendList(FriendListCallback cb) = 0;
 
     // Friend requests
     virtual void sendRequest(const std::string& to_user_id, const std::string& message, FriendCallback cb) = 0;

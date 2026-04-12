@@ -142,7 +142,7 @@ Task {
 
 ```swift
 // Get conversation list
-let conversations = try await client.conversation.getList()
+let conversations = try await client.conversation.getConversationList()
 
 // Mark as read
 try await client.conversation.markRead(conversationId: "conv_123")
@@ -155,7 +155,7 @@ try await client.conversation.setPinned(conversationId: "conv_123", pinned: true
 
 ```swift
 // Get friend list
-let friends = try await client.friend.getList()
+let friends = try await client.friend.getFriendList()
 
 // Send friend request
 try await client.friend.sendRequest(
@@ -174,7 +174,7 @@ try await client.friend.handleRequest(
 
 ```swift
 // Get group list
-let groups = try await client.group.getList()
+let groups = try await client.group.getGroupList()
 
 // Create a group
 try await client.group.create(

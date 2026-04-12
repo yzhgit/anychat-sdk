@@ -18,7 +18,7 @@ class Group internal constructor(private val handle: Long) {
      *
      * @return List of groups
      */
-    suspend fun getList(): List<GroupModel> = suspendCoroutine { continuation ->
+    suspend fun getGroupList(): List<GroupModel> = suspendCoroutine { continuation ->
         nativeGetList(handle, object : GroupListCallback {
             override fun onGroupList(groups: List<GroupModel>?, error: String?) {
                 if (groups != null) {

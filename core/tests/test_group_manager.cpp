@@ -176,5 +176,5 @@ TEST_F(GroupManagerTest, GroupMutedNotificationFiresUpdatedHandler) {
 }
 
 TEST_F(GroupManagerTest, GetListDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getList([](const std::vector<anychat::Group>&, const std::string&) {}));
+    EXPECT_NO_THROW(mgr_->getGroupList([](const std::vector<anychat::Group>&, const std::string&) {}));
 }

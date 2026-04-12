@@ -124,7 +124,7 @@ int anychat_group_get_list(AnyChatGroupHandle handle, void* userdata, AnyChatGro
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->getList([userdata, callback](std::vector<anychat::Group> list, std::string err) {
+    handle->impl->getGroupList([userdata, callback](std::vector<anychat::Group> list, std::string err) {
         if (!callback)
             return;
         int count = static_cast<int>(list.size());

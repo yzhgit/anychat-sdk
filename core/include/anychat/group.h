@@ -35,7 +35,7 @@ class GroupManager {
 public:
     virtual ~GroupManager() = default;
 
-    virtual void getList(GroupListCallback cb) = 0;
+    virtual void getGroupList(GroupListCallback cb) = 0;
 
     virtual void getInfo(const std::string& group_id, GroupInfoCallback cb) {
         if (cb) {

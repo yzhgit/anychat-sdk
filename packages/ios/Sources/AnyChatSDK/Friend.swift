@@ -19,7 +19,7 @@ public actor FriendManager {
 
     // MARK: - Friend Operations
 
-    public func getList() async throws -> [Friend] {
+    public func getFriendList() async throws -> [Friend] {
         try await withCheckedThrowingContinuation { continuation in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
