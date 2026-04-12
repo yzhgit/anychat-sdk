@@ -10,7 +10,7 @@
       "name": "base",
       "hidden": true,
       "description": "Base preset with common settings",
-      "binaryDir": "${sourceDir}/build/${presetName}",
+      "binaryDir": "${sourceDir}/build",
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",

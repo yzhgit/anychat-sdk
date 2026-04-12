@@ -78,7 +78,7 @@ anychat-sdk/
 ### Core SDK
 
 - **CMake** 3.20+
-- **C++17 compiler**: GCC 10+, Clang 12+, or MSVC 2019+
+- **C++17 compiler**: GCC 13+, Clang 12+, or MSVC 19.44+(VS2022 17.14)
 - **Git** (for submodules)
 
 Third-party dependencies are included as Git submodules — no system packages required:
