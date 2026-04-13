@@ -8,24 +8,47 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatMessageCallback)(void* userdata, int success, const char* error);
+typedef void (*AnyChatMsgErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatMsgSuccessCallback)(void* userdata);
+typedef void (*AnyChatMsgListSuccessCallback)(void* userdata, const AnyChatMessageList_C* list);
+typedef void (*AnyChatMsgOfflineSuccessCallback)(void* userdata, const AnyChatOfflineMessageResult_C* result);
+typedef void (*AnyChatMsgSearchSuccessCallback)(void* userdata, const AnyChatMessageSearchResult_C* result);
+typedef void (*AnyChatMsgGroupReadStateSuccessCallback)(void* userdata, const AnyChatGroupMessageReadState_C* state);
 
-typedef void (*AnyChatMessageListCallback)(void* userdata, const AnyChatMessageList_C* list, const char* error);
-typedef void (*AnyChatOfflineMessageCallback)(
-    void* userdata,
-    const AnyChatOfflineMessageResult_C* result,
-    const char* error
-);
-typedef void (*AnyChatMessageSearchCallback)(
-    void* userdata,
-    const AnyChatMessageSearchResult_C* result,
-    const char* error
-);
-typedef void (*AnyChatGroupMessageReadStateCallback)(
-    void* userdata,
-    const AnyChatGroupMessageReadState_C* state,
-    const char* error
-);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatMessageCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgListSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatMessageListCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgOfflineSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatOfflineMessageCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgSearchSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatMessageSearchCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgGroupReadStateSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatGroupMessageReadStateCallback_C;
 
 /* Invoked on the SDK's internal thread each time a new message arrives. */
 typedef void (*AnyChatMessageReceivedCallback)(void* userdata, const AnyChatMessage_C* message);
@@ -52,8 +75,7 @@ ANYCHAT_C_API int anychat_message_send_text(
     AnyChatMessageHandle handle,
     const char* conv_id,
     const char* content,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 );
 
 /* Fetch message history before a given timestamp.
@@ -64,8 +86,7 @@ ANYCHAT_C_API int anychat_message_get_history(
     const char* conv_id,
     int64_t before_timestamp_ms,
     int limit,
-    void* userdata,
-    AnyChatMessageListCallback callback
+    const AnyChatMessageListCallback_C* callback
 );
 
 /* Mark a message as read.
@@ -74,8 +95,7 @@ ANYCHAT_C_API int anychat_message_mark_read(
     AnyChatMessageHandle handle,
     const char* conv_id,
     const char* message_id,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 );
 
 /* Fetch offline messages after the given sequence. */
@@ -83,8 +103,7 @@ ANYCHAT_C_API int anychat_message_get_offline(
     AnyChatMessageHandle handle,
     int64_t last_seq,
     int limit,
-    void* userdata,
-    AnyChatOfflineMessageCallback callback
+    const AnyChatOfflineMessageCallback_C* callback
 );
 
 /* Ack one or more read messages in a conversation. */
@@ -93,8 +112,7 @@ ANYCHAT_C_API int anychat_message_ack(
     const char* conv_id,
     const char* const* message_ids,
     int message_count,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 );
 
 /* Query group message read state. */
@@ -102,8 +120,7 @@ ANYCHAT_C_API int anychat_message_get_group_read_state(
     AnyChatMessageHandle handle,
     const char* group_id,
     const char* message_id,
-    void* userdata,
-    AnyChatGroupMessageReadStateCallback callback
+    const AnyChatGroupMessageReadStateCallback_C* callback
 );
 
 /* Search messages by keyword in a conversation scope. */
@@ -114,31 +131,27 @@ ANYCHAT_C_API int anychat_message_search(
     const char* content_type,
     int limit,
     int offset,
-    void* userdata,
-    AnyChatMessageSearchCallback callback
+    const AnyChatMessageSearchCallback_C* callback
 );
 
 /* Recall / delete / edit messages. */
 ANYCHAT_C_API int anychat_message_recall(
     AnyChatMessageHandle handle,
     const char* message_id,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_message_delete(
     AnyChatMessageHandle handle,
     const char* message_id,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_message_edit(
     AnyChatMessageHandle handle,
     const char* message_id,
     const char* content,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 );
 
 /* Send typing status via WebSocket. */
@@ -147,8 +160,7 @@ ANYCHAT_C_API int anychat_message_send_typing(
     const char* conversation_id,
     int typing,
     int ttl_seconds,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 );
 
 /* ---- Incoming message listener ----

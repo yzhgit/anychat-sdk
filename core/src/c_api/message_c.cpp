@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace {
@@ -152,6 +153,45 @@ private:
     AnyChatMessageListener_C listener_{};
 };
 
+template<typename CallbackStruct>
+bool validateCallbackStruct(const CallbackStruct* callback) {
+    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return false;
+    }
+    return true;
+}
+
+template<typename CallbackStruct>
+CallbackStruct copyCallbackStruct(const CallbackStruct* callback) {
+    CallbackStruct callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+    return callback_copy;
+}
+
+template<typename CallbackStruct>
+void invokeMessageError(const CallbackStruct& callback, int code, const std::string& error) {
+    if (!callback.on_error) {
+        return;
+    }
+    callback.on_error(callback.userdata, code, error.empty() ? nullptr : error.c_str());
+}
+
+anychat::AnyChatCallback makeMessageCallback(const AnyChatMessageCallback_C& callback) {
+    anychat::AnyChatCallback result{};
+    result.on_success = [callback]() {
+        if (callback.on_success) {
+            callback.on_success(callback.userdata);
+        }
+    };
+    result.on_error = [callback](int code, const std::string& error) {
+        invokeMessageError(callback, code, error);
+    };
+    return result;
+}
+
 } // namespace
 
 extern "C" {
@@ -160,8 +200,7 @@ int anychat_message_send_text(
     AnyChatMessageHandle handle,
     const char* conv_id,
     const char* content,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -171,12 +210,13 @@ int anychat_message_send_text(
         anychat_set_last_error("conv_id and content must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    handle->impl->sendTextMessage(conv_id, content, [userdata, callback](bool success, const std::string& error) {
-        if (callback) {
-            callback(userdata, success ? 1 : 0, error.c_str());
-        }
-    });
+    const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
+
+    handle->impl->sendTextMessage(conv_id, content, makeMessageCallback(callback_copy));
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -187,8 +227,7 @@ int anychat_message_get_history(
     const char* conv_id,
     int64_t before_timestamp_ms,
     int limit,
-    void* userdata,
-    AnyChatMessageListCallback callback
+    const AnyChatMessageListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -198,20 +237,32 @@ int anychat_message_get_history(
         anychat_set_last_error("conv_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    const AnyChatMessageListCallback_C callback_copy = copyCallbackStruct(callback);
 
     handle->impl->getHistory(
         conv_id,
         before_timestamp_ms,
         limit,
-        [userdata, callback](const std::vector<anychat::Message>& msgs, const std::string& error) {
-            if (!callback) {
-                return;
-            }
+        anychat::AnyChatValueCallback<std::vector<anychat::Message>>{
+            .on_success =
+                [callback_copy](const std::vector<anychat::Message>& msgs) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
 
-            AnyChatMessageList_C list{};
-            fillMessageArray(msgs, &list.items, &list.count);
-            callback(userdata, &list, error.empty() ? nullptr : error.c_str());
-            anychat_free_message_list(&list);
+                    AnyChatMessageList_C list{};
+                    fillMessageArray(msgs, &list.items, &list.count);
+                    callback_copy.on_success(callback_copy.userdata, &list);
+                    anychat_free_message_list(&list);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeMessageError(callback_copy, code, error);
+                },
         }
     );
 
@@ -223,8 +274,7 @@ int anychat_message_mark_read(
     AnyChatMessageHandle handle,
     const char* conv_id,
     const char* message_id,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -234,12 +284,13 @@ int anychat_message_mark_read(
         anychat_set_last_error("conv_id and message_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    handle->impl->markAsRead(conv_id, message_id, [userdata, callback](bool success, const std::string& error) {
-        if (callback) {
-            callback(userdata, success ? 1 : 0, error.c_str());
-        }
-    });
+    const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
+
+    handle->impl->markAsRead(conv_id, message_id, makeMessageCallback(callback_copy));
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -249,27 +300,42 @@ int anychat_message_get_offline(
     AnyChatMessageHandle handle,
     int64_t last_seq,
     int limit,
-    void* userdata,
-    AnyChatOfflineMessageCallback callback
+    const AnyChatOfflineMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    handle->impl->getOfflineMessages(last_seq, limit, [userdata, callback](anychat::MessageOfflineResult result, std::string err) {
-        if (!callback) {
-            return;
+    const AnyChatOfflineMessageCallback_C callback_copy = copyCallbackStruct(callback);
+
+    handle->impl->getOfflineMessages(
+        last_seq,
+        limit,
+        anychat::AnyChatValueCallback<anychat::MessageOfflineResult>{
+            .on_success =
+                [callback_copy](const anychat::MessageOfflineResult& result) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
+
+                    AnyChatOfflineMessageResult_C c_result{};
+                    fillMessageArray(result.messages, &c_result.items, &c_result.count);
+                    c_result.has_more = result.has_more ? 1 : 0;
+                    c_result.next_seq = result.next_seq;
+
+                    callback_copy.on_success(callback_copy.userdata, &c_result);
+                    anychat_free_offline_message_result(&c_result);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeMessageError(callback_copy, code, error);
+                },
         }
-
-        AnyChatOfflineMessageResult_C c_result{};
-        fillMessageArray(result.messages, &c_result.items, &c_result.count);
-        c_result.has_more = result.has_more ? 1 : 0;
-        c_result.next_seq = result.next_seq;
-
-        callback(userdata, &c_result, err.empty() ? nullptr : err.c_str());
-        anychat_free_offline_message_result(&c_result);
-    });
+    );
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -280,8 +346,7 @@ int anychat_message_ack(
     const char* conv_id,
     const char* const* message_ids,
     int message_count,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -295,6 +360,9 @@ int anychat_message_ack(
         anychat_set_last_error("message_count must be >= 0");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
     std::vector<std::string> ids;
     if (message_ids && message_count > 0) {
@@ -306,11 +374,9 @@ int anychat_message_ack(
         }
     }
 
-    handle->impl->ackMessages(conv_id, ids, [userdata, callback](bool success, const std::string& error) {
-        if (callback) {
-            callback(userdata, success ? 1 : 0, error.c_str());
-        }
-    });
+    const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
+
+    handle->impl->ackMessages(conv_id, ids, makeMessageCallback(callback_copy));
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -320,8 +386,7 @@ int anychat_message_get_group_read_state(
     AnyChatMessageHandle handle,
     const char* group_id,
     const char* message_id,
-    void* userdata,
-    AnyChatGroupMessageReadStateCallback callback
+    const AnyChatGroupMessageReadStateCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -331,19 +396,31 @@ int anychat_message_get_group_read_state(
         anychat_set_last_error("group_id and message_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    const AnyChatGroupMessageReadStateCallback_C callback_copy = copyCallbackStruct(callback);
 
     handle->impl->getGroupMessageReadState(
         group_id,
         message_id,
-        [userdata, callback](anychat::GroupMessageReadState state, std::string err) {
-            if (!callback) {
-                return;
-            }
+        anychat::AnyChatValueCallback<anychat::GroupMessageReadState>{
+            .on_success =
+                [callback_copy](const anychat::GroupMessageReadState& state) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
 
-            AnyChatGroupMessageReadState_C c_state{};
-            groupReadStateToCStruct(state, &c_state);
-            callback(userdata, &c_state, err.empty() ? nullptr : err.c_str());
-            anychat_free_group_message_read_state(&c_state);
+                    AnyChatGroupMessageReadState_C c_state{};
+                    groupReadStateToCStruct(state, &c_state);
+                    callback_copy.on_success(callback_copy.userdata, &c_state);
+                    anychat_free_group_message_read_state(&c_state);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeMessageError(callback_copy, code, error);
+                },
         }
     );
 
@@ -358,8 +435,7 @@ int anychat_message_search(
     const char* content_type,
     int limit,
     int offset,
-    void* userdata,
-    AnyChatMessageSearchCallback callback
+    const AnyChatMessageSearchCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -369,6 +445,11 @@ int anychat_message_search(
         anychat_set_last_error("keyword must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    const AnyChatMessageSearchCallback_C callback_copy = copyCallbackStruct(callback);
 
     handle->impl->searchMessages(
         keyword,
@@ -376,17 +457,24 @@ int anychat_message_search(
         content_type ? content_type : "",
         limit,
         offset,
-        [userdata, callback](anychat::MessageSearchResult result, std::string err) {
-            if (!callback) {
-                return;
-            }
+        anychat::AnyChatValueCallback<anychat::MessageSearchResult>{
+            .on_success =
+                [callback_copy](const anychat::MessageSearchResult& result) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
 
-            AnyChatMessageSearchResult_C c_result{};
-            fillMessageArray(result.messages, &c_result.items, &c_result.count);
-            c_result.total = result.total;
+                    AnyChatMessageSearchResult_C c_result{};
+                    fillMessageArray(result.messages, &c_result.items, &c_result.count);
+                    c_result.total = result.total;
 
-            callback(userdata, &c_result, err.empty() ? nullptr : err.c_str());
-            anychat_free_message_search_result(&c_result);
+                    callback_copy.on_success(callback_copy.userdata, &c_result);
+                    anychat_free_message_search_result(&c_result);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeMessageError(callback_copy, code, error);
+                },
         }
     );
 
@@ -397,8 +485,7 @@ int anychat_message_search(
 int anychat_message_recall(
     AnyChatMessageHandle handle,
     const char* message_id,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -408,12 +495,13 @@ int anychat_message_recall(
         anychat_set_last_error("message_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    handle->impl->recallMessage(message_id, [userdata, callback](bool success, const std::string& error) {
-        if (callback) {
-            callback(userdata, success ? 1 : 0, error.c_str());
-        }
-    });
+    const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
+
+    handle->impl->recallMessage(message_id, makeMessageCallback(callback_copy));
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -422,8 +510,7 @@ int anychat_message_recall(
 int anychat_message_delete(
     AnyChatMessageHandle handle,
     const char* message_id,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -433,12 +520,13 @@ int anychat_message_delete(
         anychat_set_last_error("message_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    handle->impl->deleteMessage(message_id, [userdata, callback](bool success, const std::string& error) {
-        if (callback) {
-            callback(userdata, success ? 1 : 0, error.c_str());
-        }
-    });
+    const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
+
+    handle->impl->deleteMessage(message_id, makeMessageCallback(callback_copy));
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -448,8 +536,7 @@ int anychat_message_edit(
     AnyChatMessageHandle handle,
     const char* message_id,
     const char* content,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -459,12 +546,13 @@ int anychat_message_edit(
         anychat_set_last_error("message_id and content must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    handle->impl->editMessage(message_id, content, [userdata, callback](bool success, const std::string& error) {
-        if (callback) {
-            callback(userdata, success ? 1 : 0, error.c_str());
-        }
-    });
+    const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
+
+    handle->impl->editMessage(message_id, content, makeMessageCallback(callback_copy));
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -475,8 +563,7 @@ int anychat_message_send_typing(
     const char* conversation_id,
     int typing,
     int ttl_seconds,
-    void* userdata,
-    AnyChatMessageCallback callback
+    const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -486,17 +573,13 @@ int anychat_message_send_typing(
         anychat_set_last_error("conversation_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    handle->impl->sendTyping(
-        conversation_id,
-        typing != 0,
-        static_cast<int32_t>(ttl_seconds),
-        [userdata, callback](bool success, const std::string& error) {
-            if (callback) {
-                callback(userdata, success ? 1 : 0, error.c_str());
-            }
-        }
-    );
+    const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
+
+    handle->impl->sendTyping(conversation_id, typing != 0, static_cast<int32_t>(ttl_seconds), makeMessageCallback(callback_copy));
 
     anychat_clear_last_error();
     return ANYCHAT_OK;

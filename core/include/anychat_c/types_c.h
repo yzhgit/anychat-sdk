@@ -187,6 +187,14 @@ typedef struct {
 } AnyChatConversationUnreadState_C;
 
 typedef struct {
+    char** accepted_ids;
+    int accepted_count;
+    char** ignored_ids;
+    int ignored_count;
+    int64_t advanced_last_read_seq;
+} AnyChatConversationMarkReadResult_C;
+
+typedef struct {
     char user_id[64];
     int64_t last_read_seq;
     char last_read_message_id[64];
@@ -480,6 +488,7 @@ ANYCHAT_C_API void anychat_free_offline_message_result(AnyChatOfflineMessageResu
 ANYCHAT_C_API void anychat_free_message_search_result(AnyChatMessageSearchResult_C* result);
 ANYCHAT_C_API void anychat_free_group_message_read_state(AnyChatGroupMessageReadState_C* state);
 ANYCHAT_C_API void anychat_free_conversation_list(AnyChatConversationList_C* list);
+ANYCHAT_C_API void anychat_free_conversation_mark_read_result(AnyChatConversationMarkReadResult_C* result);
 ANYCHAT_C_API void anychat_free_conversation_read_receipt_list(AnyChatConversationReadReceiptList_C* list);
 ANYCHAT_C_API void anychat_free_friend_list(AnyChatFriendList_C* list);
 ANYCHAT_C_API void anychat_free_friend_request_list(AnyChatFriendRequestList_C* list);

@@ -13,7 +13,6 @@ namespace anychat::conversation_manager_detail {
 using json_common::ApiEnvelope;
 using json_common::nowMs;
 using json_common::parseApiEnvelopeResponse;
-using json_common::parseApiStatusSuccessResponse;
 using json_common::parseBoolValue;
 using json_common::parseInt32Value;
 using json_common::parseInt64Value;
@@ -353,10 +352,12 @@ ConversationManagerImpl::ConversationManagerImpl(
     });
 }
 
-void ConversationManagerImpl::getConversationList(ConversationListCallback cb) {
+void ConversationManagerImpl::getConversationList(AnyChatValueCallback<std::vector<Conversation>> cb) {
     auto cached = conv_cache_->getAll();
     if (!cached.empty()) {
-        cb(std::move(cached), "");
+        if (cb.on_success) {
+            cb.on_success(cached);
+        }
         return;
     }
 
@@ -376,15 +377,18 @@ void ConversationManagerImpl::getConversationList(ConversationListCallback cb) {
             from_db.push_back(rowToConversation(row));
         }
         conv_cache_->setAll(from_db);
-        cb(std::move(from_db), "");
+        if (cb.on_success) {
+            cb.on_success(from_db);
+        }
         return;
     }
 
     http_->get("/conversations", [this, cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<ConversationListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "get conversations failed", true)) {
-            cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get conversations failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -406,17 +410,21 @@ void ConversationManagerImpl::getConversationList(ConversationListCallback cb) {
         }
 
         conv_cache_->setAll(convs);
-        cb(conv_cache_->getAll(), "");
+        if (cb.on_success) {
+            const std::vector<Conversation> all = conv_cache_->getAll();
+            cb.on_success(all);
+        }
     });
 }
 
-void ConversationManagerImpl::getConversation(const std::string& conv_id, ConversationDetailCallback cb) {
+void ConversationManagerImpl::getConversation(const std::string& conv_id, AnyChatValueCallback<Conversation> cb) {
     const std::string path = "/conversations/" + conv_id;
     http_->get(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
-        std::string err;
         ApiEnvelope<ConversationPayload> root{};
-        if (!parseApiEnvelopeResponse(resp, root, err, "get conversation failed", true)) {
-            cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get conversation failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
         Conversation conv = parseConversationPayload(root.data);
@@ -430,47 +438,59 @@ void ConversationManagerImpl::getConversation(const std::string& conv_id, Conver
 
         conv_cache_->upsert(conv);
         upsertDb(conv);
-        cb(conv, "");
+        if (cb.on_success) {
+            cb.on_success(conv);
+        }
     });
 }
 
-void ConversationManagerImpl::deleteConversation(const std::string& conv_id, ConversationCallback cb) {
+void ConversationManagerImpl::deleteConversation(const std::string& conv_id, AnyChatCallback cb) {
     const std::string path = "/conversations/" + conv_id;
     http_->del(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
-        std::string err;
-        if (!parseApiStatusSuccessResponse(resp, err, "delete conversation failed", true)) {
-            cb(false, err);
+        ApiEnvelope<void> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "delete conversation failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
         conv_cache_->remove(conv_id);
         db_->exec("DELETE FROM conversations WHERE conv_id=?", { conv_id });
-        cb(true, "");
+        if (cb.on_success) {
+            cb.on_success();
+        }
     });
 }
 
-void ConversationManagerImpl::markAllRead(const std::string& conv_id, ConversationCallback cb) {
+void ConversationManagerImpl::markAllRead(const std::string& conv_id, AnyChatCallback cb) {
     const std::string path = "/conversations/" + conv_id + "/read-all";
     http_->post(path, "", [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
-        std::string err;
-        if (!parseApiStatusSuccessResponse(resp, err, "mark read failed", true)) {
-            cb(false, err);
+        ApiEnvelope<void> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "mark read failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
         conv_cache_->clearUnread(conv_id);
         db_->exec("UPDATE conversations SET unread_count=0 WHERE conv_id=?", { conv_id });
-        cb(true, "");
+        if (cb.on_success) {
+            cb.on_success();
+        }
     });
 }
 
 void ConversationManagerImpl::markMessagesRead(
     const std::string& conv_id,
     const std::vector<std::string>& message_ids,
-    ConversationMarkReadResultCallback cb
+    AnyChatValueCallback<ConversationMarkReadResult> cb
 ) {
     if (message_ids.empty()) {
-        cb({}, "message_ids is empty");
+        if (cb.on_error) {
+            cb.on_error(-1, "message_ids is empty");
+        }
         return;
     }
 
@@ -478,16 +498,19 @@ void ConversationManagerImpl::markMessagesRead(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        cb({}, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
+        }
         return;
     }
 
     const std::string path = "/conversations/" + conv_id + "/messages/read";
     http_->post(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<MarkMessagesReadPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "mark messages read failed", true)) {
-            cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "mark messages read failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -508,24 +531,30 @@ void ConversationManagerImpl::markMessagesRead(
         }
         result.advanced_last_read_seq = parseInt64Value(root.data.advanced_last_read_seq, 0);
 
-        cb(std::move(result), "");
+        if (cb.on_success) {
+            cb.on_success(result);
+        }
     });
 }
 
-void ConversationManagerImpl::setPinned(const std::string& conv_id, bool pinned, ConversationCallback cb) {
+void ConversationManagerImpl::setPinned(const std::string& conv_id, bool pinned, AnyChatCallback cb) {
     const SetPinnedRequest body{ .pinned = pinned };
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
+        }
         return;
     }
 
     const std::string path = "/conversations/" + conv_id + "/pin";
     http_->put(path, body_json, [this, conv_id, pinned, cb = std::move(cb)](network::HttpResponse resp) {
-        std::string err;
-        if (!parseApiStatusSuccessResponse(resp, err, "set pinned failed", true)) {
-            cb(false, err);
+        ApiEnvelope<void> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "set pinned failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -538,24 +567,30 @@ void ConversationManagerImpl::setPinned(const std::string& conv_id, bool pinned,
             conv_cache_->upsert(c);
             upsertDb(c);
         }
-        cb(true, "");
+        if (cb.on_success) {
+            cb.on_success();
+        }
     });
 }
 
-void ConversationManagerImpl::setMuted(const std::string& conv_id, bool muted, ConversationCallback cb) {
+void ConversationManagerImpl::setMuted(const std::string& conv_id, bool muted, AnyChatCallback cb) {
     const SetMutedRequest body{ .muted = muted };
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
+        }
         return;
     }
 
     const std::string path = "/conversations/" + conv_id + "/mute";
     http_->put(path, body_json, [this, conv_id, muted, cb = std::move(cb)](network::HttpResponse resp) {
-        std::string err;
-        if (!parseApiStatusSuccessResponse(resp, err, "set muted failed", true)) {
-            cb(false, err);
+        ApiEnvelope<void> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "set muted failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -567,28 +602,34 @@ void ConversationManagerImpl::setMuted(const std::string& conv_id, bool muted, C
             conv_cache_->upsert(c);
             upsertDb(c);
         }
-        cb(true, "");
+        if (cb.on_success) {
+            cb.on_success();
+        }
     });
 }
 
 void ConversationManagerImpl::setBurnAfterReading(
     const std::string& conv_id,
     int32_t duration,
-    ConversationCallback cb
+    AnyChatCallback cb
 ) {
     const DurationRequest body{ .duration = duration };
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
+        }
         return;
     }
 
     const std::string path = "/conversations/" + conv_id + "/burn";
     http_->put(path, body_json, [this, conv_id, duration, cb = std::move(cb)](network::HttpResponse resp) {
-        std::string err;
-        if (!parseApiStatusSuccessResponse(resp, err, "set burn_after_reading failed", true)) {
-            cb(false, err);
+        ApiEnvelope<void> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "set burn_after_reading failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -600,24 +641,30 @@ void ConversationManagerImpl::setBurnAfterReading(
             conv_cache_->upsert(c);
             upsertDb(c);
         }
-        cb(true, "");
+        if (cb.on_success) {
+            cb.on_success();
+        }
     });
 }
 
-void ConversationManagerImpl::setAutoDelete(const std::string& conv_id, int32_t duration, ConversationCallback cb) {
+void ConversationManagerImpl::setAutoDelete(const std::string& conv_id, int32_t duration, AnyChatCallback cb) {
     const DurationRequest body{ .duration = duration };
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
+        }
         return;
     }
 
     const std::string path = "/conversations/" + conv_id + "/auto_delete";
     http_->put(path, body_json, [this, conv_id, duration, cb = std::move(cb)](network::HttpResponse resp) {
-        std::string err;
-        if (!parseApiStatusSuccessResponse(resp, err, "set auto_delete failed", true)) {
-            cb(false, err);
+        ApiEnvelope<void> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "set auto_delete failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -629,28 +676,33 @@ void ConversationManagerImpl::setAutoDelete(const std::string& conv_id, int32_t 
             conv_cache_->upsert(c);
             upsertDb(c);
         }
-        cb(true, "");
+        if (cb.on_success) {
+            cb.on_success();
+        }
     });
 }
 
-void ConversationManagerImpl::getTotalUnread(ConversationTotalUnreadCallback cb) {
+void ConversationManagerImpl::getTotalUnread(AnyChatValueCallback<int32_t> cb) {
     http_->get("/conversations/unread/total", [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<TotalUnreadDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "get total unread failed", true)) {
-            cb(0, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get total unread failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
         const int32_t total = static_cast<int32_t>(parseTotalUnreadNumber(root.data, 0));
-        cb(total, "");
+        if (cb.on_success) {
+            cb.on_success(total);
+        }
     });
 }
 
 void ConversationManagerImpl::getMessageUnreadCount(
     const std::string& conv_id,
     int64_t last_read_seq,
-    ConversationUnreadStateCallback cb
+    AnyChatValueCallback<ConversationUnreadState> cb
 ) {
     std::string path = "/conversations/" + conv_id + "/messages/unread-count";
     if (last_read_seq >= 0) {
@@ -659,9 +711,10 @@ void ConversationManagerImpl::getMessageUnreadCount(
 
     http_->get(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<ConversationUnreadStatePayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "get unread count failed", true)) {
-            cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get unread count failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -681,20 +734,23 @@ void ConversationManagerImpl::getMessageUnreadCount(
             upsertDb(c);
         }
 
-        cb(state, "");
+        if (cb.on_success) {
+            cb.on_success(state);
+        }
     });
 }
 
 void ConversationManagerImpl::getMessageReadReceipts(
     const std::string& conv_id,
-    ConversationReadReceiptListCallback cb
+    AnyChatValueCallback<std::vector<ConversationReadReceipt>> cb
 ) {
     const std::string path = "/conversations/" + conv_id + "/messages/read-receipts";
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<ConversationReadReceiptListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "get message read receipts failed", true)) {
-            cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get message read receipts failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -707,17 +763,20 @@ void ConversationManagerImpl::getMessageReadReceipts(
             }
         }
 
-        cb(std::move(receipts), "");
+        if (cb.on_success) {
+            cb.on_success(receipts);
+        }
     });
 }
 
-void ConversationManagerImpl::getMessageSequence(const std::string& conv_id, ConversationSequenceCallback cb) {
+void ConversationManagerImpl::getMessageSequence(const std::string& conv_id, AnyChatValueCallback<int64_t> cb) {
     const std::string path = "/conversations/" + conv_id + "/messages/sequence";
     http_->get(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<MessageSequencePayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "get message sequence failed", true)) {
-            cb(0, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get message sequence failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -735,7 +794,9 @@ void ConversationManagerImpl::getMessageSequence(const std::string& conv_id, Con
             db_->exec("UPDATE conversations SET local_seq=MAX(local_seq, ?) WHERE conv_id=?", { seq, conv_id });
         }
 
-        cb(seq, "");
+        if (cb.on_success) {
+            cb.on_success(seq);
+        }
     });
 }
 

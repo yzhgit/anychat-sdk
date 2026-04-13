@@ -22,24 +22,29 @@ public:
     );
 
     // ConversationManager interface
-    void getConversationList(ConversationListCallback cb) override;
-    void getConversation(const std::string& conv_id, ConversationDetailCallback cb) override;
-    void deleteConversation(const std::string& conv_id, ConversationCallback cb) override;
-    void markAllRead(const std::string& conv_id, ConversationCallback cb) override;
+    void getConversationList(AnyChatValueCallback<std::vector<Conversation>> cb) override;
+    void getConversation(const std::string& conv_id, AnyChatValueCallback<Conversation> cb) override;
+    void deleteConversation(const std::string& conv_id, AnyChatCallback cb) override;
+    void markAllRead(const std::string& conv_id, AnyChatCallback cb) override;
     void markMessagesRead(
         const std::string& conv_id,
         const std::vector<std::string>& message_ids,
-        ConversationMarkReadResultCallback cb
+        AnyChatValueCallback<ConversationMarkReadResult> cb
     ) override;
-    void setPinned(const std::string& conv_id, bool pinned, ConversationCallback cb) override;
-    void setMuted(const std::string& conv_id, bool muted, ConversationCallback cb) override;
-    void setBurnAfterReading(const std::string& conv_id, int32_t duration, ConversationCallback cb) override;
-    void setAutoDelete(const std::string& conv_id, int32_t duration, ConversationCallback cb) override;
-    void getTotalUnread(ConversationTotalUnreadCallback cb) override;
-    void getMessageUnreadCount(const std::string& conv_id, int64_t last_read_seq, ConversationUnreadStateCallback cb)
+    void setPinned(const std::string& conv_id, bool pinned, AnyChatCallback cb) override;
+    void setMuted(const std::string& conv_id, bool muted, AnyChatCallback cb) override;
+    void setBurnAfterReading(const std::string& conv_id, int32_t duration, AnyChatCallback cb) override;
+    void setAutoDelete(const std::string& conv_id, int32_t duration, AnyChatCallback cb) override;
+    void getTotalUnread(AnyChatValueCallback<int32_t> cb) override;
+    void getMessageUnreadCount(
+        const std::string& conv_id,
+        int64_t last_read_seq,
+        AnyChatValueCallback<ConversationUnreadState> cb
+    )
         override;
-    void getMessageReadReceipts(const std::string& conv_id, ConversationReadReceiptListCallback cb) override;
-    void getMessageSequence(const std::string& conv_id, ConversationSequenceCallback cb) override;
+    void getMessageReadReceipts(const std::string& conv_id, AnyChatValueCallback<std::vector<ConversationReadReceipt>> cb)
+        override;
+    void getMessageSequence(const std::string& conv_id, AnyChatValueCallback<int64_t> cb) override;
     void setListener(std::shared_ptr<ConversationListener> listener) override;
 
 private:

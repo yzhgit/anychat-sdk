@@ -8,25 +8,47 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatCallCallback)(
-    void* userdata,
-    int success,
-    const AnyChatCallSession_C* session,
-    const char* error
-);
+typedef void (*AnyChatCallErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatCallSuccessCallback)(void* userdata);
+typedef void (*AnyChatCallSessionSuccessCallback)(void* userdata, const AnyChatCallSession_C* session);
+typedef void (*AnyChatCallListSuccessCallback)(void* userdata, const AnyChatCallList_C* list);
+typedef void (*AnyChatMeetingSuccessCallback)(void* userdata, const AnyChatMeetingRoom_C* room);
+typedef void (*AnyChatMeetingListSuccessCallback)(void* userdata, const AnyChatMeetingList_C* list);
 
-typedef void (*AnyChatCallListCallback)(void* userdata, const AnyChatCallList_C* list, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatCallSessionSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatCallSessionCallback_C;
 
-typedef void (*AnyChatMeetingCallback)(
-    void* userdata,
-    int success,
-    const AnyChatMeetingRoom_C* room,
-    const char* error
-);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatCallListSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatCallListCallback_C;
 
-typedef void (*AnyChatMeetingListCallback)(void* userdata, const AnyChatMeetingList_C* list, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMeetingSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatMeetingCallback_C;
 
-typedef void (*AnyChatCallResultCallback)(void* userdata, int success, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMeetingListSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatMeetingListCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatCallSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatCallCallback_C;
 
 /* Fired when an incoming call arrives. */
 typedef void (*AnyChatIncomingCallCallback)(void* userdata, const AnyChatCallSession_C* session);
@@ -52,36 +74,32 @@ ANYCHAT_C_API int anychat_call_initiate_call(
     AnyChatCallHandle handle,
     const char* callee_id,
     int call_type,
-    void* userdata,
-    AnyChatCallCallback callback
+    const AnyChatCallSessionCallback_C* callback
 );
 
 ANYCHAT_C_API int
-anychat_call_join_call(AnyChatCallHandle handle, const char* call_id, void* userdata, AnyChatCallCallback callback);
+anychat_call_join_call(AnyChatCallHandle handle, const char* call_id, const AnyChatCallSessionCallback_C* callback);
 
 ANYCHAT_C_API int anychat_call_reject_call(
     AnyChatCallHandle handle,
     const char* call_id,
-    void* userdata,
-    AnyChatCallResultCallback callback
+    const AnyChatCallCallback_C* callback
 );
 
 ANYCHAT_C_API int
-anychat_call_end_call(AnyChatCallHandle handle, const char* call_id, void* userdata, AnyChatCallResultCallback callback);
+anychat_call_end_call(AnyChatCallHandle handle, const char* call_id, const AnyChatCallCallback_C* callback);
 
 ANYCHAT_C_API int anychat_call_get_call_session(
     AnyChatCallHandle handle,
     const char* call_id,
-    void* userdata,
-    AnyChatCallCallback callback
+    const AnyChatCallSessionCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_call_get_call_logs(
     AnyChatCallHandle handle,
     int page,
     int page_size,
-    void* userdata,
-    AnyChatCallListCallback callback
+    const AnyChatCallListCallback_C* callback
 );
 
 /* ---- Meeting operations ---- */
@@ -92,34 +110,30 @@ ANYCHAT_C_API int anychat_call_create_meeting(
     const char* title,
     const char* password,
     int max_participants,
-    void* userdata,
-    AnyChatMeetingCallback callback
+    const AnyChatMeetingCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_call_join_meeting(
     AnyChatCallHandle handle,
     const char* room_id,
     const char* password,
-    void* userdata,
-    AnyChatMeetingCallback callback
+    const AnyChatMeetingCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_call_end_meeting(
     AnyChatCallHandle handle,
     const char* room_id,
-    void* userdata,
-    AnyChatCallResultCallback callback
+    const AnyChatCallCallback_C* callback
 );
 
 ANYCHAT_C_API int
-anychat_call_get_meeting(AnyChatCallHandle handle, const char* room_id, void* userdata, AnyChatMeetingCallback callback);
+anychat_call_get_meeting(AnyChatCallHandle handle, const char* room_id, const AnyChatMeetingCallback_C* callback);
 
 ANYCHAT_C_API int anychat_call_list_meetings(
     AnyChatCallHandle handle,
     int page,
     int page_size,
-    void* userdata,
-    AnyChatMeetingListCallback callback
+    const AnyChatMeetingListCallback_C* callback
 );
 
 /* ---- Incoming event listener ----

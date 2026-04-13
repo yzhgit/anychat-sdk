@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <vector>
 
 namespace {
@@ -19,6 +20,45 @@ void fileInfoToC(const anychat::FileInfo& src, AnyChatFileInfo_C* dst) {
     dst->created_at_ms = src.created_at_ms;
 }
 
+template <typename CallbackStruct>
+bool validateCallbackStruct(const CallbackStruct* callback) {
+    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return false;
+    }
+    return true;
+}
+
+template <typename CallbackStruct>
+CallbackStruct copyCallbackStruct(const CallbackStruct* callback) {
+    CallbackStruct callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+    return callback_copy;
+}
+
+template<typename CallbackStruct>
+void invokeFileError(const CallbackStruct& callback, int code, const std::string& error) {
+    if (!callback.on_error) {
+        return;
+    }
+    callback.on_error(callback.userdata, code, error.empty() ? nullptr : error.c_str());
+}
+
+anychat::AnyChatCallback makeFileCallback(const AnyChatFileCallback_C& callback) {
+    anychat::AnyChatCallback result{};
+    result.on_success = [callback]() {
+        if (callback.on_success) {
+            callback.on_success(callback.userdata);
+        }
+    };
+    result.on_error = [callback](int code, const std::string& error) {
+        invokeFileError(callback, code, error);
+    };
+    return result;
+}
+
 } // namespace
 
 extern "C" {
@@ -27,32 +67,40 @@ int anychat_file_upload(
     AnyChatFileHandle handle,
     const char* local_path,
     const char* file_type,
-    void* userdata,
     AnyChatUploadProgressCallback on_progress,
-    AnyChatFileInfoCallback on_done
+    const AnyChatFileInfoCallback_C* on_done
 ) {
     if (!handle || !handle->impl || !local_path || !file_type) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(on_done)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    const AnyChatFileInfoCallback_C callback_copy = copyCallbackStruct(on_done);
 
     handle->impl->upload(
         local_path,
         file_type,
-        [userdata, on_progress](int64_t uploaded, int64_t total) {
+        [userdata = callback_copy.userdata, on_progress](int64_t uploaded, int64_t total) {
             if (on_progress)
                 on_progress(userdata, uploaded, total);
         },
-        [userdata, on_done](bool ok, anychat::FileInfo info, std::string err) {
-            if (!on_done)
-                return;
-            if (ok) {
-                AnyChatFileInfo_C c_info{};
-                fileInfoToC(info, &c_info);
-                on_done(userdata, 1, &c_info, "");
-            } else {
-                on_done(userdata, 0, nullptr, err.c_str());
-            }
+        anychat::AnyChatValueCallback<anychat::FileInfo>{
+            .on_success =
+                [callback_copy](const anychat::FileInfo& info) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
+                    AnyChatFileInfo_C c_info{};
+                    fileInfoToC(info, &c_info);
+                    callback_copy.on_success(callback_copy.userdata, &c_info);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeFileError(callback_copy, code, error);
+                },
         }
     );
 
@@ -63,17 +111,32 @@ int anychat_file_upload(
 int anychat_file_get_download_url(
     AnyChatFileHandle handle,
     const char* file_id,
-    void* userdata,
-    AnyChatDownloadUrlCallback callback
+    const AnyChatDownloadUrlCallback_C* callback
 ) {
     if (!handle || !handle->impl || !file_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->getDownloadUrl(file_id, [userdata, callback](bool ok, std::string url, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, ok ? url.c_str() : nullptr, err.c_str());
-    });
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    const AnyChatDownloadUrlCallback_C callback_copy = copyCallbackStruct(callback);
+    handle->impl->getDownloadUrl(
+        file_id,
+        anychat::AnyChatValueCallback<std::string>{
+            .on_success =
+                [callback_copy](const std::string& url) {
+                    if (callback_copy.on_success) {
+                        callback_copy.on_success(callback_copy.userdata, url.c_str());
+                    }
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeFileError(callback_copy, code, error);
+                },
+        }
+    );
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -81,27 +144,34 @@ int anychat_file_get_download_url(
 int anychat_file_get_info(
     AnyChatFileHandle handle,
     const char* file_id,
-    void* userdata,
-    AnyChatFileInfoCallback callback
+    const AnyChatFileInfoCallback_C* callback
 ) {
     if (!handle || !handle->impl || !file_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    handle->impl->getFileInfo(file_id, [userdata, callback](bool ok, anychat::FileInfo info, std::string err) {
-        if (!callback)
-            return;
-
-        if (!ok) {
-            callback(userdata, 0, nullptr, err.c_str());
-            return;
+    const AnyChatFileInfoCallback_C callback_copy = copyCallbackStruct(callback);
+    handle->impl->getFileInfo(
+        file_id,
+        anychat::AnyChatValueCallback<anychat::FileInfo>{
+            .on_success =
+                [callback_copy](const anychat::FileInfo& info) {
+                    if (!callback_copy.on_success)
+                        return;
+                    AnyChatFileInfo_C c_info{};
+                    fileInfoToC(info, &c_info);
+                    callback_copy.on_success(callback_copy.userdata, &c_info);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeFileError(callback_copy, code, error);
+                },
         }
-
-        AnyChatFileInfo_C c_info{};
-        fileInfoToC(info, &c_info);
-        callback(userdata, 1, &c_info, "");
-    });
+    );
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -112,39 +182,49 @@ int anychat_file_list(
     const char* file_type,
     int page,
     int page_size,
-    void* userdata,
-    AnyChatFileListCallback callback
+    const AnyChatFileListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
     const int safe_page = page > 0 ? page : 1;
     const int safe_page_size = page_size > 0 ? page_size : 20;
+    const AnyChatFileListCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->listFiles(
         file_type ? file_type : "",
         safe_page,
         safe_page_size,
-        [userdata, callback, safe_page, safe_page_size](std::vector<anychat::FileInfo> files, int64_t total, std::string err) {
-            if (!callback)
-                return;
+        anychat::AnyChatValueCallback<anychat::FileListResult>{
+            .on_success =
+                [callback_copy, safe_page, safe_page_size](const anychat::FileListResult& result) {
+                    if (!callback_copy.on_success)
+                        return;
 
-            AnyChatFileList_C c_list{};
-            c_list.count = static_cast<int>(files.size());
-            c_list.total = total;
-            c_list.page = safe_page;
-            c_list.page_size = safe_page_size;
-            c_list.items =
-                c_list.count > 0 ? static_cast<AnyChatFileInfo_C*>(std::calloc(c_list.count, sizeof(AnyChatFileInfo_C)))
-                                 : nullptr;
+                    AnyChatFileList_C c_list{};
+                    c_list.count = static_cast<int>(result.files.size());
+                    c_list.total = result.total;
+                    c_list.page = result.page > 0 ? result.page : safe_page;
+                    c_list.page_size = result.page_size > 0 ? result.page_size : safe_page_size;
+                    c_list.items = c_list.count > 0
+                        ? static_cast<AnyChatFileInfo_C*>(std::calloc(c_list.count, sizeof(AnyChatFileInfo_C)))
+                        : nullptr;
 
-            for (int i = 0; i < c_list.count; ++i) {
-                fileInfoToC(files[static_cast<size_t>(i)], &c_list.items[i]);
-            }
+                    for (int i = 0; i < c_list.count; ++i) {
+                        fileInfoToC(result.files[static_cast<size_t>(i)], &c_list.items[i]);
+                    }
 
-            callback(userdata, &c_list, err.empty() ? nullptr : err.c_str());
-            std::free(c_list.items);
+                    callback_copy.on_success(callback_copy.userdata, &c_list);
+                    std::free(c_list.items);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeFileError(callback_copy, code, error);
+                },
         }
     );
 
@@ -156,33 +236,38 @@ int anychat_file_upload_log(
     AnyChatFileHandle handle,
     const char* local_path,
     int32_t expires_hours,
-    void* userdata,
     AnyChatUploadProgressCallback on_progress,
-    AnyChatFileInfoCallback on_done
+    const AnyChatFileInfoCallback_C* on_done
 ) {
     if (!handle || !handle->impl || !local_path) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(on_done)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    const AnyChatFileInfoCallback_C callback_copy = copyCallbackStruct(on_done);
 
     handle->impl->uploadClientLog(
         local_path,
-        [userdata, on_progress](int64_t uploaded, int64_t total) {
+        [userdata = callback_copy.userdata, on_progress](int64_t uploaded, int64_t total) {
             if (on_progress)
                 on_progress(userdata, uploaded, total);
         },
-        [userdata, on_done](bool ok, anychat::FileInfo info, std::string err) {
-            if (!on_done)
-                return;
-
-            if (!ok) {
-                on_done(userdata, 0, nullptr, err.c_str());
-                return;
-            }
-
-            AnyChatFileInfo_C c_info{};
-            fileInfoToC(info, &c_info);
-            on_done(userdata, 1, &c_info, "");
+        anychat::AnyChatValueCallback<anychat::FileInfo>{
+            .on_success =
+                [callback_copy](const anychat::FileInfo& info) {
+                    if (!callback_copy.on_success)
+                        return;
+                    AnyChatFileInfo_C c_info{};
+                    fileInfoToC(info, &c_info);
+                    callback_copy.on_success(callback_copy.userdata, &c_info);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeFileError(callback_copy, code, error);
+                },
         },
         expires_hours
     );
@@ -191,15 +276,16 @@ int anychat_file_upload_log(
     return ANYCHAT_OK;
 }
 
-int anychat_file_delete(AnyChatFileHandle handle, const char* file_id, void* userdata, AnyChatFileCallback callback) {
+int anychat_file_delete(AnyChatFileHandle handle, const char* file_id, const AnyChatFileCallback_C* callback) {
     if (!handle || !handle->impl || !file_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->deleteFile(file_id, [userdata, callback](bool ok, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, err.c_str());
-    });
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    const AnyChatFileCallback_C callback_copy = copyCallbackStruct(callback);
+    handle->impl->deleteFile(file_id, makeFileCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }

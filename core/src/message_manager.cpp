@@ -14,7 +14,6 @@
 namespace anychat::message_manager_detail {
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
-using json_common::parseApiStatusSuccessResponse;
 using json_common::parseBoolValue;
 using json_common::parseInt64Value;
 using json_common::parseJsonObject;
@@ -136,8 +135,11 @@ struct NotificationMessagePayload {
 
 struct NotificationReadReceiptPayload {
     std::string conversation_id{};
-    std::string reader_user_id{};
+    std::optional<std::string> from_user_id{};
+    std::optional<std::string> reader_user_id{};
+    std::string message_id{};
     std::optional<int64_t> last_read_seq{};
+    std::string last_read_message_id{};
     json_common::OptionalTimestampValue read_at{};
 };
 
@@ -291,8 +293,14 @@ Message parseMessageFromNotification(const NotificationMessagePayload& payload, 
 MessageReadReceiptEvent parseReadReceiptFromNotification(const NotificationReadReceiptPayload& payload) {
     MessageReadReceiptEvent event;
     event.conversation_id = payload.conversation_id;
-    event.from_user_id = payload.reader_user_id;
+    if (payload.from_user_id.has_value() && !payload.from_user_id->empty()) {
+        event.from_user_id = *payload.from_user_id;
+    } else if (payload.reader_user_id.has_value()) {
+        event.from_user_id = *payload.reader_user_id;
+    }
+    event.message_id = payload.message_id;
     event.last_read_seq = payload.last_read_seq.value_or(0);
+    event.last_read_message_id = payload.last_read_message_id;
     event.read_at_ms = parseTimestampMs(payload.read_at);
     return event;
 }
@@ -360,7 +368,7 @@ MessageManagerImpl::MessageManagerImpl(
 void MessageManagerImpl::sendTextMessage(
     const std::string& conv_id,
     const std::string& content,
-    MessageCallback callback
+    AnyChatCallback callback
 ) {
     const std::string local_id = generateLocalId();
     outbound_q_->enqueue(conv_id, "private", "text", content, local_id, std::move(callback));
@@ -370,12 +378,14 @@ void MessageManagerImpl::getHistory(
     const std::string& conv_id,
     int64_t before_timestamp,
     int limit,
-    MessageListCallback callback
+    AnyChatValueCallback<std::vector<Message>> callback
 ) {
     if (before_timestamp == 0) {
         auto cached = msg_cache_->get(conv_id);
         if (!cached.empty()) {
-            callback(cached, "");
+            if (callback.on_success) {
+                callback.on_success(cached);
+            }
             return;
         }
     }
@@ -389,9 +399,10 @@ void MessageManagerImpl::getHistory(
 
     auto parse_and_return = [this, conv_id, cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<MessageListDataPayload> root;
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
-            cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get history failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -409,7 +420,9 @@ void MessageManagerImpl::getHistory(
                 messages.push_back(std::move(msg));
             }
         }
-        cb(messages, "");
+        if (cb.on_success) {
+            cb.on_success(messages);
+        }
     };
 
     http_->get(primary_path, [this,
@@ -432,7 +445,7 @@ void MessageManagerImpl::getHistory(
 void MessageManagerImpl::markAsRead(
     const std::string& conv_id,
     const std::string& message_id,
-    MessageCallback callback
+    AnyChatCallback callback
 ) {
     if (message_id.empty()) {
         ackMessages(conv_id, {}, std::move(callback));
@@ -441,15 +454,20 @@ void MessageManagerImpl::markAsRead(
     ackMessages(conv_id, { message_id }, std::move(callback));
 }
 
-void MessageManagerImpl::getOfflineMessages(int64_t last_seq, int limit, MessageOfflineCallback callback) {
+void MessageManagerImpl::getOfflineMessages(
+    int64_t last_seq,
+    int limit,
+    AnyChatValueCallback<MessageOfflineResult> callback
+) {
     const std::string path = "/messages/offline?last_seq=" + std::to_string(last_seq) + "&limit="
         + std::to_string(limit);
 
     http_->get(path, [this, cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<MessageListDataPayload> root;
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
-            cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get offline messages failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -469,17 +487,21 @@ void MessageManagerImpl::getOfflineMessages(int64_t last_seq, int limit, Message
         result.has_more = parseBoolValue(root.data.has_more, false);
         result.next_seq = parseInt64Value(root.data.next_seq, 0);
 
-        cb(std::move(result), "");
+        if (cb.on_success) {
+            cb.on_success(result);
+        }
     });
 }
 
 void MessageManagerImpl::ackMessages(
     const std::string& conv_id,
     const std::vector<std::string>& message_ids,
-    MessageCallback callback
+    AnyChatCallback callback
 ) {
     if (conv_id.empty()) {
-        callback(false, "conv_id must not be empty");
+        if (callback.on_error) {
+            callback.on_error(-1, "conv_id must not be empty");
+        }
         return;
     }
 
@@ -490,13 +512,15 @@ void MessageManagerImpl::ackMessages(
     std::string body_json;
     std::string body_err;
     if (!writeJson(body, body_json, body_err)) {
-        callback(false, body_err);
+        if (callback.on_error) {
+            callback.on_error(-1, body_err);
+        }
         return;
     }
 
     http_->post("/messages/ack", body_json, [this, conv_id, message_ids, cb = std::move(callback)](network::HttpResponse resp) {
-        std::string err;
-        if (parseApiStatusSuccessResponse(resp, err, "server error", true)) {
+        ApiEnvelope<void> root{};
+        auto mark_message_ids_read = [this, message_ids]() {
             for (const auto& id : message_ids) {
                 if (!id.empty()) {
                     msg_cache_->updateMessageById(id, [](Message& m) {
@@ -504,25 +528,36 @@ void MessageManagerImpl::ackMessages(
                     });
                 }
             }
-            cb(true, "");
+        };
+
+        if (parseApiEnvelopeResponse(resp, root, "ack messages failed", true)) {
+            mark_message_ids_read();
+            if (cb.on_success) {
+                cb.on_success();
+            }
             return;
         }
 
         if (resp.status_code != 404 && resp.status_code != 405) {
-            cb(false, err);
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
         if (message_ids.empty()) {
             const std::string path = "/conversations/" + conv_id + "/read-all";
-            http_->post(path, "", [cb](network::HttpResponse fallback_resp) {
-                if (!fallback_resp.error.empty()) {
-                    cb(false, fallback_resp.error);
+            http_->post(path, "", [cb = std::move(cb)](network::HttpResponse fallback_resp) {
+                ApiEnvelope<void> fallback_root{};
+                if (!parseApiEnvelopeResponse(fallback_resp, fallback_root, "mark all read failed", true)) {
+                    if (cb.on_error) {
+                        cb.on_error(fallback_root.code, fallback_root.message);
+                    }
                     return;
                 }
-                cb(fallback_resp.status_code == 200, fallback_resp.status_code == 200
-                        ? ""
-                        : ("HTTP " + std::to_string(fallback_resp.status_code)));
+                if (cb.on_success) {
+                    cb.on_success();
+                }
             });
             return;
         }
@@ -531,18 +566,26 @@ void MessageManagerImpl::ackMessages(
             .message_ids = message_ids,
         };
         std::string fallback_body_json;
+        std::string err;
         if (!writeJson(fallback_body, fallback_body_json, err)) {
-            cb(false, err);
+            if (cb.on_error) {
+                cb.on_error(-1, err);
+            }
             return;
         }
         const std::string path = "/conversations/" + conv_id + "/messages/read";
-        http_->post(path, fallback_body_json, [cb](network::HttpResponse fallback_resp) {
-            std::string fallback_err;
-            if (!parseApiStatusSuccessResponse(fallback_resp, fallback_err, "server error", true)) {
-                cb(false, fallback_err);
+        http_->post(path, fallback_body_json, [cb = std::move(cb), mark_message_ids_read](network::HttpResponse fallback_resp) mutable {
+            ApiEnvelope<void> fallback_root{};
+            if (!parseApiEnvelopeResponse(fallback_resp, fallback_root, "mark messages read failed", true)) {
+                if (cb.on_error) {
+                    cb.on_error(fallback_root.code, fallback_root.message);
+                }
                 return;
             }
-            cb(true, "");
+            mark_message_ids_read();
+            if (cb.on_success) {
+                cb.on_success();
+            }
         });
     });
 }
@@ -550,23 +593,28 @@ void MessageManagerImpl::ackMessages(
 void MessageManagerImpl::getGroupMessageReadState(
     const std::string& group_id,
     const std::string& message_id,
-    GroupMessageReadStateCallback callback
+    AnyChatValueCallback<GroupMessageReadState> callback
 ) {
     if (group_id.empty() || message_id.empty()) {
-        callback({}, "group_id and message_id must not be empty");
+        if (callback.on_error) {
+            callback.on_error(-1, "group_id and message_id must not be empty");
+        }
         return;
     }
 
     const std::string path = "/groups/" + group_id + "/messages/" + message_id + "/reads";
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<GroupReadStatePayload> root;
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
-            cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get group message read state failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(parseGroupMessageReadState(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(parseGroupMessageReadState(root.data));
+        }
     });
 }
 
@@ -576,10 +624,12 @@ void MessageManagerImpl::searchMessages(
     const std::string& content_type,
     int limit,
     int offset,
-    MessageSearchCallback callback
+    AnyChatValueCallback<MessageSearchResult> callback
 ) {
     if (keyword.empty()) {
-        callback({}, "keyword must not be empty");
+        if (callback.on_error) {
+            callback.on_error(-1, "keyword must not be empty");
+        }
         return;
     }
 
@@ -599,9 +649,10 @@ void MessageManagerImpl::searchMessages(
 
     http_->get(path, [this, cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<MessageListDataPayload> root;
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
-            cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "search messages failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -619,13 +670,17 @@ void MessageManagerImpl::searchMessages(
         }
         result.total = parseInt64Value(root.data.total, static_cast<int64_t>(result.messages.size()));
 
-        cb(std::move(result), "");
+        if (cb.on_success) {
+            cb.on_success(result);
+        }
     });
 }
 
-void MessageManagerImpl::recallMessage(const std::string& message_id, MessageCallback callback) {
+void MessageManagerImpl::recallMessage(const std::string& message_id, AnyChatCallback callback) {
     if (message_id.empty()) {
-        callback(false, "message_id must not be empty");
+        if (callback.on_error) {
+            callback.on_error(-1, "message_id must not be empty");
+        }
         return;
     }
 
@@ -635,18 +690,22 @@ void MessageManagerImpl::recallMessage(const std::string& message_id, MessageCal
     std::string body_json;
     std::string body_err;
     if (!writeJson(body, body_json, body_err)) {
-        callback(false, body_err);
+        if (callback.on_error) {
+            callback.on_error(-1, body_err);
+        }
         return;
     }
 
     http_->post("/messages/recall", body_json, [this, message_id, cb = std::move(callback)](network::HttpResponse resp) {
-        std::string err;
-        if (parseApiStatusSuccessResponse(resp, err, "server error", true)) {
+        ApiEnvelope<void> root{};
+        if (parseApiEnvelopeResponse(resp, root, "recall message failed", true)) {
             msg_cache_->updateMessageById(message_id, [](Message& msg) {
                 msg.status = 1;
             });
             updateMessageDbStatusAndContent(message_id, 1, nullptr);
-            cb(true, "");
+            if (cb.on_success) {
+                cb.on_success();
+            }
             return;
         }
 
@@ -659,34 +718,49 @@ void MessageManagerImpl::recallMessage(const std::string& message_id, MessageCal
                     },
             };
             std::string frame_json;
+            std::string err;
             if (!writeJson(frame, frame_json, err)) {
-                cb(false, err);
+                if (cb.on_error) {
+                    cb.on_error(-1, err);
+                }
                 return;
             }
             if (outbound_q_->sendTransient(frame_json)) {
-                cb(true, "");
+                if (cb.on_success) {
+                    cb.on_success();
+                }
                 return;
             }
+            if (cb.on_error) {
+                cb.on_error(-1, "websocket not connected");
+            }
+            return;
         }
 
-        cb(false, err.empty() ? makeHttpError(resp) : err);
+        if (cb.on_error) {
+            cb.on_error(root.code != 0 ? root.code : -1, root.message.empty() ? makeHttpError(resp) : root.message);
+        }
     });
 }
 
-void MessageManagerImpl::deleteMessage(const std::string& message_id, MessageCallback callback) {
+void MessageManagerImpl::deleteMessage(const std::string& message_id, AnyChatCallback callback) {
     if (message_id.empty()) {
-        callback(false, "message_id must not be empty");
+        if (callback.on_error) {
+            callback.on_error(-1, "message_id must not be empty");
+        }
         return;
     }
 
     http_->del("/messages/" + message_id, [this, message_id, cb = std::move(callback)](network::HttpResponse resp) {
-        std::string err;
-        if (parseApiStatusSuccessResponse(resp, err, "server error", true)) {
+        ApiEnvelope<void> root{};
+        if (parseApiEnvelopeResponse(resp, root, "delete message failed", true)) {
             msg_cache_->updateMessageById(message_id, [](Message& msg) {
                 msg.status = 2;
             });
             updateMessageDbStatusAndContent(message_id, 2, nullptr);
-            cb(true, "");
+            if (cb.on_success) {
+                cb.on_success();
+            }
             return;
         }
 
@@ -699,23 +773,36 @@ void MessageManagerImpl::deleteMessage(const std::string& message_id, MessageCal
                     },
             };
             std::string frame_json;
+            std::string err;
             if (!writeJson(frame, frame_json, err)) {
-                cb(false, err);
+                if (cb.on_error) {
+                    cb.on_error(-1, err);
+                }
                 return;
             }
             if (outbound_q_->sendTransient(frame_json)) {
-                cb(true, "");
+                if (cb.on_success) {
+                    cb.on_success();
+                }
                 return;
             }
+            if (cb.on_error) {
+                cb.on_error(-1, "websocket not connected");
+            }
+            return;
         }
 
-        cb(false, err.empty() ? makeHttpError(resp) : err);
+        if (cb.on_error) {
+            cb.on_error(root.code != 0 ? root.code : -1, root.message.empty() ? makeHttpError(resp) : root.message);
+        }
     });
 }
 
-void MessageManagerImpl::editMessage(const std::string& message_id, const std::string& content, MessageCallback callback) {
+void MessageManagerImpl::editMessage(const std::string& message_id, const std::string& content, AnyChatCallback callback) {
     if (message_id.empty()) {
-        callback(false, "message_id must not be empty");
+        if (callback.on_error) {
+            callback.on_error(-1, "message_id must not be empty");
+        }
         return;
     }
 
@@ -725,14 +812,15 @@ void MessageManagerImpl::editMessage(const std::string& message_id, const std::s
     std::string body_json;
     std::string body_err;
     if (!writeJson(body, body_json, body_err)) {
-        callback(false, body_err);
+        if (callback.on_error) {
+            callback.on_error(-1, body_err);
+        }
         return;
     }
 
     http_->patch("/messages/" + message_id, body_json, [this, message_id, content, cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<EditMessageDataValue> root;
-        std::string err;
-        if (parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
+        if (parseApiEnvelopeResponse(resp, root, "edit message failed", true)) {
             Message edited;
             bool has_message = false;
             if (const auto* wrapped = std::get_if<EditMessageDataPayload>(&root.data); wrapped != nullptr) {
@@ -757,7 +845,9 @@ void MessageManagerImpl::editMessage(const std::string& message_id, const std::s
                 }
             });
             updateMessageDbStatusAndContent(message_id, edited.status, &edited.content);
-            cb(true, "");
+            if (cb.on_success) {
+                cb.on_success();
+            }
             return;
         }
 
@@ -771,17 +861,28 @@ void MessageManagerImpl::editMessage(const std::string& message_id, const std::s
                     },
             };
             std::string frame_json;
+            std::string err;
             if (!writeJson(frame, frame_json, err)) {
-                cb(false, err);
+                if (cb.on_error) {
+                    cb.on_error(-1, err);
+                }
                 return;
             }
             if (outbound_q_->sendTransient(frame_json)) {
-                cb(true, "");
+                if (cb.on_success) {
+                    cb.on_success();
+                }
                 return;
             }
+            if (cb.on_error) {
+                cb.on_error(-1, "websocket not connected");
+            }
+            return;
         }
 
-        cb(false, err.empty() ? makeHttpError(resp) : err);
+        if (cb.on_error) {
+            cb.on_error(root.code != 0 ? root.code : -1, root.message.empty() ? makeHttpError(resp) : root.message);
+        }
     });
 }
 
@@ -789,10 +890,12 @@ void MessageManagerImpl::sendTyping(
     const std::string& conversation_id,
     bool typing,
     int32_t ttl_seconds,
-    MessageCallback callback
+    AnyChatCallback callback
 ) {
     if (conversation_id.empty()) {
-        callback(false, "conversation_id must not be empty");
+        if (callback.on_error) {
+            callback.on_error(-1, "conversation_id must not be empty");
+        }
         return;
     }
 
@@ -809,12 +912,22 @@ void MessageManagerImpl::sendTyping(
     std::string frame_json;
     std::string err;
     if (!writeJson(frame, frame_json, err)) {
-        callback(false, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     const bool sent = outbound_q_->sendTransient(frame_json);
-    callback(sent, sent ? "" : "websocket not connected");
+    if (sent) {
+        if (callback.on_success) {
+            callback.on_success();
+        }
+        return;
+    }
+    if (callback.on_error) {
+        callback.on_error(-1, "websocket not connected");
+    }
 }
 
 void MessageManagerImpl::setListener(std::shared_ptr<MessageListener> listener) {

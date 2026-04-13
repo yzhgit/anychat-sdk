@@ -17,13 +17,13 @@ public:
         const std::string& platform,
         const std::string& version,
         int32_t build_number,
-        CheckVersionCallback callback
+        AnyChatValueCallback<VersionCheckResult> callback
     ) override;
 
     void getLatestVersion(
         const std::string& platform,
         const std::string& release_type,
-        LatestVersionCallback callback
+        AnyChatValueCallback<AppVersionInfo> callback
     ) override;
 
     void listVersions(
@@ -31,7 +31,7 @@ public:
         const std::string& release_type,
         int page,
         int page_size,
-        VersionListCallback callback
+        AnyChatValueCallback<VersionListResult> callback
     ) override;
 
     void reportVersion(
@@ -41,7 +41,7 @@ public:
         const std::string& device_id,
         const std::string& os_version,
         const std::string& sdk_version,
-        ResultCallback callback
+        AnyChatCallback callback
     ) override;
 
 private:

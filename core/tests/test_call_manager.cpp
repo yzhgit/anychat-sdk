@@ -10,6 +10,25 @@
 
 #include <gtest/gtest.h>
 
+namespace {
+
+anychat::AnyChatCallback makeNoopCallback() {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = []() {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+template<typename T>
+anychat::AnyChatValueCallback<T> makeNoopValueCallback() {
+    anychat::AnyChatValueCallback<T> callback{};
+    callback.on_success = [](const T&) {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+} // namespace
+
 // ===========================================================================
 // Fixture
 // ===========================================================================
@@ -197,9 +216,45 @@ TEST_F(CallManagerTest, UnrelatedNotificationDoesNotFireCallHandlers) {
 // 5. InitiateCallDoesNotCrash
 // ---------------------------------------------------------------------------
 TEST_F(CallManagerTest, InitiateCallDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->initiateCall(
-        "callee-999",
-        anychat::CallType::Audio,
-        [](bool /*ok*/, const anychat::CallSession& /*s*/, const std::string& /*err*/) {}
-    ));
+    EXPECT_NO_THROW(mgr_->initiateCall("callee-999", anychat::CallType::Audio, makeNoopValueCallback<anychat::CallSession>()));
+}
+
+TEST_F(CallManagerTest, JoinCallDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->joinCall("call-999", makeNoopValueCallback<anychat::CallSession>()));
+}
+
+TEST_F(CallManagerTest, RejectCallDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->rejectCall("call-999", makeNoopCallback()));
+}
+
+TEST_F(CallManagerTest, EndCallDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->endCall("call-999", makeNoopCallback()));
+}
+
+TEST_F(CallManagerTest, GetCallSessionDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getCallSession("call-999", makeNoopValueCallback<anychat::CallSession>()));
+}
+
+TEST_F(CallManagerTest, GetCallLogsDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getCallLogs(1, 20, makeNoopValueCallback<anychat::CallLogResult>()));
+}
+
+TEST_F(CallManagerTest, CreateMeetingDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->createMeeting("Daily Sync", "", 8, makeNoopValueCallback<anychat::MeetingRoom>()));
+}
+
+TEST_F(CallManagerTest, JoinMeetingDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->joinMeeting("room-999", "", makeNoopValueCallback<anychat::MeetingRoom>()));
+}
+
+TEST_F(CallManagerTest, EndMeetingDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->endMeeting("room-999", makeNoopCallback()));
+}
+
+TEST_F(CallManagerTest, GetMeetingDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getMeeting("room-999", makeNoopValueCallback<anychat::MeetingRoom>()));
+}
+
+TEST_F(CallManagerTest, ListMeetingsDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->listMeetings(1, 20, makeNoopValueCallback<anychat::MeetingListResult>()));
 }

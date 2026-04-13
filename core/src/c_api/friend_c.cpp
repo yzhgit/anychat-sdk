@@ -6,6 +6,8 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 
@@ -133,28 +135,63 @@ private:
     AnyChatFriendListener_C listener_{};
 };
 
+anychat::AnyChatCallback makeFriendCallback(const AnyChatFriendCallback_C& callback) {
+    anychat::AnyChatCallback result{};
+    result.on_success = [callback]() {
+        if (callback.on_success) {
+            callback.on_success(callback.userdata);
+        }
+    };
+    result.on_error = [callback](int code, const std::string& error) {
+        if (!callback.on_error) {
+            return;
+        }
+        callback.on_error(callback.userdata, code, error.empty() ? nullptr : error.c_str());
+    };
+    return result;
+}
+
 } // namespace
 
 extern "C" {
 
-int anychat_friend_get_list(AnyChatFriendHandle handle, void* userdata, AnyChatFriendListCallback callback) {
+int anychat_friend_get_list(AnyChatFriendHandle handle, const AnyChatFriendListCallback_C* callback) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (callback && callback->struct_size < sizeof(AnyChatFriendListCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    handle->impl->getFriendList([userdata, callback](std::vector<anychat::Friend> list, std::string err) {
-        if (!callback)
+    AnyChatFriendListCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
+    anychat::AnyChatValueCallback<std::vector<anychat::Friend>> cb{};
+    cb.on_success = [callback_copy](const std::vector<anychat::Friend>& list) {
+        if (!callback_copy.on_success) {
             return;
-        int count = static_cast<int>(list.size());
+        }
+        const int count = static_cast<int>(list.size());
         AnyChatFriendList_C c_list{};
         c_list.count = count;
         c_list.items = count > 0 ? static_cast<AnyChatFriend_C*>(std::calloc(count, sizeof(AnyChatFriend_C))) : nullptr;
-        for (int i = 0; i < count; ++i)
+        for (int i = 0; i < count; ++i) {
             friendToC(list[i], &c_list.items[i]);
-        callback(userdata, &c_list, err.empty() ? nullptr : err.c_str());
+        }
+        callback_copy.on_success(callback_copy.userdata, &c_list);
         std::free(c_list.items);
-    });
+    };
+    cb.on_error = [callback_copy](int code, const std::string& error) {
+        if (!callback_copy.on_error) {
+            return;
+        }
+        callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
+    };
+    handle->impl->getFriendList(std::move(cb));
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -165,22 +202,23 @@ int anychat_friend_add(
     const char* to_user_id,
     const char* message,
     const char* source,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !to_user_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->addFriend(
-        to_user_id,
-        message ? message : "",
-        source ? source : "",
-        [userdata, callback](bool ok, std::string err) {
-            if (callback)
-                callback(userdata, ok ? 1 : 0, err.c_str());
-        }
-    );
+    if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatFriendCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
+    handle->impl->addFriend(to_user_id, message ? message : "", source ? source : "", makeFriendCallback(callback_copy));
 
     anychat_clear_last_error();
     return ANYCHAT_OK;
@@ -189,17 +227,23 @@ int anychat_friend_add(
 int anychat_friend_delete(
     AnyChatFriendHandle handle,
     const char* friend_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !friend_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->deleteFriend(friend_id, [userdata, callback](bool ok, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, err.c_str());
-    });
+    if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatFriendCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
+    handle->impl->deleteFriend(friend_id, makeFriendCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -208,17 +252,23 @@ int anychat_friend_update_remark(
     AnyChatFriendHandle handle,
     const char* friend_id,
     const char* remark,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !friend_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->updateRemark(friend_id, remark ? remark : "", [userdata, callback](bool ok, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, err.c_str());
-    });
+    if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatFriendCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
+    handle->impl->updateRemark(friend_id, remark ? remark : "", makeFriendCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -226,31 +276,47 @@ int anychat_friend_update_remark(
 int anychat_friend_get_requests(
     AnyChatFriendHandle handle,
     const char* request_type,
-    void* userdata,
-    AnyChatFriendRequestListCallback callback
+    const AnyChatFriendRequestListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (callback && callback->struct_size < sizeof(AnyChatFriendRequestListCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatFriendRequestListCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
     const std::string type = (request_type && request_type[0] != '\0') ? request_type : "received";
-    handle->impl->getFriendRequests(
-        type,
-        [userdata, callback](std::vector<anychat::FriendRequest> list, std::string err) {
-            if (!callback)
-                return;
-            int count = static_cast<int>(list.size());
-            AnyChatFriendRequestList_C c_list{};
-            c_list.count = count;
-            c_list.items =
-                count > 0 ? static_cast<AnyChatFriendRequest_C*>(std::calloc(count, sizeof(AnyChatFriendRequest_C)))
-                          : nullptr;
-            for (int i = 0; i < count; ++i)
-                friendRequestToC(list[i], &c_list.items[i]);
-            callback(userdata, &c_list, err.empty() ? nullptr : err.c_str());
-            std::free(c_list.items);
+    anychat::AnyChatValueCallback<std::vector<anychat::FriendRequest>> cb{};
+    cb.on_success = [callback_copy](const std::vector<anychat::FriendRequest>& list) {
+        if (!callback_copy.on_success) {
+            return;
         }
-    );
+        const int count = static_cast<int>(list.size());
+        AnyChatFriendRequestList_C c_list{};
+        c_list.count = count;
+        c_list.items =
+            count > 0 ? static_cast<AnyChatFriendRequest_C*>(std::calloc(count, sizeof(AnyChatFriendRequest_C)))
+                      : nullptr;
+        for (int i = 0; i < count; ++i) {
+            friendRequestToC(list[i], &c_list.items[i]);
+        }
+        callback_copy.on_success(callback_copy.userdata, &c_list);
+        std::free(c_list.items);
+    };
+    cb.on_error = [callback_copy](int code, const std::string& error) {
+        if (!callback_copy.on_error) {
+            return;
+        }
+        callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
+    };
+    handle->impl->getFriendRequests(type, std::move(cb));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -258,17 +324,23 @@ int anychat_friend_get_requests(
 int anychat_friend_accept_request(
     AnyChatFriendHandle handle,
     int64_t request_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->acceptFriendRequest(request_id, [userdata, callback](bool ok, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, err.c_str());
-    });
+    if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatFriendCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
+    handle->impl->acceptFriendRequest(request_id, makeFriendCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -276,17 +348,23 @@ int anychat_friend_accept_request(
 int anychat_friend_reject_request(
     AnyChatFriendHandle handle,
     int64_t request_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->rejectFriendRequest(request_id, [userdata, callback](bool ok, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, err.c_str());
-    });
+    if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatFriendCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
+    handle->impl->rejectFriendRequest(request_id, makeFriendCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -294,17 +372,23 @@ int anychat_friend_reject_request(
 int anychat_friend_add_to_blacklist(
     AnyChatFriendHandle handle,
     const char* user_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !user_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->addToBlacklist(user_id, [userdata, callback](bool ok, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, err.c_str());
-    });
+    if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatFriendCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
+    handle->impl->addToBlacklist(user_id, makeFriendCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -312,40 +396,66 @@ int anychat_friend_add_to_blacklist(
 int anychat_friend_remove_from_blacklist(
     AnyChatFriendHandle handle,
     const char* user_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !user_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->removeFromBlacklist(user_id, [userdata, callback](bool ok, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, err.c_str());
-    });
+    if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatFriendCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
+    handle->impl->removeFromBlacklist(user_id, makeFriendCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
-int anychat_friend_get_blacklist(AnyChatFriendHandle handle, void* userdata, AnyChatBlacklistListCallback callback) {
+int anychat_friend_get_blacklist(AnyChatFriendHandle handle, const AnyChatBlacklistListCallback_C* callback) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    handle->impl->getBlacklist([userdata, callback](std::vector<anychat::BlacklistItem> list, std::string err) {
-        if (!callback)
+    if (callback && callback->struct_size < sizeof(AnyChatBlacklistListCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatBlacklistListCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+
+    anychat::AnyChatValueCallback<std::vector<anychat::BlacklistItem>> cb{};
+    cb.on_success = [callback_copy](const std::vector<anychat::BlacklistItem>& list) {
+        if (!callback_copy.on_success) {
             return;
-        int count = static_cast<int>(list.size());
+        }
+        const int count = static_cast<int>(list.size());
         AnyChatBlacklistList_C c_list{};
         c_list.count = count;
         c_list.items = count > 0
                            ? static_cast<AnyChatBlacklistItem_C*>(std::calloc(count, sizeof(AnyChatBlacklistItem_C)))
                            : nullptr;
-        for (int i = 0; i < count; ++i)
+        for (int i = 0; i < count; ++i) {
             blacklistItemToC(list[i], &c_list.items[i]);
-        callback(userdata, &c_list, err.empty() ? nullptr : err.c_str());
+        }
+        callback_copy.on_success(callback_copy.userdata, &c_list);
         std::free(c_list.items);
-    });
+    };
+    cb.on_error = [callback_copy](int code, const std::string& error) {
+        if (!callback_copy.on_error) {
+            return;
+        }
+        callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
+    };
+    handle->impl->getBlacklist(std::move(cb));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }

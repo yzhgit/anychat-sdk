@@ -111,13 +111,12 @@ bool readFileBytes(const std::string& local_path, std::string& file_name, std::s
 }
 
 template <typename T>
-bool parseTypedDataResponse(const network::HttpResponse& resp, T& out, std::string& err) {
-    ApiEnvelope<T> wrapped{};
-    if (!parseApiEnvelopeResponse(resp, wrapped, err, "server error", false, true)) {
-        return false;
-    }
-    out = std::move(wrapped.data);
-    return true;
+bool parseTypedDataResponse(
+    const network::HttpResponse& resp,
+    ApiEnvelope<T>& wrapped,
+    const std::string& fallback_error = "server error"
+) {
+    return parseApiEnvelopeResponse(resp, wrapped, fallback_error, false, true);
 }
 
 FileInfo parseFileInfoPayload(const FileInfoPayload& payload) {
@@ -166,7 +165,6 @@ std::string urlEncode(const std::string& input) {
 namespace anychat {
 using namespace file_manager_detail;
 
-
 FileManagerImpl::FileManagerImpl(std::shared_ptr<network::HttpClient> http)
     : http_(std::move(http)) {}
 
@@ -174,14 +172,14 @@ void FileManagerImpl::upload(
     const std::string& local_path,
     const std::string& file_type,
     UploadProgressCallback on_progress,
-    FileInfoCallback on_done
+    AnyChatValueCallback<FileInfo> on_done
 ) {
     std::string file_name;
     auto file_bytes = std::make_shared<std::string>();
     std::string read_err;
     if (!readFileBytes(local_path, file_name, *file_bytes, read_err)) {
-        if (on_done) {
-            on_done(false, FileInfo{}, read_err);
+        if (on_done.on_error) {
+            on_done.on_error(-1, read_err);
         }
         return;
     }
@@ -196,8 +194,8 @@ void FileManagerImpl::upload(
     std::string req_json;
     std::string req_err;
     if (!writeJson(req_body, req_json, req_err)) {
-        if (on_done) {
-            on_done(false, FileInfo{}, req_err);
+        if (on_done.on_error) {
+            on_done.on_error(-1, req_err);
         }
         return;
     }
@@ -206,18 +204,18 @@ void FileManagerImpl::upload(
         "/files/upload-token",
         req_json,
         [this, file_bytes, on_progress, on_done](network::HttpResponse resp) {
-            UploadTokenPayload token{};
-            std::string err;
-            if (!parseTypedDataResponse(resp, token, err)) {
-                if (on_done) {
-                    on_done(false, FileInfo{}, "upload-token failed: " + err);
+            ApiEnvelope<UploadTokenPayload> root{};
+            if (!parseTypedDataResponse(resp, root, "upload-token failed")) {
+                if (on_done.on_error) {
+                    on_done.on_error(root.code, root.message);
                 }
                 return;
             }
 
+            const UploadTokenPayload& token = root.data;
             if (token.file_id.empty() || token.upload_url.empty()) {
-                if (on_done) {
-                    on_done(false, FileInfo{}, "upload-token response missing file id or upload url");
+                if (on_done.on_error) {
+                    on_done.on_error(-1, "upload-token response missing file id or upload url");
                 }
                 return;
             }
@@ -231,15 +229,15 @@ void FileManagerImpl::upload(
                 *file_bytes,
                 [this, file_id = token.file_id, file_bytes, on_progress, on_done](network::HttpResponse put_resp) {
                     if (!put_resp.error.empty()) {
-                        if (on_done) {
-                            on_done(false, FileInfo{}, put_resp.error);
+                        if (on_done.on_error) {
+                            on_done.on_error(-1, put_resp.error);
                         }
                         return;
                     }
 
                     if (put_resp.status_code < 200 || put_resp.status_code >= 300) {
-                        if (on_done) {
-                            on_done(false, FileInfo{}, "upload PUT failed: " + put_resp.body);
+                        if (on_done.on_error) {
+                            on_done.on_error(-1, "upload PUT failed: " + put_resp.body);
                         }
                         return;
                     }
@@ -250,22 +248,21 @@ void FileManagerImpl::upload(
                     }
 
                     http_->post("/files/" + file_id + "/complete", "{}", [file_id, on_done](network::HttpResponse complete_resp) {
-                        FileInfoDataValue complete_data{};
-                        std::string complete_err;
-                        if (!parseTypedDataResponse(complete_resp, complete_data, complete_err)) {
-                            if (on_done) {
-                                on_done(false, FileInfo{}, "complete failed: " + complete_err);
+                        ApiEnvelope<FileInfoDataValue> complete_root{};
+                        if (!parseTypedDataResponse(complete_resp, complete_root, "complete failed")) {
+                            if (on_done.on_error) {
+                                on_done.on_error(complete_root.code, complete_root.message);
                             }
                             return;
                         }
 
-                        FileInfo info = parseFileInfoData(complete_data);
+                        FileInfo info = parseFileInfoData(complete_root.data);
                         if (info.file_id.empty()) {
                             info.file_id = file_id;
                         }
 
-                        if (on_done) {
-                            on_done(true, info, "");
+                        if (on_done.on_success) {
+                            on_done.on_success(info);
                         }
                     });
                 }
@@ -276,54 +273,58 @@ void FileManagerImpl::upload(
 
 void FileManagerImpl::getDownloadUrl(
     const std::string& file_id,
-    std::function<void(bool ok, std::string url, std::string err)> cb
+    AnyChatValueCallback<std::string> cb
 ) {
     http_->get("/files/" + file_id + "/download", [cb](network::HttpResponse resp) {
-        DownloadUrlPayload data{};
-        std::string err;
-        if (!parseTypedDataResponse(resp, data, err)) {
-            if (cb) {
-                cb(false, "", "getDownloadUrl failed: " + err);
+        ApiEnvelope<DownloadUrlPayload> root{};
+        if (!parseTypedDataResponse(resp, root, "getDownloadUrl failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
 
+        const DownloadUrlPayload& data = root.data;
         if (data.download_url.empty()) {
-            if (cb) {
-                cb(false, "", "download url missing in response");
+            if (cb.on_error) {
+                cb.on_error(-1, "download url missing in response");
             }
             return;
         }
 
-        if (cb) {
-            cb(true, data.download_url, "");
+        if (cb.on_success) {
+            cb.on_success(data.download_url);
         }
     });
 }
 
-void FileManagerImpl::getFileInfo(const std::string& file_id, FileInfoCallback cb) {
+void FileManagerImpl::getFileInfo(const std::string& file_id, AnyChatValueCallback<FileInfo> cb) {
     http_->get("/files/" + file_id, [cb, file_id](network::HttpResponse resp) {
-        FileInfoDataValue data{};
-        std::string err;
-        if (!parseTypedDataResponse(resp, data, err)) {
-            if (cb) {
-                cb(false, FileInfo{}, "getFileInfo failed: " + err);
+        ApiEnvelope<FileInfoDataValue> root{};
+        if (!parseTypedDataResponse(resp, root, "getFileInfo failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
 
-        FileInfo info = parseFileInfoData(data);
+        FileInfo info = parseFileInfoData(root.data);
         if (info.file_id.empty()) {
             info.file_id = file_id;
         }
 
-        if (cb) {
-            cb(true, info, "");
+        if (cb.on_success) {
+            cb.on_success(info);
         }
     });
 }
 
-void FileManagerImpl::listFiles(const std::string& file_type, int page, int page_size, FileListCallback cb) {
+void FileManagerImpl::listFiles(
+    const std::string& file_type,
+    int page,
+    int page_size,
+    AnyChatValueCallback<FileListResult> cb
+) {
     const int safe_page = page > 0 ? page : 1;
     const int safe_page_size = page_size > 0 ? page_size : 20;
 
@@ -333,32 +334,33 @@ void FileManagerImpl::listFiles(const std::string& file_type, int page, int page
         path += "&file_type=" + urlEncode(file_type);
     }
 
-    http_->get(path, [cb](network::HttpResponse resp) {
-        FileListDataPayload data{};
-        std::string err;
-        if (!parseTypedDataResponse(resp, data, err)) {
-            if (cb) {
-                cb({}, 0, "listFiles failed: " + err);
+    http_->get(path, [cb, safe_page, safe_page_size](network::HttpResponse resp) {
+        ApiEnvelope<FileListDataPayload> root{};
+        if (!parseTypedDataResponse(resp, root, "listFiles failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
 
-        std::vector<FileInfo> files;
-        const auto* payloads = toFileInfoPayloadList(data);
+        FileListResult result;
+        const auto* payloads = toFileInfoPayloadList(root.data);
         if (payloads != nullptr) {
-            files.reserve(payloads->size());
+            result.files.reserve(payloads->size());
             for (const auto& item : *payloads) {
-                files.push_back(parseFileInfoPayload(item));
+                result.files.push_back(parseFileInfoPayload(item));
             }
         }
 
-        int64_t total = parseInt64Value(data.total, 0);
-        if (total == 0 && !files.empty()) {
-            total = static_cast<int64_t>(files.size());
+        result.total = parseInt64Value(root.data.total, 0);
+        if (result.total == 0 && !result.files.empty()) {
+            result.total = static_cast<int64_t>(result.files.size());
         }
+        result.page = safe_page;
+        result.page_size = safe_page_size;
 
-        if (cb) {
-            cb(std::move(files), total, "");
+        if (cb.on_success) {
+            cb.on_success(result);
         }
     });
 }
@@ -366,15 +368,15 @@ void FileManagerImpl::listFiles(const std::string& file_type, int page, int page
 void FileManagerImpl::uploadClientLog(
     const std::string& local_path,
     UploadProgressCallback on_progress,
-    FileInfoCallback on_done,
+    AnyChatValueCallback<FileInfo> on_done,
     int32_t expires_hours
 ) {
     std::string file_name;
     auto file_bytes = std::make_shared<std::string>();
     std::string read_err;
     if (!readFileBytes(local_path, file_name, *file_bytes, read_err)) {
-        if (on_done) {
-            on_done(false, FileInfo{}, read_err);
+        if (on_done.on_error) {
+            on_done.on_error(-1, read_err);
         }
         return;
     }
@@ -388,8 +390,8 @@ void FileManagerImpl::uploadClientLog(
     std::string req_json;
     std::string req_err;
     if (!writeJson(req_body, req_json, req_err)) {
-        if (on_done) {
-            on_done(false, FileInfo{}, req_err);
+        if (on_done.on_error) {
+            on_done.on_error(-1, req_err);
         }
         return;
     }
@@ -398,18 +400,18 @@ void FileManagerImpl::uploadClientLog(
         "/logs/upload",
         req_json,
         [this, file_bytes, on_progress, on_done](network::HttpResponse resp) {
-            UploadTokenPayload init{};
-            std::string err;
-            if (!parseTypedDataResponse(resp, init, err)) {
-                if (on_done) {
-                    on_done(false, FileInfo{}, "log upload init failed: " + err);
+            ApiEnvelope<UploadTokenPayload> root{};
+            if (!parseTypedDataResponse(resp, root, "log upload init failed")) {
+                if (on_done.on_error) {
+                    on_done.on_error(root.code, root.message);
                 }
                 return;
             }
 
+            const UploadTokenPayload& init = root.data;
             if (init.file_id.empty() || init.upload_url.empty()) {
-                if (on_done) {
-                    on_done(false, FileInfo{}, "log upload init response missing file id or upload url");
+                if (on_done.on_error) {
+                    on_done.on_error(-1, "log upload init response missing file id or upload url");
                 }
                 return;
             }
@@ -423,15 +425,15 @@ void FileManagerImpl::uploadClientLog(
                 *file_bytes,
                 [this, file_id = init.file_id, file_bytes, on_progress, on_done](network::HttpResponse put_resp) {
                     if (!put_resp.error.empty()) {
-                        if (on_done) {
-                            on_done(false, FileInfo{}, put_resp.error);
+                        if (on_done.on_error) {
+                            on_done.on_error(-1, put_resp.error);
                         }
                         return;
                     }
 
                     if (put_resp.status_code < 200 || put_resp.status_code >= 300) {
-                        if (on_done) {
-                            on_done(false, FileInfo{}, "log upload PUT failed: " + put_resp.body);
+                        if (on_done.on_error) {
+                            on_done.on_error(-1, "log upload PUT failed: " + put_resp.body);
                         }
                         return;
                     }
@@ -445,23 +447,22 @@ void FileManagerImpl::uploadClientLog(
                     std::string complete_body_json;
                     std::string complete_body_err;
                     if (!writeJson(complete_body, complete_body_json, complete_body_err)) {
-                        if (on_done) {
-                            on_done(false, FileInfo{}, complete_body_err);
+                        if (on_done.on_error) {
+                            on_done.on_error(-1, complete_body_err);
                         }
                         return;
                     }
 
                     http_->post("/logs/complete", complete_body_json, [file_id, on_done](network::HttpResponse complete_resp) {
-                        FileInfoDataValue complete_data{};
-                        std::string complete_err;
-                        if (!parseTypedDataResponse(complete_resp, complete_data, complete_err)) {
-                            if (on_done) {
-                                on_done(false, FileInfo{}, "log upload complete failed: " + complete_err);
+                        ApiEnvelope<FileInfoDataValue> complete_root{};
+                        if (!parseTypedDataResponse(complete_resp, complete_root, "log upload complete failed")) {
+                            if (on_done.on_error) {
+                                on_done.on_error(complete_root.code, complete_root.message);
                             }
                             return;
                         }
 
-                        FileInfo info = parseFileInfoData(complete_data);
+                        FileInfo info = parseFileInfoData(complete_root.data);
                         if (info.file_id.empty()) {
                             info.file_id = file_id;
                         }
@@ -469,8 +470,8 @@ void FileManagerImpl::uploadClientLog(
                             info.file_type = "log";
                         }
 
-                        if (on_done) {
-                            on_done(true, info, "");
+                        if (on_done.on_success) {
+                            on_done.on_success(info);
                         }
                     });
                 }
@@ -479,26 +480,25 @@ void FileManagerImpl::uploadClientLog(
     );
 }
 
-void FileManagerImpl::deleteFile(const std::string& file_id, FileCallback cb) {
+void FileManagerImpl::deleteFile(const std::string& file_id, AnyChatCallback cb) {
     http_->del("/files/" + file_id, [cb](network::HttpResponse resp) {
-        DeleteFilePayload data{};
-        std::string err;
-        if (!parseTypedDataResponse(resp, data, err)) {
-            if (cb) {
-                cb(false, "deleteFile failed: " + err);
+        ApiEnvelope<DeleteFilePayload> root{};
+        if (!parseTypedDataResponse(resp, root, "deleteFile failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
 
-        if (data.success.has_value() && !parseBoolValue(data.success, true)) {
-            if (cb) {
-                cb(false, "deleteFile failed");
+        if (root.data.success.has_value() && !parseBoolValue(root.data.success, true)) {
+            if (cb.on_error) {
+                cb.on_error(-1, "deleteFile failed");
             }
             return;
         }
 
-        if (cb) {
-            cb(true, "");
+        if (cb.on_success) {
+            cb.on_success();
         }
     });
 }

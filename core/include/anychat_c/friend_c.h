@@ -8,16 +8,39 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatFriendListCallback)(void* userdata, const AnyChatFriendList_C* list, const char* error);
+typedef void (*AnyChatFriendErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatFriendSuccessCallback)(void* userdata);
+typedef void (*AnyChatFriendListSuccessCallback)(void* userdata, const AnyChatFriendList_C* list);
+typedef void (*AnyChatFriendRequestListSuccessCallback)(void* userdata, const AnyChatFriendRequestList_C* list);
+typedef void (*AnyChatBlacklistListSuccessCallback)(void* userdata, const AnyChatBlacklistList_C* list);
 
-typedef void (*AnyChatFriendRequestListCallback)(
-    void* userdata,
-    const AnyChatFriendRequestList_C* list,
-    const char* error
-);
-typedef void (*AnyChatBlacklistListCallback)(void* userdata, const AnyChatBlacklistList_C* list, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFriendListSuccessCallback on_success;
+    AnyChatFriendErrorCallback on_error;
+} AnyChatFriendListCallback_C;
 
-typedef void (*AnyChatFriendCallback)(void* userdata, int success, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFriendRequestListSuccessCallback on_success;
+    AnyChatFriendErrorCallback on_error;
+} AnyChatFriendRequestListCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatBlacklistListSuccessCallback on_success;
+    AnyChatFriendErrorCallback on_error;
+} AnyChatBlacklistListCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFriendSuccessCallback on_success;
+    AnyChatFriendErrorCallback on_error;
+} AnyChatFriendCallback_C;
 
 /* ---- Incoming event callbacks ---- */
 
@@ -48,70 +71,62 @@ typedef struct {
 /* ---- Friend operations ---- */
 
 ANYCHAT_C_API int
-anychat_friend_get_list(AnyChatFriendHandle handle, void* userdata, AnyChatFriendListCallback callback);
+anychat_friend_get_list(AnyChatFriendHandle handle, const AnyChatFriendListCallback_C* callback);
 
 ANYCHAT_C_API int anychat_friend_add(
     AnyChatFriendHandle handle,
     const char* to_user_id,
     const char* message,
     const char* source,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_friend_accept_request(
     AnyChatFriendHandle handle,
     int64_t request_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_friend_reject_request(
     AnyChatFriendHandle handle,
     int64_t request_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 );
 
 /* request_type: "received" | "sent", NULL defaults to "received" */
 ANYCHAT_C_API int anychat_friend_get_requests(
     AnyChatFriendHandle handle,
     const char* request_type,
-    void* userdata,
-    AnyChatFriendRequestListCallback callback
+    const AnyChatFriendRequestListCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_friend_delete(
     AnyChatFriendHandle handle,
     const char* friend_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_friend_update_remark(
     AnyChatFriendHandle handle,
     const char* friend_id,
     const char* remark,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_friend_add_to_blacklist(
     AnyChatFriendHandle handle,
     const char* user_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_friend_remove_from_blacklist(
     AnyChatFriendHandle handle,
     const char* user_id,
-    void* userdata,
-    AnyChatFriendCallback callback
+    const AnyChatFriendCallback_C* callback
 );
 
 ANYCHAT_C_API int
-anychat_friend_get_blacklist(AnyChatFriendHandle handle, void* userdata, AnyChatBlacklistListCallback callback);
+anychat_friend_get_blacklist(AnyChatFriendHandle handle, const AnyChatBlacklistListCallback_C* callback);
 
 /* ---- Incoming event listener ----
  * listener == NULL clears the current listener. */

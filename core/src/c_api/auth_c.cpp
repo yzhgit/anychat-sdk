@@ -4,8 +4,8 @@
 #include "utils_c.h"
 
 #include <cstdlib>
-#include <cstring>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace {
@@ -28,6 +28,45 @@ void authDeviceToCStruct(const anychat::AuthDevice& src, AnyChatAuthDevice_C* ds
     anychat_strlcpy(dst->last_login_ip, src.last_login_ip.c_str(), sizeof(dst->last_login_ip));
     dst->last_login_at_ms = src.last_login_at_ms;
     dst->is_current = src.is_current ? 1 : 0;
+}
+
+template <typename CallbackStruct>
+bool validateCallbackStruct(const CallbackStruct* callback) {
+    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return false;
+    }
+    return true;
+}
+
+template <typename CallbackStruct>
+CallbackStruct copyCallbackStruct(const CallbackStruct* callback) {
+    CallbackStruct callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
+    return callback_copy;
+}
+
+template <typename CallbackStruct>
+void invokeAuthError(const CallbackStruct& callback, int code, const std::string& error) {
+    if (!callback.on_error) {
+        return;
+    }
+    callback.on_error(callback.userdata, code, error.empty() ? nullptr : error.c_str());
+}
+
+anychat::AnyChatCallback makeResultCallback(const AnyChatAuthResultCallback_C& callback) {
+    anychat::AnyChatCallback result{};
+    result.on_success = [callback]() {
+        if (callback.on_success) {
+            callback.on_success(callback.userdata);
+        }
+    };
+    result.on_error = [callback](int code, const std::string& error) {
+        invokeAuthError(callback, code, error);
+    };
+    return result;
 }
 
 class CAuthListener final : public anychat::AuthListener {
@@ -55,8 +94,7 @@ int anychat_auth_login(
     const char* password,
     const char* device_type,
     const char* client_version,
-    void* userdata,
-    AnyChatAuthCallback callback
+    const AnyChatAuthTokenCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -66,28 +104,30 @@ int anychat_auth_login(
         anychat_set_last_error("account and password must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    auto* parent = handle->parent;
+    const AnyChatAuthTokenCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->login(
         account,
         password,
         device_type ? device_type : "",
         client_version ? client_version : "",
-        [parent, userdata, callback](bool success, const anychat::AuthToken& token, const std::string& error) {
-            if (!callback)
-                return;
-            if (success) {
-                // Store token in parent handle's buffer so it persists across async boundary
-                AnyChatAuthToken_C* c_token_ptr = nullptr;
-                if (parent) {
-                    std::lock_guard<std::mutex> lock(parent->auth_token_mutex);
-                    tokenToCStruct(token, &parent->auth_token_buffer);
-                    c_token_ptr = &parent->auth_token_buffer;
-                }
-                callback(userdata, 1, c_token_ptr, "");
-            } else {
-                callback(userdata, 0, nullptr, ANYCHAT_STORE_ERROR(parent, auth_error, error));
-            }
+        anychat::AnyChatValueCallback<anychat::AuthToken>{
+            .on_success =
+                [callback_copy](const anychat::AuthToken& token) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
+                    AnyChatAuthToken_C c_token{};
+                    tokenToCStruct(token, &c_token);
+                    callback_copy.on_success(callback_copy.userdata, &c_token);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeAuthError(callback_copy, code, error);
+                },
         }
     );
 
@@ -103,8 +143,7 @@ int anychat_auth_register(
     const char* device_type,
     const char* nickname,
     const char* client_version,
-    void* userdata,
-    AnyChatAuthCallback callback
+    const AnyChatAuthTokenCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -114,8 +153,11 @@ int anychat_auth_register(
         anychat_set_last_error("phone_or_email, password, and verify_code must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    auto* parent = handle->parent;
+    const AnyChatAuthTokenCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->registerUser(
         phone_or_email,
         password,
@@ -123,21 +165,20 @@ int anychat_auth_register(
         device_type ? device_type : "",
         nickname ? nickname : "",
         client_version ? client_version : "",
-        [parent, userdata, callback](bool success, const anychat::AuthToken& token, const std::string& error) {
-            if (!callback)
-                return;
-            if (success) {
-                // Store token in parent handle's buffer so it persists across async boundary
-                AnyChatAuthToken_C* c_token_ptr = nullptr;
-                if (parent) {
-                    std::lock_guard<std::mutex> lock(parent->auth_token_mutex);
-                    tokenToCStruct(token, &parent->auth_token_buffer);
-                    c_token_ptr = &parent->auth_token_buffer;
-                }
-                callback(userdata, 1, c_token_ptr, "");
-            } else {
-                callback(userdata, 0, nullptr, ANYCHAT_STORE_ERROR(parent, auth_error, error));
-            }
+        anychat::AnyChatValueCallback<anychat::AuthToken>{
+            .on_success =
+                [callback_copy](const anychat::AuthToken& token) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
+                    AnyChatAuthToken_C c_token{};
+                    tokenToCStruct(token, &c_token);
+                    callback_copy.on_success(callback_copy.userdata, &c_token);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeAuthError(callback_copy, code, error);
+                },
         }
     );
 
@@ -145,18 +186,17 @@ int anychat_auth_register(
     return ANYCHAT_OK;
 }
 
-int anychat_auth_logout(AnyChatAuthHandle handle, void* userdata, AnyChatResultCallback callback) {
+int anychat_auth_logout(AnyChatAuthHandle handle, const AnyChatAuthResultCallback_C* callback) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    auto* parent = handle->parent;
-    handle->impl->logout([parent, userdata, callback](bool success, const std::string& error) {
-        if (callback) {
-            callback(userdata, success ? 1 : 0, success ? "" : ANYCHAT_STORE_ERROR(parent, auth_error, error));
-        }
-    });
+    const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
+    handle->impl->logout(makeResultCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -166,8 +206,7 @@ int anychat_auth_send_code(
     const char* target,
     const char* target_type,
     const char* purpose,
-    void* userdata,
-    AnyChatSendCodeCallback callback
+    const AnyChatVerificationCodeCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -177,23 +216,29 @@ int anychat_auth_send_code(
         anychat_set_last_error("target, target_type and purpose must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    auto* parent = handle->parent;
+    const AnyChatVerificationCodeCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->sendVerificationCode(
         target,
         target_type,
         purpose,
-        [parent, userdata, callback](bool success, const anychat::VerificationCodeResult& result, const std::string& error
-        ) {
-            if (!callback)
-                return;
-            if (success) {
-                AnyChatVerificationCodeResult_C c_result{};
-                verificationCodeToCStruct(result, &c_result);
-                callback(userdata, 1, &c_result, "");
-            } else {
-                callback(userdata, 0, nullptr, ANYCHAT_STORE_ERROR(parent, auth_error, error));
-            }
+        anychat::AnyChatValueCallback<anychat::VerificationCodeResult>{
+            .on_success =
+                [callback_copy](const anychat::VerificationCodeResult& result) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
+                    AnyChatVerificationCodeResult_C c_result{};
+                    verificationCodeToCStruct(result, &c_result);
+                    callback_copy.on_success(callback_copy.userdata, &c_result);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeAuthError(callback_copy, code, error);
+                },
         }
     );
 
@@ -204,8 +249,7 @@ int anychat_auth_send_code(
 int anychat_auth_refresh_token(
     AnyChatAuthHandle handle,
     const char* refresh_token,
-    void* userdata,
-    AnyChatAuthCallback callback
+    const AnyChatAuthTokenCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -215,25 +259,27 @@ int anychat_auth_refresh_token(
         anychat_set_last_error("refresh_token must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    auto* parent = handle->parent;
+    const AnyChatAuthTokenCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->refreshToken(
         refresh_token,
-        [parent, userdata, callback](bool success, const anychat::AuthToken& token, const std::string& error) {
-            if (!callback)
-                return;
-            if (success) {
-                // Store token in parent handle's buffer so it persists across async boundary
-                AnyChatAuthToken_C* c_token_ptr = nullptr;
-                if (parent) {
-                    std::lock_guard<std::mutex> lock(parent->auth_token_mutex);
-                    tokenToCStruct(token, &parent->auth_token_buffer);
-                    c_token_ptr = &parent->auth_token_buffer;
-                }
-                callback(userdata, 1, c_token_ptr, "");
-            } else {
-                callback(userdata, 0, nullptr, ANYCHAT_STORE_ERROR(parent, auth_error, error));
-            }
+        anychat::AnyChatValueCallback<anychat::AuthToken>{
+            .on_success =
+                [callback_copy](const anychat::AuthToken& token) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
+                    AnyChatAuthToken_C c_token{};
+                    tokenToCStruct(token, &c_token);
+                    callback_copy.on_success(callback_copy.userdata, &c_token);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeAuthError(callback_copy, code, error);
+                },
         }
     );
 
@@ -245,8 +291,7 @@ int anychat_auth_change_password(
     AnyChatAuthHandle handle,
     const char* old_password,
     const char* new_password,
-    void* userdata,
-    AnyChatResultCallback callback
+    const AnyChatAuthResultCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -256,17 +301,12 @@ int anychat_auth_change_password(
         anychat_set_last_error("passwords must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    auto* parent = handle->parent;
-    handle->impl->changePassword(
-        old_password,
-        new_password,
-        [parent, userdata, callback](bool success, const std::string& error) {
-            if (callback) {
-                callback(userdata, success ? 1 : 0, success ? "" : ANYCHAT_STORE_ERROR(parent, auth_error, error));
-            }
-        }
-    );
+    const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
+    handle->impl->changePassword(old_password, new_password, makeResultCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
@@ -276,8 +316,7 @@ int anychat_auth_reset_password(
     const char* account,
     const char* verify_code,
     const char* new_password,
-    void* userdata,
-    AnyChatResultCallback callback
+    const AnyChatAuthResultCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -287,51 +326,51 @@ int anychat_auth_reset_password(
         anychat_set_last_error("account, verify_code and new_password must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    auto* parent = handle->parent;
-    handle->impl->resetPassword(
-        account,
-        verify_code,
-        new_password,
-        [parent, userdata, callback](bool success, const std::string& error) {
-            if (callback) {
-                callback(userdata, success ? 1 : 0, success ? "" : ANYCHAT_STORE_ERROR(parent, auth_error, error));
-            }
-        }
-    );
+    const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
+    handle->impl->resetPassword(account, verify_code, new_password, makeResultCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
-int anychat_auth_get_device_list(AnyChatAuthHandle handle, void* userdata, AnyChatAuthDeviceListCallback callback) {
+int anychat_auth_get_device_list(AnyChatAuthHandle handle, const AnyChatAuthDeviceListCallback_C* callback) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    auto* parent = handle->parent;
+    const AnyChatAuthDeviceListCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->getDeviceList(
-        [parent, userdata, callback](bool success, const std::vector<anychat::AuthDevice>& devices, const std::string& error) {
-            if (!callback)
-                return;
+        anychat::AnyChatValueCallback<std::vector<anychat::AuthDevice>>{
+            .on_success =
+                [callback_copy](const std::vector<anychat::AuthDevice>& devices) {
+                    if (!callback_copy.on_success) {
+                        return;
+                    }
 
-            if (!success) {
-                callback(userdata, nullptr, ANYCHAT_STORE_ERROR(parent, auth_error, error));
-                return;
-            }
+                    AnyChatAuthDeviceList_C c_list{};
+                    c_list.count = static_cast<int>(devices.size());
+                    c_list.items = c_list.count > 0
+                        ? static_cast<AnyChatAuthDevice_C*>(std::calloc(c_list.count, sizeof(AnyChatAuthDevice_C)))
+                        : nullptr;
 
-            AnyChatAuthDeviceList_C c_list{};
-            c_list.count = static_cast<int>(devices.size());
-            c_list.items =
-                c_list.count > 0 ? static_cast<AnyChatAuthDevice_C*>(std::calloc(c_list.count, sizeof(AnyChatAuthDevice_C)))
-                                 : nullptr;
+                    for (int i = 0; i < c_list.count; ++i) {
+                        authDeviceToCStruct(devices[static_cast<size_t>(i)], &c_list.items[i]);
+                    }
 
-            for (int i = 0; i < c_list.count; ++i) {
-                authDeviceToCStruct(devices[static_cast<size_t>(i)], &c_list.items[i]);
-            }
-
-            callback(userdata, &c_list, nullptr);
-            std::free(c_list.items);
+                    callback_copy.on_success(callback_copy.userdata, &c_list);
+                    std::free(c_list.items);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    invokeAuthError(callback_copy, code, error);
+                },
         }
     );
 
@@ -342,8 +381,7 @@ int anychat_auth_get_device_list(AnyChatAuthHandle handle, void* userdata, AnyCh
 int anychat_auth_logout_device(
     AnyChatAuthHandle handle,
     const char* device_id,
-    void* userdata,
-    AnyChatResultCallback callback
+    const AnyChatAuthResultCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
@@ -353,21 +391,20 @@ int anychat_auth_logout_device(
         anychat_set_last_error("device_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    auto* parent = handle->parent;
-    handle->impl->logoutDevice(device_id, [parent, userdata, callback](bool success, const std::string& error) {
-        if (callback) {
-            callback(userdata, success ? 1 : 0, success ? "" : ANYCHAT_STORE_ERROR(parent, auth_error, error));
-        }
-    });
-
+    const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
+    handle->impl->logoutDevice(device_id, makeResultCallback(callback_copy));
     anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_auth_is_logged_in(AnyChatAuthHandle handle) {
-    if (!handle || !handle->impl)
+    if (!handle || !handle->impl) {
         return 0;
+    }
     return handle->impl->isLoggedIn() ? 1 : 0;
 }
 

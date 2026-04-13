@@ -12,7 +12,6 @@ namespace call_detail {
 
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
-using json_common::parseApiStatusSuccessResponse;
 using json_common::parseBoolValue;
 using json_common::parseInt64Value;
 using json_common::parseJsonObject;
@@ -229,7 +228,11 @@ CallManagerImpl::CallManagerImpl(std::shared_ptr<network::HttpClient> http, Noti
 // Helpers
 // ---------------------------------------------------------------------------
 
-void CallManagerImpl::initiateCall(const std::string& callee_id, CallType type, CallCallback callback) {
+void CallManagerImpl::initiateCall(
+    const std::string& callee_id,
+    CallType type,
+    AnyChatValueCallback<CallSession> callback
+) {
     InitiateCallRequest body{};
     body.callee_id = callee_id;
     body.call_type = (type == CallType::Video) ? "video" : "audio";
@@ -237,88 +240,124 @@ void CallManagerImpl::initiateCall(const std::string& callee_id, CallType type, 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post("/calling/calls", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<CallSessionPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "initiate call failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
-        cb(true, parseCallSessionPayload(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(parseCallSessionPayload(root.data));
+        }
     });
 }
 
-void CallManagerImpl::joinCall(const std::string& call_id, CallCallback callback) {
-    http_->post("/calling/calls/" + call_id + "/join", "", [cb = std::move(callback), call_id](network::HttpResponse resp) {
-        ApiEnvelope<CallSessionPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+void CallManagerImpl::joinCall(const std::string& call_id, AnyChatValueCallback<CallSession> callback) {
+    http_->post(
+        "/calling/calls/" + call_id + "/join",
+        "",
+        [cb = std::move(callback), call_id](network::HttpResponse resp) {
+            ApiEnvelope<CallSessionPayload> root{};
+            if (!parseApiEnvelopeResponse(resp, root, "join call failed", true)) {
+                if (cb.on_error) {
+                    cb.on_error(root.code, root.message);
+                }
+                return;
+            }
+
+            CallSession session = parseCallSessionPayload(root.data);
+            if (session.call_id.empty()) {
+                session.call_id = call_id;
+            }
+            if (cb.on_success) {
+                cb.on_success(session);
+            }
+        }
+    );
+}
+
+void CallManagerImpl::rejectCall(const std::string& call_id, AnyChatCallback callback) {
+    http_->post("/calling/calls/" + call_id + "/reject", "", [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<void> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "reject call failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
+        if (cb.on_success) {
+            cb.on_success();
+        }
+    });
+}
 
+void CallManagerImpl::endCall(const std::string& call_id, AnyChatCallback callback) {
+    http_->post("/calling/calls/" + call_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<void> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "end call failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
+            return;
+        }
+        if (cb.on_success) {
+            cb.on_success();
+        }
+    });
+}
+
+void CallManagerImpl::getCallSession(const std::string& call_id, AnyChatValueCallback<CallSession> callback) {
+    http_->get("/calling/calls/" + call_id, [cb = std::move(callback), call_id](network::HttpResponse resp) {
+        ApiEnvelope<CallSessionPayload> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "get call session failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
+            return;
+        }
         CallSession session = parseCallSessionPayload(root.data);
         if (session.call_id.empty()) {
             session.call_id = call_id;
         }
-        cb(true, session, "");
-    });
-}
-
-void CallManagerImpl::rejectCall(const std::string& call_id, ResultCallback callback) {
-    http_->post("/calling/calls/" + call_id + "/reject", "", [cb = std::move(callback)](network::HttpResponse resp) {
-        std::string err;
-        const bool ok = parseApiStatusSuccessResponse(resp, err);
-        cb(ok, ok ? "" : err);
-    });
-}
-
-void CallManagerImpl::endCall(const std::string& call_id, ResultCallback callback) {
-    http_->post("/calling/calls/" + call_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
-        std::string err;
-        const bool ok = parseApiStatusSuccessResponse(resp, err);
-        cb(ok, ok ? "" : err);
-    });
-}
-
-void CallManagerImpl::getCallSession(const std::string& call_id, CallCallback callback) {
-    http_->get("/calling/calls/" + call_id, [cb = std::move(callback)](network::HttpResponse resp) {
-        ApiEnvelope<CallSessionPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
-            return;
+        if (cb.on_success) {
+            cb.on_success(session);
         }
-        cb(true, parseCallSessionPayload(root.data), "");
     });
 }
 
-void CallManagerImpl::getCallLogs(int page, int page_size, CallListCallback callback) {
+void CallManagerImpl::getCallLogs(int page, int page_size, AnyChatValueCallback<CallLogResult> callback) {
     std::string path = "/calling/calls?page=" + std::to_string(page) + "&page_size=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<CallSessionListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb({}, 0, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get call logs failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        int64_t total = parseInt64Value(root.data.total, 0);
+        CallLogResult result;
+        result.total = parseInt64Value(root.data.total, 0);
 
-        std::vector<CallSession> calls;
         const auto* payloads = toCallSessionPayloadList(root.data);
         if (payloads != nullptr) {
-            calls.reserve(payloads->size());
+            result.calls.reserve(payloads->size());
             for (const auto& item : *payloads) {
-                calls.push_back(parseCallSessionPayload(item));
+                result.calls.push_back(parseCallSessionPayload(item));
             }
         }
-        cb(calls, total, "");
+        if (cb.on_success) {
+            cb.on_success(result);
+        }
     });
 }
 
@@ -326,7 +365,7 @@ void CallManagerImpl::createMeeting(
     const std::string& title,
     const std::string& password,
     int max_participants,
-    MeetingCallback callback
+    AnyChatValueCallback<MeetingRoom> callback
 ) {
     CreateMeetingRequest body{};
     body.title = title;
@@ -340,23 +379,32 @@ void CallManagerImpl::createMeeting(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post("/calling/meetings", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<MeetingResultDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "create meeting failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, parseMeetingResult(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(parseMeetingResult(root.data));
+        }
     });
 }
 
-void CallManagerImpl::joinMeeting(const std::string& room_id, const std::string& password, MeetingCallback callback) {
+void CallManagerImpl::joinMeeting(
+    const std::string& room_id,
+    const std::string& password,
+    AnyChatValueCallback<MeetingRoom> callback
+) {
     JoinMeetingRequest body{};
     if (!password.empty()) {
         body.password = password;
@@ -365,68 +413,94 @@ void CallManagerImpl::joinMeeting(const std::string& room_id, const std::string&
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post(
         "/calling/meetings/" + room_id + "/join",
         body_json,
-        [cb = std::move(callback)](network::HttpResponse resp) {
+        [cb = std::move(callback), room_id](network::HttpResponse resp) {
             ApiEnvelope<MeetingResultDataPayload> root{};
-            std::string err;
-            if (!parseApiEnvelopeResponse(resp, root, err)) {
-                cb(false, {}, err);
+            if (!parseApiEnvelopeResponse(resp, root, "join meeting failed", true)) {
+                if (cb.on_error) {
+                    cb.on_error(root.code, root.message);
+                }
                 return;
             }
 
-            cb(true, parseMeetingResult(root.data), "");
+            MeetingRoom room = parseMeetingResult(root.data);
+            if (room.room_id.empty()) {
+                room.room_id = room_id;
+            }
+            if (cb.on_success) {
+                cb.on_success(room);
+            }
         }
     );
 }
 
-void CallManagerImpl::endMeeting(const std::string& room_id, ResultCallback callback) {
+void CallManagerImpl::endMeeting(const std::string& room_id, AnyChatCallback callback) {
     http_->post("/calling/meetings/" + room_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
-        std::string err;
-        const bool ok = parseApiStatusSuccessResponse(resp, err);
-        cb(ok, ok ? "" : err);
-    });
-}
-
-void CallManagerImpl::getMeeting(const std::string& room_id, MeetingCallback callback) {
-    http_->get("/calling/meetings/" + room_id, [cb = std::move(callback)](network::HttpResponse resp) {
-        ApiEnvelope<MeetingRoomPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        ApiEnvelope<void> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "end meeting failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
-        cb(true, parseMeetingRoomPayload(root.data), "");
+        if (cb.on_success) {
+            cb.on_success();
+        }
     });
 }
 
-void CallManagerImpl::listMeetings(int page, int page_size, MeetingListCallback callback) {
+void CallManagerImpl::getMeeting(const std::string& room_id, AnyChatValueCallback<MeetingRoom> callback) {
+    http_->get("/calling/meetings/" + room_id, [cb = std::move(callback), room_id](network::HttpResponse resp) {
+        ApiEnvelope<MeetingRoomPayload> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "get meeting failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
+            return;
+        }
+        MeetingRoom room = parseMeetingRoomPayload(root.data);
+        if (room.room_id.empty()) {
+            room.room_id = room_id;
+        }
+        if (cb.on_success) {
+            cb.on_success(room);
+        }
+    });
+}
+
+void CallManagerImpl::listMeetings(int page, int page_size, AnyChatValueCallback<MeetingListResult> callback) {
     std::string path = "/calling/meetings?page=" + std::to_string(page) + "&page_size=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<MeetingListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb({}, 0, err);
+        if (!parseApiEnvelopeResponse(resp, root, "list meetings failed", true)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        int64_t total = parseInt64Value(root.data.total, 0);
+        MeetingListResult result;
+        result.total = parseInt64Value(root.data.total, 0);
 
-        std::vector<MeetingRoom> rooms;
         const auto* payloads = toMeetingRoomPayloadList(root.data);
         if (payloads != nullptr) {
-            rooms.reserve(payloads->size());
+            result.rooms.reserve(payloads->size());
             for (const auto& item : *payloads) {
-                rooms.push_back(parseMeetingRoomPayload(item));
+                result.rooms.push_back(parseMeetingRoomPayload(item));
             }
         }
-        cb(rooms, total, "");
+        if (cb.on_success) {
+            cb.on_success(result);
+        }
     });
 }
 

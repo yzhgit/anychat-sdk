@@ -33,14 +33,14 @@ public:
         const std::string& device_type,
         const std::string& nickname,
         const std::string& client_version,
-        AuthCallback callback
+        AnyChatValueCallback<AuthToken> callback
     ) override;
 
     void sendVerificationCode(
         const std::string& target,
         const std::string& target_type,
         const std::string& purpose,
-        SendCodeCallback callback
+        AnyChatValueCallback<VerificationCodeResult> callback
     ) override;
 
     void login(
@@ -48,36 +48,36 @@ public:
         const std::string& password,
         const std::string& device_type,
         const std::string& client_version,
-        AuthCallback callback
+        AnyChatValueCallback<AuthToken> callback
     ) override;
 
-    void logout(ResultCallback callback) override;
+    void logout(AnyChatCallback callback) override;
 
-    void refreshToken(const std::string& refresh_token, AuthCallback callback) override;
+    void refreshToken(const std::string& refresh_token, AnyChatValueCallback<AuthToken> callback) override;
 
     void
-    changePassword(const std::string& old_password, const std::string& new_password, ResultCallback callback) override;
+    changePassword(const std::string& old_password, const std::string& new_password, AnyChatCallback callback)
+        override;
 
     void resetPassword(
         const std::string& account,
         const std::string& verify_code,
         const std::string& new_password,
-        ResultCallback callback
+        AnyChatCallback callback
     ) override;
 
-    void getDeviceList(DeviceListCallback callback) override;
-    void logoutDevice(const std::string& device_id, ResultCallback callback) override;
+    void getDeviceList(AnyChatValueCallback<std::vector<AuthDevice>> callback) override;
+    void logoutDevice(const std::string& device_id, AnyChatCallback callback) override;
 
     bool isLoggedIn() const override;
     AuthToken currentToken() const override;
 
-    void ensureValidToken(ResultCallback cb) override;
+    void ensureValidToken(AnyChatCallback cb) override;
     void setListener(std::shared_ptr<AuthListener> listener) override;
 
 private:
-    void handleAuthResponse(network::HttpResponse resp, const AuthCallback& callback);
-    void
-    handleResultResponse(network::HttpResponse resp, const std::string& fallback_message, const ResultCallback& cb);
+    void handleAuthResponse(network::HttpResponse resp, const AnyChatValueCallback<AuthToken>& callback);
+    void handleResultResponse(network::HttpResponse resp, const std::string& fallback_message, const AnyChatCallback& cb);
     void handleAuthNotification(const NotificationEvent& event);
     void storeToken(const AuthToken& token);
     void clearToken();

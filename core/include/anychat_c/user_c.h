@@ -8,55 +8,88 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatUserProfileCallback)(
-    void* userdata,
-    int success,
-    const AnyChatUserProfile_C* profile,
-    const char* error
-);
+typedef void (*AnyChatUserErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatUserSuccessCallback)(void* userdata);
+typedef void (*AnyChatUserProfileSuccessCallback)(void* userdata, const AnyChatUserProfile_C* profile);
+typedef void (*AnyChatUserSettingsSuccessCallback)(void* userdata, const AnyChatUserSettings_C* settings);
+typedef void (*AnyChatUserInfoSuccessCallback)(void* userdata, const AnyChatUserInfo_C* info);
+typedef void (*AnyChatUserListSuccessCallback)(void* userdata, const AnyChatUserList_C* list);
+typedef void (*AnyChatUserQRCodeSuccessCallback)(void* userdata, const AnyChatUserQRCode_C* qrcode);
+typedef void (*AnyChatBindPhoneSuccessCallback)(void* userdata, const AnyChatBindPhoneResult_C* result);
+typedef void (*AnyChatChangePhoneSuccessCallback)(void* userdata, const AnyChatChangePhoneResult_C* result);
+typedef void (*AnyChatBindEmailSuccessCallback)(void* userdata, const AnyChatBindEmailResult_C* result);
+typedef void (*AnyChatChangeEmailSuccessCallback)(void* userdata, const AnyChatChangeEmailResult_C* result);
 
-typedef void (*AnyChatUserSettingsCallback)(
-    void* userdata,
-    int success,
-    const AnyChatUserSettings_C* settings,
-    const char* error
-);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserProfileSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserProfileCallback_C;
 
-typedef void (*AnyChatUserInfoCallback)(void* userdata, int success, const AnyChatUserInfo_C* info, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserSettingsSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserSettingsCallback_C;
 
-typedef void (*AnyChatUserListCallback)(void* userdata, const AnyChatUserList_C* list, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserInfoSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserInfoCallback_C;
 
-typedef void (*AnyChatUserResultCallback)(void* userdata, int success, const char* error);
-typedef void (*AnyChatUserQRCodeCallback)(
-    void* userdata,
-    int success,
-    const AnyChatUserQRCode_C* qrcode,
-    const char* error
-);
-typedef void (*AnyChatBindPhoneCallback)(
-    void* userdata,
-    int success,
-    const AnyChatBindPhoneResult_C* result,
-    const char* error
-);
-typedef void (*AnyChatChangePhoneCallback)(
-    void* userdata,
-    int success,
-    const AnyChatChangePhoneResult_C* result,
-    const char* error
-);
-typedef void (*AnyChatBindEmailCallback)(
-    void* userdata,
-    int success,
-    const AnyChatBindEmailResult_C* result,
-    const char* error
-);
-typedef void (*AnyChatChangeEmailCallback)(
-    void* userdata,
-    int success,
-    const AnyChatChangeEmailResult_C* result,
-    const char* error
-);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserListSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserListCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserQRCodeSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserQRCodeCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatBindPhoneSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatBindPhoneCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatChangePhoneSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatChangePhoneCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatBindEmailSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatBindEmailCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatChangeEmailSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatChangeEmailCallback_C;
+
 typedef void (*AnyChatUserProfileUpdatedCallback)(void* userdata, const AnyChatUserInfo_C* info);
 typedef void (*AnyChatUserFriendProfileChangedCallback)(void* userdata, const AnyChatUserInfo_C* info);
 typedef void (*AnyChatUserStatusChangedCallback)(void* userdata, const AnyChatUserStatusEvent_C* event);
@@ -72,23 +105,21 @@ typedef struct {
 /* ---- User operations ---- */
 
 ANYCHAT_C_API int
-anychat_user_get_profile(AnyChatUserHandle handle, void* userdata, AnyChatUserProfileCallback callback);
+anychat_user_get_profile(AnyChatUserHandle handle, const AnyChatUserProfileCallback_C* callback);
 
 ANYCHAT_C_API int anychat_user_update_profile(
     AnyChatUserHandle handle,
     const AnyChatUserProfile_C* profile,
-    void* userdata,
-    AnyChatUserProfileCallback callback
+    const AnyChatUserProfileCallback_C* callback
 );
 
 ANYCHAT_C_API int
-anychat_user_get_settings(AnyChatUserHandle handle, void* userdata, AnyChatUserSettingsCallback callback);
+anychat_user_get_settings(AnyChatUserHandle handle, const AnyChatUserSettingsCallback_C* callback);
 
 ANYCHAT_C_API int anychat_user_update_settings(
     AnyChatUserHandle handle,
     const AnyChatUserSettings_C* settings,
-    void* userdata,
-    AnyChatUserSettingsCallback callback
+    const AnyChatUserSettingsCallback_C* callback
 );
 
 /* Update the push notification token for this device.
@@ -97,8 +128,7 @@ ANYCHAT_C_API int anychat_user_update_push_token(
     AnyChatUserHandle handle,
     const char* push_token,
     const char* platform,
-    void* userdata,
-    AnyChatUserResultCallback callback
+    const AnyChatUserCallback_C* callback
 );
 
 /* Same as anychat_user_update_push_token but allows overriding device_id. */
@@ -107,8 +137,7 @@ ANYCHAT_C_API int anychat_user_update_push_token_with_device(
     const char* push_token,
     const char* platform,
     const char* device_id,
-    void* userdata,
-    AnyChatUserResultCallback callback
+    const AnyChatUserCallback_C* callback
 );
 
 /* Search for users by keyword (username / phone / e-mail). */
@@ -117,21 +146,19 @@ ANYCHAT_C_API int anychat_user_search(
     const char* keyword,
     int page,
     int page_size,
-    void* userdata,
-    AnyChatUserListCallback callback
+    const AnyChatUserListCallback_C* callback
 );
 
 /* Fetch public info for a specific user. */
 ANYCHAT_C_API int
-anychat_user_get_info(AnyChatUserHandle handle, const char* user_id, void* userdata, AnyChatUserInfoCallback callback);
+anychat_user_get_info(AnyChatUserHandle handle, const char* user_id, const AnyChatUserInfoCallback_C* callback);
 
 /* Bind/change phone */
 ANYCHAT_C_API int anychat_user_bind_phone(
     AnyChatUserHandle handle,
     const char* phone_number,
     const char* verify_code,
-    void* userdata,
-    AnyChatBindPhoneCallback callback
+    const AnyChatBindPhoneCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_user_change_phone(
@@ -140,8 +167,7 @@ ANYCHAT_C_API int anychat_user_change_phone(
     const char* new_phone_number,
     const char* new_verify_code,
     const char* old_verify_code,
-    void* userdata,
-    AnyChatChangePhoneCallback callback
+    const AnyChatChangePhoneCallback_C* callback
 );
 
 /* Bind/change email */
@@ -149,8 +175,7 @@ ANYCHAT_C_API int anychat_user_bind_email(
     AnyChatUserHandle handle,
     const char* email,
     const char* verify_code,
-    void* userdata,
-    AnyChatBindEmailCallback callback
+    const AnyChatBindEmailCallback_C* callback
 );
 
 ANYCHAT_C_API int anychat_user_change_email(
@@ -159,19 +184,17 @@ ANYCHAT_C_API int anychat_user_change_email(
     const char* new_email,
     const char* new_verify_code,
     const char* old_verify_code,
-    void* userdata,
-    AnyChatChangeEmailCallback callback
+    const AnyChatChangeEmailCallback_C* callback
 );
 
 /* QR code operations */
 ANYCHAT_C_API int
-anychat_user_refresh_qrcode(AnyChatUserHandle handle, void* userdata, AnyChatUserQRCodeCallback callback);
+anychat_user_refresh_qrcode(AnyChatUserHandle handle, const AnyChatUserQRCodeCallback_C* callback);
 
 ANYCHAT_C_API int anychat_user_get_by_qrcode(
     AnyChatUserHandle handle,
     const char* qrcode,
-    void* userdata,
-    AnyChatUserInfoCallback callback
+    const AnyChatUserInfoCallback_C* callback
 );
 
 /* User WebSocket notification listener.

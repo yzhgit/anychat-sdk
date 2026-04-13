@@ -53,29 +53,42 @@ int anychat_version_check(
     const char* platform,
     const char* version,
     int32_t build_number,
-    void* userdata,
-    AnyChatVersionCheckCallback callback
+    const AnyChatVersionCheckCallback_C* callback
 ) {
     if (!handle || !handle->impl || !platform || !version) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (callback && callback->struct_size < sizeof(AnyChatVersionCheckCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatVersionCheckCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
     }
 
     handle->impl->checkVersion(
         platform,
         version,
         build_number,
-        [userdata, callback](bool ok, const anychat::VersionCheckResult& result, const std::string& err) {
-            if (!callback)
-                return;
+        anychat::AnyChatValueCallback<anychat::VersionCheckResult>{
+            .on_success =
+                [callback_copy](const anychat::VersionCheckResult& result) {
+                    if (!callback_copy.on_success)
+                        return;
 
-            if (ok) {
                 AnyChatVersionCheckResult_C c_result{};
                 checkResultToC(result, &c_result);
-                callback(userdata, 1, &c_result, "");
-            } else {
-                callback(userdata, 0, nullptr, err.c_str());
-            }
+                    callback_copy.on_success(callback_copy.userdata, &c_result);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    if (!callback_copy.on_error)
+                        return;
+                    callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
+                },
         }
     );
 
@@ -87,28 +100,41 @@ int anychat_version_get_latest(
     AnyChatVersionHandle handle,
     const char* platform,
     const char* release_type,
-    void* userdata,
-    AnyChatVersionInfoCallback callback
+    const AnyChatVersionInfoCallback_C* callback
 ) {
     if (!handle || !handle->impl || !platform) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (callback && callback->struct_size < sizeof(AnyChatVersionInfoCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatVersionInfoCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
+    }
 
     handle->impl->getLatestVersion(
         platform,
         release_type ? release_type : "",
-        [userdata, callback](bool ok, const anychat::AppVersionInfo& version, const std::string& err) {
-            if (!callback)
-                return;
+        anychat::AnyChatValueCallback<anychat::AppVersionInfo>{
+            .on_success =
+                [callback_copy](const anychat::AppVersionInfo& version) {
+                    if (!callback_copy.on_success)
+                        return;
 
-            if (ok) {
                 AnyChatVersionInfo_C c_version{};
                 versionInfoToC(version, &c_version);
-                callback(userdata, 1, &c_version, "");
-            } else {
-                callback(userdata, 0, nullptr, err.c_str());
-            }
+                    callback_copy.on_success(callback_copy.userdata, &c_version);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    if (!callback_copy.on_error)
+                        return;
+                    callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
+                },
         }
     );
 
@@ -122,12 +148,20 @@ int anychat_version_list(
     const char* release_type,
     int page,
     int page_size,
-    void* userdata,
-    AnyChatVersionListCallback callback
+    const AnyChatVersionListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (callback && callback->struct_size < sizeof(AnyChatVersionListCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatVersionListCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
     }
 
     handle->impl->listVersions(
@@ -135,30 +169,37 @@ int anychat_version_list(
         release_type ? release_type : "",
         page,
         page_size,
-        [userdata, callback, page, page_size](
-            const std::vector<anychat::AppVersionInfo>& versions,
-            int64_t total,
-            const std::string& err
-        ) {
-            if (!callback)
-                return;
+        anychat::AnyChatValueCallback<anychat::VersionListResult>{
+            .on_success =
+                [callback_copy](const anychat::VersionListResult& result) {
+                    if (!callback_copy.on_success)
+                        return;
 
-            const int count = static_cast<int>(versions.size());
-            AnyChatVersionList_C c_list{};
-            c_list.count = count;
-            c_list.total = total;
-            c_list.page = page;
-            c_list.page_size = page_size;
-            c_list.items = count > 0
-                               ? static_cast<AnyChatVersionInfo_C*>(std::calloc(count, sizeof(AnyChatVersionInfo_C)))
-                               : nullptr;
+                    const int count = static_cast<int>(result.versions.size());
+                    AnyChatVersionList_C c_list{};
+                    c_list.count = count;
+                    c_list.total = result.total;
+                    c_list.page = result.page;
+                    c_list.page_size = result.page_size;
+                    c_list.items = count > 0
+                                       ? static_cast<AnyChatVersionInfo_C*>(
+                                             std::calloc(count, sizeof(AnyChatVersionInfo_C))
+                                         )
+                                       : nullptr;
 
-            for (int i = 0; i < count; ++i) {
-                versionInfoToC(versions[i], &c_list.items[i]);
-            }
+                    for (int i = 0; i < count; ++i) {
+                        versionInfoToC(result.versions[i], &c_list.items[i]);
+                    }
 
-            callback(userdata, &c_list, err.empty() ? nullptr : err.c_str());
-            std::free(c_list.items);
+                    callback_copy.on_success(callback_copy.userdata, &c_list);
+                    std::free(c_list.items);
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    if (!callback_copy.on_error)
+                        return;
+                    callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
+                },
         }
     );
 
@@ -174,12 +215,20 @@ int anychat_version_report(
     const char* device_id,
     const char* os_version,
     const char* sdk_version,
-    void* userdata,
-    AnyChatVersionResultCallback callback
+    const AnyChatVersionCallback_C* callback
 ) {
     if (!handle || !handle->impl || !platform || !version) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (callback && callback->struct_size < sizeof(AnyChatVersionCallback_C)) {
+        anychat_set_last_error("invalid callback struct_size");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatVersionCallback_C callback_copy{};
+    if (callback) {
+        callback_copy = *callback;
     }
 
     handle->impl->reportVersion(
@@ -189,9 +238,19 @@ int anychat_version_report(
         device_id ? device_id : "",
         os_version ? os_version : "",
         sdk_version ? sdk_version : "",
-        [userdata, callback](bool ok, const std::string& err) {
-            if (callback)
-                callback(userdata, ok ? 1 : 0, err.c_str());
+        anychat::AnyChatCallback{
+            .on_success =
+                [callback_copy]() {
+                    if (callback_copy.on_success) {
+                        callback_copy.on_success(callback_copy.userdata);
+                    }
+                },
+            .on_error =
+                [callback_copy](int code, const std::string& error) {
+                    if (!callback_copy.on_error)
+                        return;
+                    callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
+                },
         }
     );
 

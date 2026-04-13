@@ -8,15 +8,42 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatFileCallback)(void* userdata, int success, const char* error);
+typedef void (*AnyChatFileErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatFileSuccessCallback)(void* userdata);
+typedef void (*AnyChatFileInfoSuccessCallback)(void* userdata, const AnyChatFileInfo_C* info);
+typedef void (*AnyChatDownloadUrlSuccessCallback)(void* userdata, const char* url);
+typedef void (*AnyChatFileListSuccessCallback)(void* userdata, const AnyChatFileList_C* list);
 
-typedef void (*AnyChatFileInfoCallback)(void* userdata, int success, const AnyChatFileInfo_C* info, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFileSuccessCallback on_success;
+    AnyChatFileErrorCallback on_error;
+} AnyChatFileCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFileInfoSuccessCallback on_success;
+    AnyChatFileErrorCallback on_error;
+} AnyChatFileInfoCallback_C;
 
 /* Progress during upload: uploaded and total are byte counts. */
 typedef void (*AnyChatUploadProgressCallback)(void* userdata, int64_t uploaded, int64_t total);
 
-typedef void (*AnyChatDownloadUrlCallback)(void* userdata, int success, const char* url, const char* error);
-typedef void (*AnyChatFileListCallback)(void* userdata, const AnyChatFileList_C* list, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatDownloadUrlSuccessCallback on_success;
+    AnyChatFileErrorCallback on_error;
+} AnyChatDownloadUrlCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFileListSuccessCallback on_success;
+    AnyChatFileErrorCallback on_error;
+} AnyChatFileListCallback_C;
 
 /* ---- File operations ---- */
 
@@ -28,25 +55,22 @@ ANYCHAT_C_API int anychat_file_upload(
     AnyChatFileHandle handle,
     const char* local_path,
     const char* file_type,
-    void* userdata,
     AnyChatUploadProgressCallback on_progress,
-    AnyChatFileInfoCallback on_done
+    const AnyChatFileInfoCallback_C* on_done
 );
 
 /* Retrieve a presigned download URL for a file. */
 ANYCHAT_C_API int anychat_file_get_download_url(
     AnyChatFileHandle handle,
     const char* file_id,
-    void* userdata,
-    AnyChatDownloadUrlCallback callback
+    const AnyChatDownloadUrlCallback_C* callback
 );
 
 /* Retrieve metadata for a single file. */
 ANYCHAT_C_API int anychat_file_get_info(
     AnyChatFileHandle handle,
     const char* file_id,
-    void* userdata,
-    AnyChatFileInfoCallback callback
+    const AnyChatFileInfoCallback_C* callback
 );
 
 /* List user files; file_type may be NULL/empty for all types. */
@@ -55,8 +79,7 @@ ANYCHAT_C_API int anychat_file_list(
     const char* file_type,
     int page,
     int page_size,
-    void* userdata,
-    AnyChatFileListCallback callback
+    const AnyChatFileListCallback_C* callback
 );
 
 /* Upload client log file via /logs/upload + /logs/complete. */
@@ -64,14 +87,13 @@ ANYCHAT_C_API int anychat_file_upload_log(
     AnyChatFileHandle handle,
     const char* local_path,
     int32_t expires_hours,
-    void* userdata,
     AnyChatUploadProgressCallback on_progress,
-    AnyChatFileInfoCallback on_done
+    const AnyChatFileInfoCallback_C* on_done
 );
 
 /* Delete a file from the server. */
 ANYCHAT_C_API int
-anychat_file_delete(AnyChatFileHandle handle, const char* file_id, void* userdata, AnyChatFileCallback callback);
+anychat_file_delete(AnyChatFileHandle handle, const char* file_id, const AnyChatFileCallback_C* callback);
 
 #ifdef __cplusplus
 }

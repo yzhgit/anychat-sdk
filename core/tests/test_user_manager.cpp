@@ -9,6 +9,25 @@
 
 #include <gtest/gtest.h>
 
+namespace {
+
+anychat::AnyChatCallback makeNoopCallback() {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = []() {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+template<typename T>
+anychat::AnyChatValueCallback<T> makeNoopValueCallback() {
+    anychat::AnyChatValueCallback<T> callback{};
+    callback.on_success = [](const T&) {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+} // namespace
+
 class UserManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -54,56 +73,38 @@ public:
 };
 
 TEST_F(UserManagerTest, GetProfileDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getProfile([](bool /*ok*/, const anychat::UserProfile& /*p*/, const std::string& /*err*/) {})
-    );
+    EXPECT_NO_THROW(mgr_->getProfile(makeNoopValueCallback<anychat::UserProfile>()));
 }
 
 TEST_F(UserManagerTest, UpdateProfileDoesNotCrash) {
     anychat::UserProfile p;
     p.nickname = "TestUser";
     p.birthday_ms = 1'708'329'600'000LL;
-    EXPECT_NO_THROW(
-        mgr_->updateProfile(p, [](bool /*ok*/, const anychat::UserProfile& /*p*/, const std::string& /*err*/) {})
-    );
+    EXPECT_NO_THROW(mgr_->updateProfile(p, makeNoopValueCallback<anychat::UserProfile>()));
 }
 
 TEST_F(UserManagerTest, GetSettingsDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getSettings([](bool /*ok*/, const anychat::UserSettings& /*s*/, const std::string& /*err*/) {}
-    ));
+    EXPECT_NO_THROW(mgr_->getSettings(makeNoopValueCallback<anychat::UserSettings>()));
 }
 
 TEST_F(UserManagerTest, SearchUsersDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->searchUsers(
-        "keyword with spaces",
-        1,
-        20,
-        [](const std::vector<anychat::UserInfo>& /*users*/, int64_t /*total*/, const std::string& /*err*/) {}
-    ));
+    EXPECT_NO_THROW(mgr_->searchUsers("keyword with spaces", 1, 20, makeNoopValueCallback<anychat::UserSearchResult>()));
 }
 
 TEST_F(UserManagerTest, GetUserInfoDoesNotCrash) {
-    EXPECT_NO_THROW(
-        mgr_->getUserInfo("user-001", [](bool /*ok*/, const anychat::UserInfo& /*info*/, const std::string& /*err*/) {})
-    );
+    EXPECT_NO_THROW(mgr_->getUserInfo("user-001", makeNoopValueCallback<anychat::UserInfo>()));
 }
 
 TEST_F(UserManagerTest, UpdatePushTokenDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->updatePushToken("push-token-abc", "ios", [](bool /*ok*/, const std::string& /*err*/) {}));
+    EXPECT_NO_THROW(mgr_->updatePushToken("push-token-abc", "ios", makeNoopCallback()));
 }
 
 TEST_F(UserManagerTest, UpdatePushTokenWithDeviceDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->updatePushToken(
-        "push-token-abc",
-        "ios",
-        "device-explicit-123",
-        [](bool /*ok*/, const std::string& /*err*/) {}
-    ));
+    EXPECT_NO_THROW(mgr_->updatePushToken("push-token-abc", "ios", "device-explicit-123", makeNoopCallback()));
 }
 
 TEST_F(UserManagerTest, BindPhoneDoesNotCrash) {
-    EXPECT_NO_THROW(
-        mgr_->bindPhone("13800138000", "123456", [](bool, const anychat::BindPhoneResult&, const std::string&) {})
-    );
+    EXPECT_NO_THROW(mgr_->bindPhone("13800138000", "123456", makeNoopValueCallback<anychat::BindPhoneResult>()));
 }
 
 TEST_F(UserManagerTest, ChangePhoneDoesNotCrash) {
@@ -112,16 +113,12 @@ TEST_F(UserManagerTest, ChangePhoneDoesNotCrash) {
         "13900139000",
         "654321",
         "",
-        [](bool, const anychat::ChangePhoneResult&, const std::string&) {}
+        makeNoopValueCallback<anychat::ChangePhoneResult>()
     ));
 }
 
 TEST_F(UserManagerTest, BindEmailDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->bindEmail(
-        "test@example.com",
-        "123456",
-        [](bool, const anychat::BindEmailResult&, const std::string&) {}
-    ));
+    EXPECT_NO_THROW(mgr_->bindEmail("test@example.com", "123456", makeNoopValueCallback<anychat::BindEmailResult>()));
 }
 
 TEST_F(UserManagerTest, ChangeEmailDoesNotCrash) {
@@ -130,19 +127,16 @@ TEST_F(UserManagerTest, ChangeEmailDoesNotCrash) {
         "new@example.com",
         "654321",
         "",
-        [](bool, const anychat::ChangeEmailResult&, const std::string&) {}
+        makeNoopValueCallback<anychat::ChangeEmailResult>()
     ));
 }
 
 TEST_F(UserManagerTest, RefreshQRCodeDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->refreshQRCode([](bool, const anychat::UserQRCode&, const std::string&) {}));
+    EXPECT_NO_THROW(mgr_->refreshQRCode(makeNoopValueCallback<anychat::UserQRCode>()));
 }
 
 TEST_F(UserManagerTest, GetUserByQRCodeDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getUserByQRCode(
-        "anychat://qrcode?token=abc",
-        [](bool, const anychat::UserInfo&, const std::string&) {}
-    ));
+    EXPECT_NO_THROW(mgr_->getUserByQRCode("anychat://qrcode?token=abc", makeNoopValueCallback<anychat::UserInfo>()));
 }
 
 TEST_F(UserManagerTest, ProfileUpdatedNotificationFiresHandler) {

@@ -26,22 +26,23 @@ public:
         const std::string& current_user_id
     );
 
-    void sendTextMessage(const std::string& conv_id, const std::string& content, MessageCallback callback) override;
+    void sendTextMessage(const std::string& conv_id, const std::string& content, AnyChatCallback callback) override;
 
-    void getHistory(const std::string& conv_id, int64_t before_timestamp, int limit, MessageListCallback callback)
+    void
+    getHistory(const std::string& conv_id, int64_t before_timestamp, int limit, AnyChatValueCallback<std::vector<Message>> callback)
         override;
 
-    void markAsRead(const std::string& conv_id, const std::string& message_id, MessageCallback callback) override;
-    void getOfflineMessages(int64_t last_seq, int limit, MessageOfflineCallback callback) override;
+    void markAsRead(const std::string& conv_id, const std::string& message_id, AnyChatCallback callback) override;
+    void getOfflineMessages(int64_t last_seq, int limit, AnyChatValueCallback<MessageOfflineResult> callback) override;
     void ackMessages(
         const std::string& conv_id,
         const std::vector<std::string>& message_ids,
-        MessageCallback callback
+        AnyChatCallback callback
     ) override;
     void getGroupMessageReadState(
         const std::string& group_id,
         const std::string& message_id,
-        GroupMessageReadStateCallback callback
+        AnyChatValueCallback<GroupMessageReadState> callback
     ) override;
     void searchMessages(
         const std::string& keyword,
@@ -49,12 +50,12 @@ public:
         const std::string& content_type,
         int limit,
         int offset,
-        MessageSearchCallback callback
+        AnyChatValueCallback<MessageSearchResult> callback
     ) override;
-    void recallMessage(const std::string& message_id, MessageCallback callback) override;
-    void deleteMessage(const std::string& message_id, MessageCallback callback) override;
-    void editMessage(const std::string& message_id, const std::string& content, MessageCallback callback) override;
-    void sendTyping(const std::string& conversation_id, bool typing, int32_t ttl_seconds, MessageCallback callback)
+    void recallMessage(const std::string& message_id, AnyChatCallback callback) override;
+    void deleteMessage(const std::string& message_id, AnyChatCallback callback) override;
+    void editMessage(const std::string& message_id, const std::string& content, AnyChatCallback callback) override;
+    void sendTyping(const std::string& conversation_id, bool typing, int32_t ttl_seconds, AnyChatCallback callback)
         override;
 
     void setListener(std::shared_ptr<MessageListener> listener) override;

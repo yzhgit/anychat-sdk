@@ -21,41 +21,50 @@ public:
         std::string device_id = {}
     );
 
-    void getProfile(ProfileCallback callback) override;
-    void updateProfile(const UserProfile& profile, ProfileCallback callback) override;
-    void getSettings(SettingsCallback callback) override;
-    void updateSettings(const UserSettings& settings, SettingsCallback callback) override;
-    void updatePushToken(const std::string& push_token, const std::string& platform, ResultCallback callback) override;
+    void getProfile(AnyChatValueCallback<UserProfile> callback) override;
+    void updateProfile(const UserProfile& profile, AnyChatValueCallback<UserProfile> callback) override;
+    void getSettings(AnyChatValueCallback<UserSettings> callback) override;
+    void updateSettings(const UserSettings& settings, AnyChatValueCallback<UserSettings> callback) override;
+    void updatePushToken(const std::string& push_token, const std::string& platform, AnyChatCallback callback) override;
     void updatePushToken(
         const std::string& push_token,
         const std::string& platform,
         const std::string& device_id,
-        ResultCallback callback
+        AnyChatCallback callback
     ) override;
-    void searchUsers(const std::string& keyword, int page, int page_size, UserListCallback callback) override;
-    void getUserInfo(const std::string& user_id, UserInfoCallback callback) override;
+    void searchUsers(
+        const std::string& keyword,
+        int page,
+        int page_size,
+        AnyChatValueCallback<UserSearchResult> callback
+    ) override;
+    void getUserInfo(const std::string& user_id, AnyChatValueCallback<UserInfo> callback) override;
     void bindPhone(
         const std::string& phone_number,
         const std::string& verify_code,
-        BindPhoneCallback callback
+        AnyChatValueCallback<BindPhoneResult> callback
     ) override;
     void changePhone(
         const std::string& old_phone_number,
         const std::string& new_phone_number,
         const std::string& new_verify_code,
         const std::string& old_verify_code,
-        ChangePhoneCallback callback
+        AnyChatValueCallback<ChangePhoneResult> callback
     ) override;
-    void bindEmail(const std::string& email, const std::string& verify_code, BindEmailCallback callback) override;
+    void bindEmail(
+        const std::string& email,
+        const std::string& verify_code,
+        AnyChatValueCallback<BindEmailResult> callback
+    ) override;
     void changeEmail(
         const std::string& old_email,
         const std::string& new_email,
         const std::string& new_verify_code,
         const std::string& old_verify_code,
-        ChangeEmailCallback callback
+        AnyChatValueCallback<ChangeEmailResult> callback
     ) override;
-    void refreshQRCode(QRCodeCallback callback) override;
-    void getUserByQRCode(const std::string& qrcode, UserInfoCallback callback) override;
+    void refreshQRCode(AnyChatValueCallback<UserQRCode> callback) override;
+    void getUserByQRCode(const std::string& qrcode, AnyChatValueCallback<UserInfo> callback) override;
     void setListener(std::shared_ptr<UserListener> listener) override;
 
 private:

@@ -11,6 +11,25 @@
 
 #include <gtest/gtest.h>
 
+namespace {
+
+anychat::AnyChatCallback makeNoopCallback() {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = []() {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+template<typename T>
+anychat::AnyChatValueCallback<T> makeNoopValueCallback() {
+    anychat::AnyChatValueCallback<T> callback{};
+    callback.on_success = [](const T&) {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+} // namespace
+
 class ConversationManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -52,6 +71,65 @@ public:
 
 TEST_F(ConversationManagerTest, GetListEmptyInitially) {
     EXPECT_TRUE(conv_cache_->getAll().empty());
+}
+
+TEST_F(ConversationManagerTest, GetConversationListDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getConversationList(makeNoopValueCallback<std::vector<anychat::Conversation>>()));
+}
+
+TEST_F(ConversationManagerTest, GetConversationDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getConversation("conv-001", makeNoopValueCallback<anychat::Conversation>()));
+}
+
+TEST_F(ConversationManagerTest, DeleteConversationDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->deleteConversation("conv-001", makeNoopCallback()));
+}
+
+TEST_F(ConversationManagerTest, MarkAllReadDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->markAllRead("conv-001", makeNoopCallback()));
+}
+
+TEST_F(ConversationManagerTest, MarkMessagesReadDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->markMessagesRead(
+        "conv-001",
+        std::vector<std::string>{ "msg-001", "msg-002" },
+        makeNoopValueCallback<anychat::ConversationMarkReadResult>()
+    ));
+}
+
+TEST_F(ConversationManagerTest, SetPinnedDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->setPinned("conv-001", true, makeNoopCallback()));
+}
+
+TEST_F(ConversationManagerTest, SetMutedDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->setMuted("conv-001", true, makeNoopCallback()));
+}
+
+TEST_F(ConversationManagerTest, SetBurnAfterReadingDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->setBurnAfterReading("conv-001", 60, makeNoopCallback()));
+}
+
+TEST_F(ConversationManagerTest, SetAutoDeleteDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->setAutoDelete("conv-001", 3600, makeNoopCallback()));
+}
+
+TEST_F(ConversationManagerTest, GetTotalUnreadDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getTotalUnread(makeNoopValueCallback<int32_t>()));
+}
+
+TEST_F(ConversationManagerTest, GetMessageUnreadCountDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getMessageUnreadCount("conv-001", 10, makeNoopValueCallback<anychat::ConversationUnreadState>()));
+}
+
+TEST_F(ConversationManagerTest, GetMessageReadReceiptsDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getMessageReadReceipts(
+        "conv-001",
+        makeNoopValueCallback<std::vector<anychat::ConversationReadReceipt>>()
+    ));
+}
+
+TEST_F(ConversationManagerTest, GetMessageSequenceDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getMessageSequence("conv-001", makeNoopValueCallback<int64_t>()));
 }
 
 TEST_F(ConversationManagerTest, ConversationUnreadUpdatedNotificationFiresHandler) {

@@ -26,62 +26,79 @@ protected:
 
 TEST_F(VersionManagerTest, CheckVersionRequiresPlatformAndVersion) {
     bool called = false;
-    bool ok = true;
+    int error_code = 0;
     std::string error;
 
-    mgr_->checkVersion("", "1.2.3", 0, [&](bool success, const anychat::VersionCheckResult&, const std::string& err) {
-        called = true;
-        ok = success;
-        error = err;
-    });
+    mgr_->checkVersion(
+        "",
+        "1.2.3",
+        0,
+        anychat::AnyChatValueCallback<anychat::VersionCheckResult>{
+            .on_error =
+                [&](int code, const std::string& err) {
+                    called = true;
+                    error_code = code;
+                    error = err;
+                },
+        }
+    );
 
     EXPECT_TRUE(called);
-    EXPECT_FALSE(ok);
+    EXPECT_EQ(error_code, -1);
     EXPECT_FALSE(error.empty());
 
     called = false;
-    ok = true;
+    error_code = 0;
     error.clear();
-    mgr_->checkVersion("android", "", 0, [&](bool success, const anychat::VersionCheckResult&, const std::string& err) {
-        called = true;
-        ok = success;
-        error = err;
-    });
+    mgr_->checkVersion(
+        "android",
+        "",
+        0,
+        anychat::AnyChatValueCallback<anychat::VersionCheckResult>{
+            .on_error =
+                [&](int code, const std::string& err) {
+                    called = true;
+                    error_code = code;
+                    error = err;
+                },
+        }
+    );
 
     EXPECT_TRUE(called);
-    EXPECT_FALSE(ok);
+    EXPECT_EQ(error_code, -1);
     EXPECT_FALSE(error.empty());
 }
 
 TEST_F(VersionManagerTest, GetLatestVersionRequiresPlatform) {
     bool called = false;
-    bool ok = true;
+    int error_code = 0;
     std::string error;
 
-    mgr_->getLatestVersion("", "stable", [&](bool success, const anychat::AppVersionInfo&, const std::string& err) {
-        called = true;
-        ok = success;
-        error = err;
-    });
+    mgr_->getLatestVersion(
+        "",
+        "stable",
+        anychat::AnyChatValueCallback<anychat::AppVersionInfo>{
+            .on_error =
+                [&](int code, const std::string& err) {
+                    called = true;
+                    error_code = code;
+                    error = err;
+                },
+        }
+    );
 
     EXPECT_TRUE(called);
-    EXPECT_FALSE(ok);
+    EXPECT_EQ(error_code, -1);
     EXPECT_FALSE(error.empty());
 }
 
 TEST_F(VersionManagerTest, ListVersionsDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->listVersions(
-        "android",
-        "stable",
-        1,
-        20,
-        [](const std::vector<anychat::AppVersionInfo>&, int64_t, const std::string&) {}
-    ));
+    EXPECT_NO_THROW(mgr_->listVersions("android", "stable", 1, 20, {}));
 }
 
 TEST_F(VersionManagerTest, ReportVersionRequiresPlatformAndVersion) {
     bool called = false;
-    bool ok = true;
+    int error_code = 0;
     std::string error;
 
     mgr_->reportVersion(
@@ -91,14 +108,17 @@ TEST_F(VersionManagerTest, ReportVersionRequiresPlatformAndVersion) {
         "device-1",
         "Android 14",
         "0.1.0",
-        [&](bool success, const std::string& err) {
-            called = true;
-            ok = success;
-            error = err;
+        anychat::AnyChatCallback{
+            .on_error =
+                [&](int code, const std::string& err) {
+                    called = true;
+                    error_code = code;
+                    error = err;
+                },
         }
     );
 
     EXPECT_TRUE(called);
-    EXPECT_FALSE(ok);
+    EXPECT_EQ(error_code, -1);
     EXPECT_FALSE(error.empty());
 }

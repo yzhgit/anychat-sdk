@@ -13,7 +13,6 @@ namespace anychat::group_manager_detail {
 
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
-using json_common::parseApiStatusSuccessResponse;
 using json_common::parseBoolValue;
 using json_common::parseInt32Value;
 using json_common::parseInt64Value;
@@ -406,21 +405,24 @@ Group parseNotificationGroup(const NotificationGroupPayload& payload) {
     return group;
 }
 
-void completeBoolRequest(GroupCallback cb, network::HttpResponse resp, const std::string& fallback_error) {
-    if (!cb) {
+void completeEmptyRequest(AnyChatCallback cb, network::HttpResponse resp, const std::string& fallback_error) {
+    ApiEnvelope<void> root{};
+    if (!parseApiEnvelopeResponse(resp, root, fallback_error)) {
+        if (cb.on_error) {
+            cb.on_error(root.code, root.message);
+        }
         return;
     }
 
-    std::string err;
-    const bool ok = parseApiStatusSuccessResponse(resp, err, fallback_error);
-    cb(ok, ok ? "" : err);
+    if (cb.on_success) {
+        cb.on_success();
+    }
 }
 
 } // namespace anychat::group_manager_detail
 
 namespace anychat {
 using namespace group_manager_detail;
-
 
 GroupManagerImpl::GroupManagerImpl(
     db::Database* db,
@@ -437,13 +439,12 @@ GroupManagerImpl::GroupManagerImpl(
     }
 }
 
-void GroupManagerImpl::getGroupList(GroupListCallback cb) {
+void GroupManagerImpl::getGroupList(AnyChatValueCallback<std::vector<Group>> cb) {
     http_->get("/groups", [cb = std::move(cb), this](network::HttpResponse resp) {
         ApiEnvelope<GroupListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            if (cb) {
-                cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get group list failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
@@ -475,94 +476,129 @@ void GroupManagerImpl::getGroupList(GroupListCallback cb) {
             }
         }
 
-        if (cb) {
-            cb(std::move(groups), "");
+        if (cb.on_success) {
+            cb.on_success(groups);
         }
     });
 }
 
-void GroupManagerImpl::getInfo(const std::string& group_id, GroupInfoCallback cb) {
+void GroupManagerImpl::getInfo(const std::string& group_id, AnyChatValueCallback<Group> cb) {
     const std::string path = "/groups/" + group_id;
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<GroupInfoPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            if (cb) {
-                cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get group info failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
 
-        if (cb) {
-            cb(parseGroupInfo(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(parseGroupInfo(root.data));
         }
     });
 }
 
-void GroupManagerImpl::create(const std::string& name, const std::vector<std::string>& member_ids, GroupCallback cb) {
+void GroupManagerImpl::create(
+    const std::string& name,
+    const std::vector<std::string>& member_ids,
+    AnyChatValueCallback<Group> cb
+) {
     const CreateGroupBody body{.name = name, .member_ids = member_ids};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
-    http_->post("/groups", body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "create group failed");
+    http_->post("/groups", body_json, [this, cb = std::move(cb)](network::HttpResponse resp) {
+        ApiEnvelope<GroupInfoPayload> root{};
+        if (!parseApiEnvelopeResponse(resp, root, "create group failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
+            return;
+        }
+
+        Group group = parseGroupInfo(root.data);
+        if (db_ && !group.group_id.empty()) {
+            db_->exec(
+                "INSERT OR REPLACE INTO groups"
+                " (group_id, name, avatar_url, owner_id,"
+                "  member_count, my_role, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                { group.group_id,
+                  group.name,
+                  group.avatar_url,
+                  group.owner_id,
+                  static_cast<int64_t>(group.member_count),
+                  roleToString(group.my_role),
+                  group.updated_at_ms },
+                nullptr
+            );
+        }
+
+        if (cb.on_success) {
+            cb.on_success(group);
+        }
     });
 }
 
-void GroupManagerImpl::join(const std::string& group_id, const std::string& message, GroupCallback cb) {
+void GroupManagerImpl::join(const std::string& group_id, const std::string& message, AnyChatCallback cb) {
     const JoinGroupBody body{.message = message};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     const std::string path = "/groups/" + group_id + "/join";
     http_->post(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "join group failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "join group failed");
     });
 }
 
-void GroupManagerImpl::invite(const std::string& group_id, const std::vector<std::string>& user_ids, GroupCallback cb) {
+void GroupManagerImpl::invite(
+    const std::string& group_id,
+    const std::vector<std::string>& user_ids,
+    AnyChatCallback cb
+) {
     const InviteGroupBody body{.user_ids = user_ids};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     const std::string path = "/groups/" + group_id + "/members";
     http_->post(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "invite group member failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "invite group member failed");
     });
 }
 
-void GroupManagerImpl::quit(const std::string& group_id, GroupCallback cb) {
+void GroupManagerImpl::quit(const std::string& group_id, AnyChatCallback cb) {
     const std::string path = "/groups/" + group_id + "/quit";
     http_->post(path, "{}", [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "quit group failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "quit group failed");
     });
 }
 
-void GroupManagerImpl::disband(const std::string& group_id, GroupCallback cb) {
+void GroupManagerImpl::disband(const std::string& group_id, AnyChatCallback cb) {
     const std::string path = "/groups/" + group_id;
     http_->del(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "disband group failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "disband group failed");
     });
 }
 
@@ -570,7 +606,7 @@ void GroupManagerImpl::update(
     const std::string& group_id,
     const std::string& name,
     const std::string& avatar_url,
-    GroupCallback cb
+    AnyChatCallback cb
 ) {
     UpdateGroupBody body{};
     if (!name.empty()) {
@@ -583,28 +619,32 @@ void GroupManagerImpl::update(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     const std::string path = "/groups/" + group_id;
     http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "update group failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "update group failed");
     });
 }
 
-void GroupManagerImpl::getMembers(const std::string& group_id, int page, int page_size, GroupMemberCallback cb) {
+void GroupManagerImpl::getMembers(
+    const std::string& group_id,
+    int page,
+    int page_size,
+    AnyChatValueCallback<std::vector<GroupMember>> cb
+) {
     const std::string path =
         "/groups/" + group_id + "/members" + "?page=" + std::to_string(page) + "&page_size=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<GroupMemberListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            if (cb) {
-                cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get group members failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
@@ -618,16 +658,16 @@ void GroupManagerImpl::getMembers(const std::string& group_id, int page, int pag
             }
         }
 
-        if (cb) {
-            cb(std::move(members), "");
+        if (cb.on_success) {
+            cb.on_success(members);
         }
     });
 }
 
-void GroupManagerImpl::removeMember(const std::string& group_id, const std::string& user_id, GroupCallback cb) {
+void GroupManagerImpl::removeMember(const std::string& group_id, const std::string& user_id, AnyChatCallback cb) {
     const std::string path = "/groups/" + group_id + "/members/" + user_id;
     http_->del(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "remove group member failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "remove group member failed");
     });
 }
 
@@ -635,65 +675,69 @@ void GroupManagerImpl::updateMemberRole(
     const std::string& group_id,
     const std::string& user_id,
     GroupRole role,
-    GroupCallback cb
+    AnyChatCallback cb
 ) {
     const UpdateMemberRoleBody body{.role = roleToString(role)};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     const std::string path = "/groups/" + group_id + "/members/" + user_id + "/role";
     http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "update group member role failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "update group member role failed");
     });
 }
 
-void GroupManagerImpl::updateNickname(const std::string& group_id, const std::string& nickname, GroupCallback cb) {
+void GroupManagerImpl::updateNickname(const std::string& group_id, const std::string& nickname, AnyChatCallback cb) {
     const UpdateNicknameBody body{.nickname = nickname};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     const std::string path = "/groups/" + group_id + "/nickname";
     http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "update group nickname failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "update group nickname failed");
     });
 }
 
-void GroupManagerImpl::transferOwnership(const std::string& group_id, const std::string& new_owner_id, GroupCallback cb) {
+void GroupManagerImpl::transferOwnership(
+    const std::string& group_id,
+    const std::string& new_owner_id,
+    AnyChatCallback cb
+) {
     const TransferOwnershipBody body{.new_owner_id = new_owner_id};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     const std::string path = "/groups/" + group_id + "/transfer";
     http_->post(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "transfer ownership failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "transfer ownership failed");
     });
 }
 
 void GroupManagerImpl::getJoinRequests(
     const std::string& group_id,
     const std::string& status,
-    GroupJoinRequestListCallback cb
+    AnyChatValueCallback<std::vector<GroupJoinRequest>> cb
 ) {
     std::string path = "/groups/" + group_id + "/requests";
     if (!status.empty()) {
@@ -702,10 +746,9 @@ void GroupManagerImpl::getJoinRequests(
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<GroupJoinRequestListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            if (cb) {
-                cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get group join requests failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
@@ -719,64 +762,67 @@ void GroupManagerImpl::getJoinRequests(
             }
         }
 
-        if (cb) {
-            cb(std::move(requests), "");
+        if (cb.on_success) {
+            cb.on_success(requests);
         }
     });
 }
 
-void GroupManagerImpl::handleJoinRequest(const std::string& group_id, int64_t request_id, bool accept, GroupCallback cb) {
+void GroupManagerImpl::handleJoinRequest(
+    const std::string& group_id,
+    int64_t request_id,
+    bool accept,
+    AnyChatCallback cb
+) {
     const HandleJoinRequestBody body{.accept = accept};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     const std::string path = "/groups/" + group_id + "/requests/" + std::to_string(request_id);
     http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "handle join request failed");
+        completeEmptyRequest(std::move(cb), std::move(resp), "handle join request failed");
     });
 }
 
-void GroupManagerImpl::getQRCode(const std::string& group_id, GroupQRCodeCallback cb) {
+void GroupManagerImpl::getQRCode(const std::string& group_id, AnyChatValueCallback<GroupQRCode> cb) {
     const std::string path = "/groups/" + group_id + "/qrcode";
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<GroupQRCodePayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            if (cb) {
-                cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get group qrcode failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
 
-        if (cb) {
-            cb(parseGroupQRCode(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(parseGroupQRCode(root.data));
         }
     });
 }
 
-void GroupManagerImpl::refreshQRCode(const std::string& group_id, GroupQRCodeCallback cb) {
+void GroupManagerImpl::refreshQRCode(const std::string& group_id, AnyChatValueCallback<GroupQRCode> cb) {
     const std::string path = "/groups/" + group_id + "/qrcode/refresh";
 
     http_->post(path, "{}", [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<GroupQRCodePayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            if (cb) {
-                cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "refresh group qrcode failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
 
-        if (cb) {
-            cb(parseGroupQRCode(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(parseGroupQRCode(root.data));
         }
     });
 }

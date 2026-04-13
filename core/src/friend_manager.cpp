@@ -5,14 +5,12 @@
 #include <optional>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace anychat::friend_manager_detail {
 
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
-using json_common::parseApiStatusSuccessResponse;
 using json_common::parseJsonObject;
 using json_common::parseTimestampMs;
 using json_common::pickList;
@@ -268,14 +266,22 @@ bool isRemoveAction(const std::string& action) {
            || lowered == "unblock" || lowered == "unblocked";
 }
 
-void completeBoolRequest(FriendCallback cb, network::HttpResponse resp, const std::string& fallback_error) {
-    if (!cb) {
+void completeRequest(AnyChatCallback cb, network::HttpResponse resp, const std::string& fallback_error) {
+    if (!cb.on_success && !cb.on_error) {
         return;
     }
 
-    std::string err;
-    const bool ok = parseApiStatusSuccessResponse(resp, err, fallback_error);
-    cb(ok, ok ? "" : err);
+    ApiEnvelope<void> root{};
+    const bool ok = parseApiEnvelopeResponse(resp, root, fallback_error);
+    if (ok) {
+        if (cb.on_success) {
+            cb.on_success();
+        }
+        return;
+    }
+    if (cb.on_error) {
+        cb.on_error(root.code, root.message);
+    }
 }
 
 } // namespace anychat::friend_manager_detail
@@ -298,13 +304,12 @@ FriendManagerImpl::FriendManagerImpl(
     }
 }
 
-void FriendManagerImpl::getFriendList(FriendListCallback cb) {
+void FriendManagerImpl::getFriendList(AnyChatValueCallback<std::vector<Friend>> cb) {
     http_->get("/friends", [cb = std::move(cb), this](network::HttpResponse resp) {
         ApiEnvelope<FriendListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            if (cb) {
-                cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
@@ -335,8 +340,8 @@ void FriendManagerImpl::getFriendList(FriendListCallback cb) {
             }
         }
 
-        if (cb) {
-            cb(std::move(friends), "");
+        if (cb.on_success) {
+            cb.on_success(friends);
         }
     });
 }
@@ -345,7 +350,7 @@ void FriendManagerImpl::addFriend(
     const std::string& to_user_id,
     const std::string& message,
     const std::string& source,
-    FriendCallback cb
+    AnyChatCallback cb
 ) {
     const SendFriendRequestBody body{
         .user_id = to_user_id,
@@ -356,78 +361,80 @@ void FriendManagerImpl::addFriend(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     http_->post("/friends/requests", body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "send request failed");
+        completeRequest(std::move(cb), std::move(resp), "send request failed");
     });
 }
 
-void FriendManagerImpl::deleteFriend(const std::string& friend_id, FriendCallback cb) {
+void FriendManagerImpl::deleteFriend(const std::string& friend_id, AnyChatCallback cb) {
     const std::string path = "/friends/" + friend_id;
     http_->del(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "delete friend failed");
+        completeRequest(std::move(cb), std::move(resp), "delete friend failed");
     });
 }
 
-void FriendManagerImpl::updateRemark(const std::string& friend_id, const std::string& remark, FriendCallback cb) {
+void FriendManagerImpl::updateRemark(const std::string& friend_id, const std::string& remark, AnyChatCallback cb) {
     const UpdateRemarkBody body{ .remark = remark };
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     const std::string path = "/friends/" + friend_id + "/remark";
     http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "update remark failed");
+        completeRequest(std::move(cb), std::move(resp), "update remark failed");
     });
 }
 
-void FriendManagerImpl::acceptFriendRequest(int64_t request_id, FriendCallback cb) {
+void FriendManagerImpl::acceptFriendRequest(int64_t request_id, AnyChatCallback cb) {
     handleFriendRequest(request_id, true, std::move(cb));
 }
 
-void FriendManagerImpl::rejectFriendRequest(int64_t request_id, FriendCallback cb) {
+void FriendManagerImpl::rejectFriendRequest(int64_t request_id, AnyChatCallback cb) {
     handleFriendRequest(request_id, false, std::move(cb));
 }
 
-void FriendManagerImpl::handleFriendRequest(int64_t request_id, bool accept, FriendCallback cb) {
+void FriendManagerImpl::handleFriendRequest(int64_t request_id, bool accept, AnyChatCallback cb) {
     const HandleFriendRequestBody body{ .accept = accept, .action = accept ? "accept" : "reject" };
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     const std::string path = "/friends/requests/" + std::to_string(request_id);
     http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "handle request failed");
+        completeRequest(std::move(cb), std::move(resp), "handle request failed");
     });
 }
 
-void FriendManagerImpl::getFriendRequests(const std::string& request_type, FriendRequestListCallback cb) {
+void FriendManagerImpl::getFriendRequests(
+    const std::string& request_type,
+    AnyChatValueCallback<std::vector<FriendRequest>> cb
+) {
     const std::string type = request_type.empty() ? "received" : request_type;
     const std::string path = "/friends/requests?type=" + type;
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<FriendRequestListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            if (cb) {
-                cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
@@ -441,19 +448,18 @@ void FriendManagerImpl::getFriendRequests(const std::string& request_type, Frien
             }
         }
 
-        if (cb) {
-            cb(std::move(requests), "");
+        if (cb.on_success) {
+            cb.on_success(requests);
         }
     });
 }
 
-void FriendManagerImpl::getBlacklist(BlacklistListCallback cb) {
+void FriendManagerImpl::getBlacklist(AnyChatValueCallback<std::vector<BlacklistItem>> cb) {
     http_->get("/friends/blacklist", [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<BlacklistListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            if (cb) {
-                cb({}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
             }
             return;
         }
@@ -467,33 +473,33 @@ void FriendManagerImpl::getBlacklist(BlacklistListCallback cb) {
             }
         }
 
-        if (cb) {
-            cb(std::move(list), "");
+        if (cb.on_success) {
+            cb.on_success(list);
         }
     });
 }
 
-void FriendManagerImpl::addToBlacklist(const std::string& user_id, FriendCallback cb) {
+void FriendManagerImpl::addToBlacklist(const std::string& user_id, AnyChatCallback cb) {
     const AddBlacklistBody body{ .user_id = user_id };
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
+        if (cb.on_error) {
+            cb.on_error(-1, err);
         }
         return;
     }
 
     http_->post("/friends/blacklist", body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "add blacklist failed");
+        completeRequest(std::move(cb), std::move(resp), "add blacklist failed");
     });
 }
 
-void FriendManagerImpl::removeFromBlacklist(const std::string& user_id, FriendCallback cb) {
+void FriendManagerImpl::removeFromBlacklist(const std::string& user_id, AnyChatCallback cb) {
     const std::string path = "/friends/blacklist/" + user_id;
     http_->del(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "remove blacklist failed");
+        completeRequest(std::move(cb), std::move(resp), "remove blacklist failed");
     });
 }
 

@@ -16,8 +16,8 @@
 #include <cctype>
 #include <ctime>
 
-
-namespace anychat::json_common {
+namespace anychat {
+namespace json_common {
 
 template<typename T>
 struct ApiEnvelope {
@@ -26,7 +26,8 @@ struct ApiEnvelope {
     T data{};
 };
 
-struct ApiStatus {
+template<>
+struct ApiEnvelope<void> {
     int32_t code = -1;
     std::string message{};
 };
@@ -365,77 +366,46 @@ template<typename T>
 inline bool parseApiEnvelopeResponse(
     const network::HttpResponse& resp,
     ApiEnvelope<T>& root,
-    std::string& err,
     const std::string& fallback_error = "server error",
     bool require_http_200 = false,
     bool require_http_2xx = false
 ) {
+    root = {};
+
     if (!resp.error.empty()) {
-        err = resp.error;
+        root.code = -1;
+        root.message = resp.error;
+        return false;
+    }
+
+    std::string parse_err;
+    const bool has_body = !resp.body.empty();
+    const bool body_parsed = has_body && readJsonRelaxed(resp.body, root, parse_err);
+
+    if (body_parsed && root.code != 0) {
+        if (root.message.empty()) {
+            root.message = fallback_error;
+        }
         return false;
     }
 
     if (require_http_200 && resp.status_code != 200) {
-        err = "HTTP " + std::to_string(resp.status_code);
+        root.code = resp.status_code != 0 ? resp.status_code : -1;
+        root.message = "HTTP " + std::to_string(resp.status_code);
         return false;
     }
     if (require_http_2xx && (resp.status_code < 200 || resp.status_code >= 300)) {
-        err = "HTTP " + std::to_string(resp.status_code);
+        root.code = resp.status_code != 0 ? resp.status_code : -1;
+        root.message = "HTTP " + std::to_string(resp.status_code);
         return false;
     }
 
-    if (!readJsonRelaxed(resp.body, root, err)) {
+    if (!body_parsed) {
+        root.code = -1;
+        root.message = parse_err.empty() ? fallback_error : parse_err;
         return false;
     }
 
-    if (root.code != 0) {
-        err = root.message.empty() ? fallback_error : root.message;
-        return false;
-    }
-
-    return true;
-}
-
-inline bool parseApiStatusResponse(
-    const network::HttpResponse& resp,
-    ApiStatus& root,
-    std::string& err,
-    bool require_http_200 = false,
-    bool require_http_2xx = false
-) {
-    if (!resp.error.empty()) {
-        err = resp.error;
-        return false;
-    }
-
-    if (require_http_200 && resp.status_code != 200) {
-        err = "HTTP " + std::to_string(resp.status_code);
-        return false;
-    }
-    if (require_http_2xx && (resp.status_code < 200 || resp.status_code >= 300)) {
-        err = "HTTP " + std::to_string(resp.status_code);
-        return false;
-    }
-
-    return readJsonRelaxed(resp.body, root, err);
-}
-
-inline bool parseApiStatusSuccessResponse(
-    const network::HttpResponse& resp,
-    std::string& err,
-    const std::string& fallback_error = "server error",
-    bool require_http_200 = false,
-    bool require_http_2xx = false
-) {
-    ApiStatus root{};
-    if (!parseApiStatusResponse(resp, root, err, require_http_200, require_http_2xx)) {
-        return false;
-    }
-
-    if (root.code != 0) {
-        err = root.message.empty() ? fallback_error : root.message;
-        return false;
-    }
     return true;
 }
 
@@ -474,4 +444,5 @@ inline bool parseJsonObject(const std::string& node_json, T& out, std::string& e
     return true;
 }
 
-} // namespace anychat::json_common
+} // namespace json_common
+} // namespace anychat

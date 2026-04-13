@@ -18,7 +18,6 @@ using json_common::ApiEnvelope;
 using json_common::formatIso8601Utc;
 using json_common::normalizeUnixEpochMs;
 using json_common::parseApiEnvelopeResponse;
-using json_common::parseApiStatusSuccessResponse;
 using json_common::parseJsonObject;
 using json_common::parseTimestampMs;
 using json_common::writeJson;
@@ -311,20 +310,23 @@ UserManagerImpl::UserManagerImpl(
     return out.str();
 }
 
-void UserManagerImpl::getProfile(ProfileCallback callback) {
+void UserManagerImpl::getProfile(AnyChatValueCallback<UserProfile> callback) {
     http_->get("/users/me", [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<UserProfilePayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toUserProfile(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toUserProfile(root.data));
+        }
     });
 }
 
-void UserManagerImpl::updateProfile(const UserProfile& profile, ProfileCallback callback) {
+void UserManagerImpl::updateProfile(const UserProfile& profile, AnyChatValueCallback<UserProfile> callback) {
     UpdateProfileRequestPayload body{};
     if (!profile.nickname.empty()) {
         body.nickname = profile.nickname;
@@ -351,36 +353,44 @@ void UserManagerImpl::updateProfile(const UserProfile& profile, ProfileCallback 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->put("/users/me", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<UserProfilePayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toUserProfile(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toUserProfile(root.data));
+        }
     });
 }
 
-void UserManagerImpl::getSettings(SettingsCallback callback) {
+void UserManagerImpl::getSettings(AnyChatValueCallback<UserSettings> callback) {
     http_->get("/users/me/settings", [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<UserSettingsPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toUserSettings(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toUserSettings(root.data));
+        }
     });
 }
 
-void UserManagerImpl::updateSettings(const UserSettings& settings, SettingsCallback callback) {
+void UserManagerImpl::updateSettings(const UserSettings& settings, AnyChatValueCallback<UserSettings> callback) {
     UpdateSettingsRequestPayload body{};
     body.notification_enabled = settings.notification_enabled;
     body.sound_enabled = settings.sound_enabled;
@@ -396,23 +406,32 @@ void UserManagerImpl::updateSettings(const UserSettings& settings, SettingsCallb
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->put("/users/me/settings", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<UserSettingsPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toUserSettings(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toUserSettings(root.data));
+        }
     });
 }
 
-void UserManagerImpl::updatePushToken(const std::string& push_token, const std::string& platform, ResultCallback callback) {
+void UserManagerImpl::updatePushToken(
+    const std::string& push_token,
+    const std::string& platform,
+    AnyChatCallback callback
+) {
     updatePushToken(push_token, platform, device_id_, std::move(callback));
 }
 
@@ -420,7 +439,7 @@ void UserManagerImpl::updatePushToken(
     const std::string& push_token,
     const std::string& platform,
     const std::string& device_id,
-    ResultCallback callback
+    AnyChatCallback callback
 ) {
     UpdatePushTokenRequestPayload body{};
     body.push_token = push_token;
@@ -432,55 +451,77 @@ void UserManagerImpl::updatePushToken(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post("/users/me/push-token", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
-        std::string err;
-        const bool ok = parseApiStatusSuccessResponse(resp, err);
-        cb(ok, ok ? "" : err);
+        ApiEnvelope<void> root{};
+        const bool ok = parseApiEnvelopeResponse(resp, root);
+        if (ok) {
+            if (cb.on_success) {
+                cb.on_success();
+            }
+            return;
+        }
+        if (cb.on_error) {
+            cb.on_error(root.code, root.message);
+        }
     });
 }
 
-void UserManagerImpl::searchUsers(const std::string& keyword, int page, int page_size, UserListCallback callback) {
+void UserManagerImpl::searchUsers(
+    const std::string& keyword,
+    int page,
+    int page_size,
+    AnyChatValueCallback<UserSearchResult> callback
+) {
     const std::string path = "/users/search?keyword=" + urlEncode(keyword) + "&page=" + std::to_string(page)
         + "&page_size=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<SearchUsersDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb({}, 0, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        std::vector<UserInfo> users;
-        users.reserve(root.data.users.size());
+        UserSearchResult result{};
+        result.total = root.data.total;
+        result.users.reserve(root.data.users.size());
         for (const auto& item : root.data.users) {
-            users.push_back(toUserInfo(item));
+            result.users.push_back(toUserInfo(item));
         }
-        cb(users, root.data.total, "");
+        if (cb.on_success) {
+            cb.on_success(result);
+        }
     });
 }
 
-void UserManagerImpl::getUserInfo(const std::string& user_id, UserInfoCallback callback) {
+void UserManagerImpl::getUserInfo(const std::string& user_id, AnyChatValueCallback<UserInfo> callback) {
     http_->get("/users/" + user_id, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<UserInfoPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toUserInfo(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toUserInfo(root.data));
+        }
     });
 }
 
 void UserManagerImpl::bindPhone(
     const std::string& phone_number,
     const std::string& verify_code,
-    BindPhoneCallback callback
+    AnyChatValueCallback<BindPhoneResult> callback
 ) {
     BindPhoneRequestPayload body{};
     body.phone_number = phone_number;
@@ -489,19 +530,24 @@ void UserManagerImpl::bindPhone(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post("/users/me/phone/bind", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<BindPhoneResultPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toBindPhoneResult(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toBindPhoneResult(root.data));
+        }
     });
 }
 
@@ -510,7 +556,7 @@ void UserManagerImpl::changePhone(
     const std::string& new_phone_number,
     const std::string& new_verify_code,
     const std::string& old_verify_code,
-    ChangePhoneCallback callback
+    AnyChatValueCallback<ChangePhoneResult> callback
 ) {
     ChangePhoneRequestPayload body{};
     body.old_phone_number = old_phone_number;
@@ -526,23 +572,32 @@ void UserManagerImpl::changePhone(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post("/users/me/phone/change", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<ChangePhoneResultPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toChangePhoneResult(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toChangePhoneResult(root.data));
+        }
     });
 }
 
-void UserManagerImpl::bindEmail(const std::string& email, const std::string& verify_code, BindEmailCallback callback) {
+void UserManagerImpl::bindEmail(
+    const std::string& email,
+    const std::string& verify_code,
+    AnyChatValueCallback<BindEmailResult> callback
+) {
     BindEmailRequestPayload body{};
     body.email = email;
     body.verify_code = verify_code;
@@ -550,19 +605,24 @@ void UserManagerImpl::bindEmail(const std::string& email, const std::string& ver
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post("/users/me/email/bind", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<BindEmailResultPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toBindEmailResult(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toBindEmailResult(root.data));
+        }
     });
 }
 
@@ -571,7 +631,7 @@ void UserManagerImpl::changeEmail(
     const std::string& new_email,
     const std::string& new_verify_code,
     const std::string& old_verify_code,
-    ChangeEmailCallback callback
+    AnyChatValueCallback<ChangeEmailResult> callback
 ) {
     ChangeEmailRequestPayload body{};
     body.old_email = old_email;
@@ -587,45 +647,56 @@ void UserManagerImpl::changeEmail(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post("/users/me/email/change", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<ChangeEmailResultPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toChangeEmailResult(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toChangeEmailResult(root.data));
+        }
     });
 }
 
-void UserManagerImpl::refreshQRCode(QRCodeCallback callback) {
+void UserManagerImpl::refreshQRCode(AnyChatValueCallback<UserQRCode> callback) {
     http_->post("/users/me/qrcode/refresh", "{}", [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<UserQRCodePayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toUserQRCode(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toUserQRCode(root.data));
+        }
     });
 }
 
-void UserManagerImpl::getUserByQRCode(const std::string& qrcode, UserInfoCallback callback) {
+void UserManagerImpl::getUserByQRCode(const std::string& qrcode, AnyChatValueCallback<UserInfo> callback) {
     http_->get("/users/qrcode?qrcode=" + urlEncode(qrcode), [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<UserInfoPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toUserInfo(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toUserInfo(root.data));
+        }
     });
 }
 

@@ -1,27 +1,13 @@
 #pragma once
 
+#include "callbacks.h"
 #include "types.h"
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace anychat {
-
-// Callback for operations that return an AuthToken (login / refresh / register)
-using AuthCallback = std::function<void(bool success, const AuthToken& token, const std::string& error)>;
-
-// Callback for send-code operation.
-using SendCodeCallback =
-    std::function<void(bool success, const VerificationCodeResult& result, const std::string& error)>;
-
-// Callback for listing user devices.
-using DeviceListCallback =
-    std::function<void(bool success, const std::vector<AuthDevice>& devices, const std::string& error)>;
-
-// Callback for operations that only indicate success/failure with an optional message
-using ResultCallback = std::function<void(bool success, const std::string& error)>;
 
 class AuthListener {
 public:
@@ -45,7 +31,7 @@ public:
         const std::string& device_type,
         const std::string& nickname,
         const std::string& client_version,
-        AuthCallback callback
+        AnyChatValueCallback<AuthToken> callback
     ) = 0;
 
     // Send verification code for register/reset_password/bind/change flows.
@@ -54,7 +40,7 @@ public:
         const std::string& target,
         const std::string& target_type,
         const std::string& purpose,
-        SendCodeCallback callback
+        AnyChatValueCallback<VerificationCodeResult> callback
     ) = 0;
 
     // Login with account (phone number or email) + password.
@@ -66,39 +52,38 @@ public:
         const std::string& password,
         const std::string& device_type,
         const std::string& client_version,
-        AuthCallback callback
+        AnyChatValueCallback<AuthToken> callback
     ) = 0;
 
     // Logout the current device and invalidate its token.
-    virtual void logout(ResultCallback callback) = 0;
+    virtual void logout(AnyChatCallback callback) = 0;
 
     // Exchange a refresh_token for a new AccessToken.
-    virtual void refreshToken(const std::string& refresh_token, AuthCallback callback) = 0;
+    virtual void refreshToken(const std::string& refresh_token, AnyChatValueCallback<AuthToken> callback) = 0;
 
     // Change the current user's password (requires a valid access_token).
     virtual void
-    changePassword(const std::string& old_password, const std::string& new_password, ResultCallback callback) = 0;
+    changePassword(const std::string& old_password, const std::string& new_password, AnyChatCallback callback) = 0;
 
     // Reset password (forgot password flow).
     virtual void resetPassword(
         const std::string& account,
         const std::string& verify_code,
         const std::string& new_password,
-        ResultCallback callback
+        AnyChatCallback callback
     ) = 0;
 
     // Query logged-in devices for current user.
-    virtual void getDeviceList(DeviceListCallback callback) = 0;
+    virtual void getDeviceList(AnyChatValueCallback<std::vector<AuthDevice>> callback) = 0;
 
     // Force logout a specific device by device_id.
-    virtual void logoutDevice(const std::string& device_id, ResultCallback callback) = 0;
+    virtual void logoutDevice(const std::string& device_id, AnyChatCallback callback) = 0;
 
     virtual bool isLoggedIn() const = 0;
     virtual AuthToken currentToken() const = 0;
 
     // Checks token expiry; if expired (or about to expire) refreshes automatically.
-    // Calls cb(true, "") on success, cb(false, reason) on failure.
-    virtual void ensureValidToken(ResultCallback cb) = 0;
+    virtual void ensureValidToken(AnyChatCallback cb) = 0;
 
     // Fired when the access token has expired and cannot be refreshed
     // (e.g. refresh token also invalid). The client must re-login.

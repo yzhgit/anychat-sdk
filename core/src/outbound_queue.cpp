@@ -45,7 +45,7 @@ void OutboundQueue::enqueue(
     const std::string& content_type,
     const std::string& content,
     const std::string& local_id,
-    MessageCallback cb
+    AnyChatCallback cb
 ) {
     const int64_t now_s =
         std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -65,7 +65,7 @@ void OutboundQueue::enqueue(
     SendFn current_send_fn;
     {
         std::lock_guard lock(mu_);
-        if (cb) {
+        if (cb.on_success || cb.on_error) {
             callbacks_.emplace(local_id, std::move(cb));
         }
         current_send_fn = send_fn_;
@@ -131,7 +131,7 @@ void OutboundQueue::onMessageSentAck(const MsgSentAck& ack) {
     db_->exec("DELETE FROM outbound_queue WHERE local_id = ?", { ack.local_id });
 
     // Extract and invoke the callback outside the lock.
-    MessageCallback cb;
+    AnyChatCallback cb{};
     {
         std::lock_guard lock(mu_);
         auto it = callbacks_.find(ack.local_id);
@@ -141,8 +141,8 @@ void OutboundQueue::onMessageSentAck(const MsgSentAck& ack) {
         }
     }
 
-    if (cb) {
-        cb(true, "");
+    if (cb.on_success) {
+        cb.on_success();
     }
 }
 

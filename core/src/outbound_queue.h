@@ -45,7 +45,7 @@ public:
         const std::string& content_type,
         const std::string& content,
         const std::string& local_id,
-        MessageCallback cb
+        AnyChatCallback cb
     );
 
     // Called when the WebSocket connection is established.
@@ -62,8 +62,8 @@ public:
     bool sendTransient(const std::string& json_payload);
 
     // Called by NotificationManager (or equivalent) when the server echoes a
-    // message.sent acknowledgement.  Matches by local_id, marks the DB row as
-    // sent (status=1), and invokes the stored callback with success=true.
+    // message.sent acknowledgement. Matches by local_id, removes the DB row,
+    // and invokes the stored success callback.
     void onMessageSentAck(const MsgSentAck& ack);
 
 private:
@@ -96,7 +96,7 @@ private:
 
     // In-memory map from local_id → completion callback.
     // Populated by enqueue(), consumed by onMessageSentAck().
-    std::unordered_map<std::string, MessageCallback> callbacks_;
+    std::unordered_map<std::string, AnyChatCallback> callbacks_;
 };
 
 } // namespace anychat

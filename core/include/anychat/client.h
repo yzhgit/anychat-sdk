@@ -63,10 +63,10 @@ public:
         const std::string& password,
         const std::string& device_type,
         const std::string& client_version,
-        AuthCallback callback
+        AnyChatValueCallback<AuthToken> callback
     ) = 0;
 
-    virtual void logout(ResultCallback callback) = 0;
+    virtual void logout(AnyChatCallback callback) = 0;
 
     virtual bool isLoggedIn() const = 0;
     virtual AuthToken getCurrentToken() const = 0;

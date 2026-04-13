@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -208,19 +209,29 @@ TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
 }
 
 TEST_F(FriendManagerTest, GetListDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getFriendList([](const std::vector<anychat::Friend>&, const std::string&) {}));
+    anychat::AnyChatValueCallback<std::vector<anychat::Friend>> callback{};
+    callback.on_success = [](const std::vector<anychat::Friend>&) {};
+    callback.on_error = [](int, const std::string&) {};
+    EXPECT_NO_THROW(mgr_->getFriendList(std::move(callback)));
 }
 
 TEST_F(FriendManagerTest, SendRequestWithSourceDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->addFriend("user-target-001", "hi", "search", [](bool /*ok*/, const std::string& /*err*/) {}));
+    anychat::AnyChatCallback callback{};
+    callback.on_success = []() {};
+    callback.on_error = [](int, const std::string&) {};
+    EXPECT_NO_THROW(mgr_->addFriend("user-target-001", "hi", "search", std::move(callback)));
 }
 
 TEST_F(FriendManagerTest, GetRequestsDoesNotCrash) {
-    EXPECT_NO_THROW(
-        mgr_->getFriendRequests("received", [](const std::vector<anychat::FriendRequest>&, const std::string&) {})
-    );
+    anychat::AnyChatValueCallback<std::vector<anychat::FriendRequest>> callback{};
+    callback.on_success = [](const std::vector<anychat::FriendRequest>&) {};
+    callback.on_error = [](int, const std::string&) {};
+    EXPECT_NO_THROW(mgr_->getFriendRequests("received", std::move(callback)));
 }
 
 TEST_F(FriendManagerTest, GetBlacklistDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getBlacklist([](const std::vector<anychat::BlacklistItem>&, const std::string&) {}));
+    anychat::AnyChatValueCallback<std::vector<anychat::BlacklistItem>> callback{};
+    callback.on_success = [](const std::vector<anychat::BlacklistItem>&) {};
+    callback.on_error = [](int, const std::string&) {};
+    EXPECT_NO_THROW(mgr_->getBlacklist(std::move(callback)));
 }

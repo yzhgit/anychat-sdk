@@ -8,22 +8,39 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatVersionCheckCallback)(
-    void* userdata,
-    int success,
-    const AnyChatVersionCheckResult_C* result,
-    const char* error
-);
+typedef void (*AnyChatVersionErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatVersionCheckSuccessCallback)(void* userdata, const AnyChatVersionCheckResult_C* result);
+typedef void (*AnyChatVersionInfoSuccessCallback)(void* userdata, const AnyChatVersionInfo_C* version);
+typedef void (*AnyChatVersionListSuccessCallback)(void* userdata, const AnyChatVersionList_C* list);
+typedef void (*AnyChatVersionSuccessCallback)(void* userdata);
 
-typedef void (*AnyChatVersionInfoCallback)(
-    void* userdata,
-    int success,
-    const AnyChatVersionInfo_C* version,
-    const char* error
-);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatVersionCheckSuccessCallback on_success;
+    AnyChatVersionErrorCallback on_error;
+} AnyChatVersionCheckCallback_C;
 
-typedef void (*AnyChatVersionListCallback)(void* userdata, const AnyChatVersionList_C* list, const char* error);
-typedef void (*AnyChatVersionResultCallback)(void* userdata, int success, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatVersionInfoSuccessCallback on_success;
+    AnyChatVersionErrorCallback on_error;
+} AnyChatVersionInfoCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatVersionListSuccessCallback on_success;
+    AnyChatVersionErrorCallback on_error;
+} AnyChatVersionListCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatVersionSuccessCallback on_success;
+    AnyChatVersionErrorCallback on_error;
+} AnyChatVersionCallback_C;
 
 /* ---- Version operations ---- */
 
@@ -33,8 +50,7 @@ ANYCHAT_C_API int anychat_version_check(
     const char* platform,
     const char* version,
     int32_t build_number,
-    void* userdata,
-    AnyChatVersionCheckCallback callback
+    const AnyChatVersionCheckCallback_C* callback
 );
 
 /* GET /versions/latest?platform=&releaseType= */
@@ -42,8 +58,7 @@ ANYCHAT_C_API int anychat_version_get_latest(
     AnyChatVersionHandle handle,
     const char* platform,
     const char* release_type,
-    void* userdata,
-    AnyChatVersionInfoCallback callback
+    const AnyChatVersionInfoCallback_C* callback
 );
 
 /* GET /versions/list?platform=&releaseType=&page=&pageSize= */
@@ -53,8 +68,7 @@ ANYCHAT_C_API int anychat_version_list(
     const char* release_type,
     int page,
     int page_size,
-    void* userdata,
-    AnyChatVersionListCallback callback
+    const AnyChatVersionListCallback_C* callback
 );
 
 /* POST /versions/report */
@@ -66,8 +80,7 @@ ANYCHAT_C_API int anychat_version_report(
     const char* device_id,
     const char* os_version,
     const char* sdk_version,
-    void* userdata,
-    AnyChatVersionResultCallback callback
+    const AnyChatVersionCallback_C* callback
 );
 
 #ifdef __cplusplus

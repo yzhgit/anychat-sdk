@@ -8,30 +8,39 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-/* Fired after login / register / refreshToken.
- * success: 1 on success, 0 on failure.
- * token:   valid only when success == 1.
- * error:   valid only when success == 0 (never NULL). */
-typedef void (*AnyChatAuthCallback)(void* userdata, int success, const AnyChatAuthToken_C* token, const char* error);
+typedef void (*AnyChatAuthErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatAuthSuccessCallback)(void* userdata);
+typedef void (*AnyChatAuthTokenSuccessCallback)(void* userdata, const AnyChatAuthToken_C* token);
+typedef void (*AnyChatVerificationCodeSuccessCallback)(void* userdata, const AnyChatVerificationCodeResult_C* result);
+typedef void (*AnyChatAuthDeviceListSuccessCallback)(void* userdata, const AnyChatAuthDeviceList_C* list);
 
-/* Fired after logout / changePassword.
- * success: 1 on success, 0 on failure.
- * error:   valid only when success == 0 (never NULL). */
-typedef void (*AnyChatResultCallback)(void* userdata, int success, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatAuthTokenSuccessCallback on_success;
+    AnyChatAuthErrorCallback on_error;
+} AnyChatAuthTokenCallback_C;
 
-/* Fired after send-code.
- * success: 1 on success, 0 on failure.
- * result:  valid only when success == 1. */
-typedef void (*AnyChatSendCodeCallback)(
-    void* userdata,
-    int success,
-    const AnyChatVerificationCodeResult_C* result,
-    const char* error
-);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatAuthSuccessCallback on_success;
+    AnyChatAuthErrorCallback on_error;
+} AnyChatAuthResultCallback_C;
 
-/* Fired after get-device-list.
- * list: valid only when error == NULL. */
-typedef void (*AnyChatAuthDeviceListCallback)(void* userdata, const AnyChatAuthDeviceList_C* list, const char* error);
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatVerificationCodeSuccessCallback on_success;
+    AnyChatAuthErrorCallback on_error;
+} AnyChatVerificationCodeCallback_C;
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatAuthDeviceListSuccessCallback on_success;
+    AnyChatAuthErrorCallback on_error;
+} AnyChatAuthDeviceListCallback_C;
 
 /* ---- Auth operations ---- */
 
@@ -45,8 +54,7 @@ ANYCHAT_C_API int anychat_auth_login(
     const char* password,
     const char* device_type,
     const char* client_version,
-    void* userdata,
-    AnyChatAuthCallback callback
+    const AnyChatAuthTokenCallback_C* callback
 );
 
 /* Register a new account.
@@ -61,8 +69,7 @@ ANYCHAT_C_API int anychat_auth_register(
     const char* device_type,
     const char* nickname,
     const char* client_version,
-    void* userdata,
-    AnyChatAuthCallback callback
+    const AnyChatAuthTokenCallback_C* callback
 );
 
 /* Send verification code.
@@ -73,19 +80,17 @@ ANYCHAT_C_API int anychat_auth_send_code(
     const char* target,
     const char* target_type,
     const char* purpose,
-    void* userdata,
-    AnyChatSendCodeCallback callback
+    const AnyChatVerificationCodeCallback_C* callback
 );
 
 /* Logout the current device. */
-ANYCHAT_C_API int anychat_auth_logout(AnyChatAuthHandle handle, void* userdata, AnyChatResultCallback callback);
+ANYCHAT_C_API int anychat_auth_logout(AnyChatAuthHandle handle, const AnyChatAuthResultCallback_C* callback);
 
 /* Exchange a refresh token for a new access token. */
 ANYCHAT_C_API int anychat_auth_refresh_token(
     AnyChatAuthHandle handle,
     const char* refresh_token,
-    void* userdata,
-    AnyChatAuthCallback callback
+    const AnyChatAuthTokenCallback_C* callback
 );
 
 /* Change password (requires a valid access token). */
@@ -93,8 +98,7 @@ ANYCHAT_C_API int anychat_auth_change_password(
     AnyChatAuthHandle handle,
     const char* old_password,
     const char* new_password,
-    void* userdata,
-    AnyChatResultCallback callback
+    const AnyChatAuthResultCallback_C* callback
 );
 
 /* Reset password via verification code. */
@@ -103,20 +107,18 @@ ANYCHAT_C_API int anychat_auth_reset_password(
     const char* account,
     const char* verify_code,
     const char* new_password,
-    void* userdata,
-    AnyChatResultCallback callback
+    const AnyChatAuthResultCallback_C* callback
 );
 
 /* Query current user's device list. */
 ANYCHAT_C_API int
-anychat_auth_get_device_list(AnyChatAuthHandle handle, void* userdata, AnyChatAuthDeviceListCallback callback);
+anychat_auth_get_device_list(AnyChatAuthHandle handle, const AnyChatAuthDeviceListCallback_C* callback);
 
 /* Force logout specified device. */
 ANYCHAT_C_API int anychat_auth_logout_device(
     AnyChatAuthHandle handle,
     const char* device_id,
-    void* userdata,
-    AnyChatResultCallback callback
+    const AnyChatAuthResultCallback_C* callback
 );
 
 /* ---- State queries ---- */

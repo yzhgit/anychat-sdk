@@ -7,6 +7,25 @@
 
 #include <gtest/gtest.h>
 
+namespace {
+
+anychat::AnyChatCallback makeNoopCallback() {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = []() {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+template <typename T>
+anychat::AnyChatValueCallback<T> makeNoopValueCallback() {
+    anychat::AnyChatValueCallback<T> callback{};
+    callback.on_success = [](const T&) {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+} // namespace
+
 // ===========================================================================
 // Fixture
 // ===========================================================================
@@ -28,25 +47,32 @@ protected:
 
 // ---------------------------------------------------------------------------
 // 1. UploadNonExistentFileReportsError
-//    upload() with a path that doesn't exist should invoke the on_done
-//    callback with ok=false; it must not crash.
+//    upload() with a path that doesn't exist should invoke the error callback;
+//    it must not crash.
 // ---------------------------------------------------------------------------
 TEST_F(FileManagerTest, UploadNonExistentFileReportsError) {
-    bool cb_called = false;
-    bool ok_flag = true;
+    bool error_called = false;
+    int error_code = 0;
+    std::string error_message;
 
     mgr_->upload(
         "/nonexistent/path/file.bin",
         "file",
         nullptr, // no progress callback
-        [&](bool ok, const anychat::FileInfo& /*info*/, const std::string& /*err*/) {
-            cb_called = true;
-            ok_flag = ok;
+        anychat::AnyChatValueCallback<anychat::FileInfo>{
+            .on_success = [](const anychat::FileInfo&) {},
+            .on_error =
+                [&](int code, const std::string& error) {
+                    error_called = true;
+                    error_code = code;
+                    error_message = error;
+                },
         }
     );
 
-    EXPECT_TRUE(cb_called) << "on_done callback should be called";
-    EXPECT_FALSE(ok_flag) << "Upload of a non-existent file should fail";
+    EXPECT_TRUE(error_called) << "on_error callback should be called";
+    EXPECT_EQ(error_code, -1);
+    EXPECT_FALSE(error_message.empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -55,47 +81,54 @@ TEST_F(FileManagerTest, UploadNonExistentFileReportsError) {
 //    an error response, but no crash should occur.
 // ---------------------------------------------------------------------------
 TEST_F(FileManagerTest, GetDownloadUrlDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getDownloadUrl("file-id-999", [](bool /*ok*/, std::string /*url*/, std::string /*err*/) {}));
+    EXPECT_NO_THROW(mgr_->getDownloadUrl("file-id-999", makeNoopValueCallback<std::string>()));
 }
 
 // ---------------------------------------------------------------------------
 // 3. GetFileInfoDoesNotCrash
 // ---------------------------------------------------------------------------
 TEST_F(FileManagerTest, GetFileInfoDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getFileInfo("file-id-999", [](bool /*ok*/, anychat::FileInfo /*info*/, std::string /*err*/) {}));
+    EXPECT_NO_THROW(mgr_->getFileInfo("file-id-999", makeNoopValueCallback<anychat::FileInfo>()));
 }
 
 // ---------------------------------------------------------------------------
 // 4. ListFilesDoesNotCrash
 // ---------------------------------------------------------------------------
 TEST_F(FileManagerTest, ListFilesDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->listFiles("", 1, 20, [](std::vector<anychat::FileInfo> /*files*/, int64_t /*total*/, std::string /*err*/) {}));
+    EXPECT_NO_THROW(mgr_->listFiles("", 1, 20, makeNoopValueCallback<anychat::FileListResult>()));
 }
 
 // ---------------------------------------------------------------------------
 // 5. UploadClientLogNonExistentFileReportsError
 // ---------------------------------------------------------------------------
 TEST_F(FileManagerTest, UploadClientLogNonExistentFileReportsError) {
-    bool cb_called = false;
-    bool ok_flag = true;
+    bool error_called = false;
+    int error_code = 0;
+    std::string error_message;
 
     mgr_->uploadClientLog(
         "/nonexistent/path/client.log",
         nullptr,
-        [&](bool ok, const anychat::FileInfo& /*info*/, const std::string& /*err*/) {
-            cb_called = true;
-            ok_flag = ok;
+        anychat::AnyChatValueCallback<anychat::FileInfo>{
+            .on_success = [](const anychat::FileInfo&) {},
+            .on_error =
+                [&](int code, const std::string& error) {
+                    error_called = true;
+                    error_code = code;
+                    error_message = error;
+                },
         },
         24
     );
 
-    EXPECT_TRUE(cb_called) << "on_done callback should be called";
-    EXPECT_FALSE(ok_flag) << "Upload of a non-existent log file should fail";
+    EXPECT_TRUE(error_called) << "on_error callback should be called";
+    EXPECT_EQ(error_code, -1);
+    EXPECT_FALSE(error_message.empty());
 }
 
 // ---------------------------------------------------------------------------
 // 6. DeleteFileDoesNotCrash
 // ---------------------------------------------------------------------------
 TEST_F(FileManagerTest, DeleteFileDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->deleteFile("file-id-999", [](bool /*ok*/, const std::string& /*err*/) {}));
+    EXPECT_NO_THROW(mgr_->deleteFile("file-id-999", makeNoopCallback()));
 }

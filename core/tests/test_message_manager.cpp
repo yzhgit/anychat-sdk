@@ -13,6 +13,25 @@
 
 #include <gtest/gtest.h>
 
+namespace {
+
+anychat::AnyChatCallback makeNoopCallback() {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = []() {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+template<typename T>
+anychat::AnyChatValueCallback<T> makeNoopValueCallback() {
+    anychat::AnyChatValueCallback<T> callback{};
+    callback.on_success = [](const T&) {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+} // namespace
+
 class MessageManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -102,9 +121,15 @@ public:
 TEST_F(MessageManagerTest, SendTextMessageEnqueues) {
     bool cb_called = false;
 
-    mgr_->sendTextMessage("conv-1", "hello", [&cb_called](bool /*success*/, const std::string& /*err*/) {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = [&cb_called]() {
         cb_called = true;
-    });
+    };
+    callback.on_error = [&cb_called](int, const std::string&) {
+        cb_called = true;
+    };
+
+    mgr_->sendTextMessage("conv-1", "hello", std::move(callback));
 
     drainDb();
 
@@ -206,9 +231,9 @@ TEST_F(MessageManagerTest, NonMessageNewNotificationDoesNotFireHandler) {
 }
 
 TEST_F(MessageManagerTest, SendTextMessageMultiple) {
-    mgr_->sendTextMessage("conv-m", "first", nullptr);
-    mgr_->sendTextMessage("conv-m", "second", nullptr);
-    mgr_->sendTextMessage("conv-m", "third", nullptr);
+    mgr_->sendTextMessage("conv-m", "first", anychat::AnyChatCallback{});
+    mgr_->sendTextMessage("conv-m", "second", anychat::AnyChatCallback{});
+    mgr_->sendTextMessage("conv-m", "third", anychat::AnyChatCallback{});
 
     drainDb();
 
@@ -388,16 +413,58 @@ TEST_F(MessageManagerTest, MessageReadReceiptNotificationCallback) {
 
 TEST_F(MessageManagerTest, SendTypingWithoutWebSocketFails) {
     bool cb_called = false;
-    bool cb_success = true;
+    int cb_code = 0;
     std::string cb_error;
 
-    mgr_->sendTyping("conv-typing", true, 5, [&](bool success, const std::string& error) {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = [&cb_called]() {
         cb_called = true;
-        cb_success = success;
+    };
+    callback.on_error = [&cb_called, &cb_code, &cb_error](int code, const std::string& error) {
+        cb_called = true;
+        cb_code = code;
         cb_error = error;
-    });
+    };
+
+    mgr_->sendTyping("conv-typing", true, 5, std::move(callback));
 
     EXPECT_TRUE(cb_called);
-    EXPECT_FALSE(cb_success);
+    EXPECT_EQ(cb_code, -1);
     EXPECT_FALSE(cb_error.empty());
+}
+
+TEST_F(MessageManagerTest, GetHistoryDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getHistory("conv-1", 0, 20, makeNoopValueCallback<std::vector<anychat::Message>>()));
+}
+
+TEST_F(MessageManagerTest, MarkAsReadDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->markAsRead("conv-1", "msg-1", makeNoopCallback()));
+}
+
+TEST_F(MessageManagerTest, GetOfflineMessagesDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getOfflineMessages(0, 20, makeNoopValueCallback<anychat::MessageOfflineResult>()));
+}
+
+TEST_F(MessageManagerTest, AckMessagesDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->ackMessages("conv-1", std::vector<std::string>{ "msg-1", "msg-2" }, makeNoopCallback()));
+}
+
+TEST_F(MessageManagerTest, GetGroupMessageReadStateDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getGroupMessageReadState("group-1", "msg-1", makeNoopValueCallback<anychat::GroupMessageReadState>()));
+}
+
+TEST_F(MessageManagerTest, SearchMessagesDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->searchMessages("hello", "conv-1", "text", 20, 0, makeNoopValueCallback<anychat::MessageSearchResult>()));
+}
+
+TEST_F(MessageManagerTest, RecallMessageDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->recallMessage("msg-1", makeNoopCallback()));
+}
+
+TEST_F(MessageManagerTest, DeleteMessageDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->deleteMessage("msg-1", makeNoopCallback()));
+}
+
+TEST_F(MessageManagerTest, EditMessageDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->editMessage("msg-1", "updated", makeNoopCallback()));
 }

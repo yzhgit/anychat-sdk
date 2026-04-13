@@ -15,6 +15,21 @@
 
 namespace {
 
+anychat::AnyChatCallback makeNoopCallback() {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = []() {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+template <typename T>
+anychat::AnyChatValueCallback<T> makeNoopValueCallback() {
+    anychat::AnyChatValueCallback<T> callback{};
+    callback.on_success = [](const T&) {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
 // Create a shared HttpClient pointing at a dummy URL (no real network used).
 std::shared_ptr<anychat::network::HttpClient> makeDummyHttp() {
     return std::make_shared<anychat::network::HttpClient>("http://localhost:19999");
@@ -154,6 +169,151 @@ TEST(AuthManagerTest, NoTokenWithNullDb) {
     auto http = makeDummyHttp();
     auto auth = anychat::createAuthManager(http, "device-no-db", nullptr);
     EXPECT_FALSE(auth->isLoggedIn()) << "AuthManager with null DB should not be logged in";
+}
+
+TEST(AuthManagerTest, RegisterDoesNotCrash) {
+    auto db = makeDb();
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-001", db.get());
+
+    EXPECT_NO_THROW(auth->registerUser(
+        "13800138000",
+        "password123",
+        "654321",
+        "ios",
+        "tester",
+        "1.0.0",
+        makeNoopValueCallback<anychat::AuthToken>()
+    ));
+}
+
+TEST(AuthManagerTest, SendVerificationCodeDoesNotCrash) {
+    auto db = makeDb();
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-002", db.get());
+
+    EXPECT_NO_THROW(auth->sendVerificationCode(
+        "13800138000",
+        "sms",
+        "register",
+        makeNoopValueCallback<anychat::VerificationCodeResult>()
+    ));
+}
+
+TEST(AuthManagerTest, LoginDoesNotCrash) {
+    auto db = makeDb();
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-003", db.get());
+
+    EXPECT_NO_THROW(auth->login(
+        "13800138000",
+        "password123",
+        "ios",
+        "1.0.0",
+        makeNoopValueCallback<anychat::AuthToken>()
+    ));
+}
+
+TEST(AuthManagerTest, LogoutDoesNotCrash) {
+    auto db = makeDb();
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-004", db.get());
+
+    EXPECT_NO_THROW(auth->logout(makeNoopCallback()));
+}
+
+TEST(AuthManagerTest, RefreshTokenDoesNotCrash) {
+    auto db = makeDb();
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-005", db.get());
+
+    EXPECT_NO_THROW(auth->refreshToken("refresh-token", makeNoopValueCallback<anychat::AuthToken>()));
+}
+
+TEST(AuthManagerTest, ChangePasswordDoesNotCrash) {
+    auto db = makeDb();
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-006", db.get());
+
+    EXPECT_NO_THROW(auth->changePassword("old-password", "new-password", makeNoopCallback()));
+}
+
+TEST(AuthManagerTest, ResetPasswordDoesNotCrash) {
+    auto db = makeDb();
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-007", db.get());
+
+    EXPECT_NO_THROW(auth->resetPassword("13800138000", "654321", "new-password", makeNoopCallback()));
+}
+
+TEST(AuthManagerTest, GetDeviceListDoesNotCrash) {
+    auto db = makeDb();
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-008", db.get());
+
+    EXPECT_NO_THROW(auth->getDeviceList(makeNoopValueCallback<std::vector<anychat::AuthDevice>>()));
+}
+
+TEST(AuthManagerTest, LogoutDeviceDoesNotCrash) {
+    auto db = makeDb();
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-009", db.get());
+
+    EXPECT_NO_THROW(auth->logoutDevice("device-other-001", makeNoopCallback()));
+}
+
+TEST(AuthManagerTest, EnsureValidTokenWithoutRefreshTokenReportsErrorAndFiresListener) {
+    auto db = makeDb();
+    anychat::NotificationManager notif_mgr;
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-010", db.get(), &notif_mgr);
+
+    bool expired_called = false;
+    bool error_called = false;
+    int error_code = 0;
+    std::string error_message;
+    auth->setListener(std::make_shared<TestAuthListener>(&expired_called));
+
+    auth->ensureValidToken(anychat::AnyChatCallback{
+        .on_success = []() {},
+        .on_error =
+            [&](int code, const std::string& error) {
+                error_called = true;
+                error_code = code;
+                error_message = error;
+            },
+    });
+
+    EXPECT_TRUE(expired_called);
+    EXPECT_TRUE(error_called);
+    EXPECT_EQ(error_code, -1);
+    EXPECT_EQ(error_message, "no refresh token");
+}
+
+TEST(AuthManagerTest, EnsureValidTokenWithValidTokenShortCircuitsSuccess) {
+    auto db = makeDb();
+    int64_t future_expires_ms = (static_cast<int64_t>(std::time(nullptr)) + 7200) * 1000;
+    db->setMeta("auth.access_token", "eyJ_valid_access_token");
+    db->setMeta("auth.refresh_token", "eyJ_valid_refresh_token");
+    db->setMeta("auth.expires_at_ms", std::to_string(future_expires_ms));
+
+    auto http = makeDummyHttp();
+    auto auth = anychat::createAuthManager(http, "device-auth-011", db.get());
+
+    bool success_called = false;
+    bool error_called = false;
+    auth->ensureValidToken(anychat::AnyChatCallback{
+        .on_success = [&]() {
+            success_called = true;
+        },
+        .on_error =
+            [&](int, const std::string&) {
+                error_called = true;
+            },
+    });
+
+    EXPECT_TRUE(success_called);
+    EXPECT_FALSE(error_called);
 }
 
 // ---------------------------------------------------------------------------

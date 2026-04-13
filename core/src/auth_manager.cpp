@@ -11,10 +11,8 @@
 namespace anychat::auth_manager_detail {
 
 using json_common::ApiEnvelope;
-using json_common::ApiStatus;
 using json_common::nowMs;
 using json_common::parseApiEnvelopeResponse;
-using json_common::parseApiStatusResponse;
 using json_common::parseBoolValue;
 using json_common::parseJsonObject;
 using json_common::parseTimestampMs;
@@ -113,7 +111,6 @@ const std::vector<AuthDevicePayload>* toDevicePayloadList(const DeviceListDataPa
 namespace anychat {
 using namespace auth_manager_detail;
 
-
 AuthManagerImpl::AuthManagerImpl(
     std::shared_ptr<network::HttpClient> http,
     std::string device_id,
@@ -150,7 +147,7 @@ void AuthManagerImpl::registerUser(
     const std::string& device_type,
     const std::string& nickname,
     const std::string& client_version,
-    AuthCallback callback
+    AnyChatValueCallback<AuthToken> callback
 ) {
     RegisterUserRequest body{
         .password = password,
@@ -172,7 +169,9 @@ void AuthManagerImpl::registerUser(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
@@ -185,7 +184,7 @@ void AuthManagerImpl::sendVerificationCode(
     const std::string& target,
     const std::string& target_type,
     const std::string& purpose,
-    SendCodeCallback callback
+    AnyChatValueCallback<VerificationCodeResult> callback
 ) {
     SendVerificationCodeRequest body{
         .target = target,
@@ -197,22 +196,27 @@ void AuthManagerImpl::sendVerificationCode(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post("/auth/send-code", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<VerificationCodePayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "send code failed")) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "send code failed")) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
         VerificationCodeResult result;
         result.code_id = root.data.code_id;
         result.expires_in = root.data.expires_in;
-        cb(true, result, "");
+        if (cb.on_success) {
+            cb.on_success(result);
+        }
     });
 }
 
@@ -221,7 +225,7 @@ void AuthManagerImpl::login(
     const std::string& password,
     const std::string& device_type,
     const std::string& client_version,
-    AuthCallback callback
+    AnyChatValueCallback<AuthToken> callback
 ) {
     LoginRequest body{
         .account = account,
@@ -234,7 +238,9 @@ void AuthManagerImpl::login(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
@@ -243,39 +249,52 @@ void AuthManagerImpl::login(
     });
 }
 
-void AuthManagerImpl::logout(ResultCallback callback) {
+void AuthManagerImpl::logout(AnyChatCallback callback) {
     const LogoutRequest body{.device_id = device_id_};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
-    http_->post("/auth/logout", body_json, [this, cb = std::move(callback)](network::HttpResponse resp) {
+    auto cb_ptr = std::make_shared<AnyChatCallback>(std::move(callback));
+    http_->post("/auth/logout", body_json, [this, cb_ptr](network::HttpResponse resp) {
         handleResultResponse(
             std::move(resp),
             "logout failed",
-            [this, cb = std::move(cb)](bool success, const std::string& error) {
-                if (success) {
-                    clearToken();
-                    http_->clearAuthToken();
-                }
-                cb(success, error);
+            AnyChatCallback{
+                .on_success =
+                    [this, cb_ptr]() {
+                        clearToken();
+                        http_->clearAuthToken();
+                        if (cb_ptr->on_success) {
+                            cb_ptr->on_success();
+                        }
+                    },
+                .on_error =
+                    [cb_ptr](int code, const std::string& error) {
+                        if (cb_ptr->on_error) {
+                            cb_ptr->on_error(code, error);
+                        }
+                    },
             }
         );
     });
 }
 
-void AuthManagerImpl::getDeviceList(DeviceListCallback callback) {
-    auto cb = std::make_shared<DeviceListCallback>(std::move(callback));
+void AuthManagerImpl::getDeviceList(AnyChatValueCallback<std::vector<AuthDevice>> callback) {
+    auto cb = std::make_shared<AnyChatValueCallback<std::vector<AuthDevice>>>(std::move(callback));
 
     auto parse_response = [cb](network::HttpResponse resp) {
         ApiEnvelope<DeviceListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "get device list failed")) {
-            (*cb)(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root, "get device list failed")) {
+            if (cb->on_error) {
+                cb->on_error(root.code, root.message);
+            }
             return;
         }
 
@@ -295,7 +314,9 @@ void AuthManagerImpl::getDeviceList(DeviceListCallback callback) {
             }
         }
 
-        (*cb)(true, devices, "");
+        if (cb->on_success) {
+            cb->on_success(devices);
+        }
     };
 
     http_->post("/auth/device/list", "{}", [this, parse_response](network::HttpResponse resp) {
@@ -309,13 +330,15 @@ void AuthManagerImpl::getDeviceList(DeviceListCallback callback) {
     });
 }
 
-void AuthManagerImpl::logoutDevice(const std::string& device_id, ResultCallback callback) {
+void AuthManagerImpl::logoutDevice(const std::string& device_id, AnyChatCallback callback) {
     const LogoutDeviceRequest body{.device_id = device_id};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
@@ -338,13 +361,15 @@ void AuthManagerImpl::logoutDevice(const std::string& device_id, ResultCallback 
     );
 }
 
-void AuthManagerImpl::refreshToken(const std::string& refresh_token, AuthCallback callback) {
+void AuthManagerImpl::refreshToken(const std::string& refresh_token, AnyChatValueCallback<AuthToken> callback) {
     const RefreshTokenRequest body{.refresh_token = refresh_token};
 
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, {}, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
@@ -356,7 +381,7 @@ void AuthManagerImpl::refreshToken(const std::string& refresh_token, AuthCallbac
 void AuthManagerImpl::changePassword(
     const std::string& old_password,
     const std::string& new_password,
-    ResultCallback callback
+    AnyChatCallback callback
 ) {
     const ChangePasswordRequest body{
         .device_id = device_id_,
@@ -367,7 +392,9 @@ void AuthManagerImpl::changePassword(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
@@ -380,7 +407,7 @@ void AuthManagerImpl::resetPassword(
     const std::string& account,
     const std::string& verify_code,
     const std::string& new_password,
-    ResultCallback callback
+    AnyChatCallback callback
 ) {
     const ResetPasswordRequest body{
         .account = account,
@@ -391,7 +418,9 @@ void AuthManagerImpl::resetPassword(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
@@ -410,7 +439,7 @@ AuthToken AuthManagerImpl::currentToken() const {
     return token_;
 }
 
-void AuthManagerImpl::ensureValidToken(ResultCallback cb) {
+void AuthManagerImpl::ensureValidToken(AnyChatCallback cb) {
     AuthToken token_snapshot;
     {
         std::lock_guard<std::mutex> lock(token_mutex_);
@@ -419,7 +448,9 @@ void AuthManagerImpl::ensureValidToken(ResultCallback cb) {
 
     const int64_t now_ms = nowMs();
     if (!token_snapshot.access_token.empty() && token_snapshot.expires_at_ms > now_ms + kTokenRefreshLeewayMs) {
-        cb(true, "");
+        if (cb.on_success) {
+            cb.on_success();
+        }
         return;
     }
 
@@ -432,23 +463,38 @@ void AuthManagerImpl::ensureValidToken(ResultCallback cb) {
         if (listener) {
             listener->onAuthExpired();
         }
-        cb(false, "no refresh token");
+        if (cb.on_error) {
+            cb.on_error(-1, "no refresh token");
+        }
         return;
     }
 
-    refreshToken(token_snapshot.refresh_token, [this, cb = std::move(cb)](bool ok, const AuthToken&, const std::string& err) {
-        if (!ok) {
-            std::shared_ptr<AuthListener> listener;
-            {
-                std::lock_guard<std::mutex> lock(listener_mutex_);
-                listener = listener_;
-            }
-            if (listener) {
-                listener->onAuthExpired();
-            }
+    auto cb_ptr = std::make_shared<AnyChatCallback>(std::move(cb));
+    refreshToken(
+        token_snapshot.refresh_token,
+        AnyChatValueCallback<AuthToken>{
+            .on_success =
+                [cb_ptr](const AuthToken&) {
+                    if (cb_ptr->on_success) {
+                        cb_ptr->on_success();
+                    }
+                },
+            .on_error =
+                [this, cb_ptr](int code, const std::string& error) {
+                    std::shared_ptr<AuthListener> listener;
+                    {
+                        std::lock_guard<std::mutex> lock(listener_mutex_);
+                        listener = listener_;
+                    }
+                    if (listener) {
+                        listener->onAuthExpired();
+                    }
+                    if (cb_ptr->on_error) {
+                        cb_ptr->on_error(code, error);
+                    }
+                },
         }
-        cb(ok, err);
-    });
+    );
 }
 
 void AuthManagerImpl::setListener(std::shared_ptr<AuthListener> listener) {
@@ -459,35 +505,27 @@ void AuthManagerImpl::setListener(std::shared_ptr<AuthListener> listener) {
 void AuthManagerImpl::handleResultResponse(
     network::HttpResponse resp,
     const std::string& fallback_message,
-    const ResultCallback& cb
+    const AnyChatCallback& cb
 ) {
-    if (!cb) {
+    ApiEnvelope<void> root{};
+    if (!parseApiEnvelopeResponse(resp, root, fallback_message)) {
+        if (cb.on_error) {
+            cb.on_error(root.code, root.message);
+        }
         return;
     }
 
-    ApiStatus status{};
-    std::string err;
-    if (!parseApiStatusResponse(resp, status, err)) {
-        cb(false, err);
-        return;
+    if (cb.on_success) {
+        cb.on_success();
     }
-
-    if (status.code == 0) {
-        cb(true, "");
-        return;
-    }
-    cb(false, status.message.empty() ? fallback_message : status.message);
 }
 
-void AuthManagerImpl::handleAuthResponse(network::HttpResponse resp, const AuthCallback& callback) {
-    if (!callback) {
-        return;
-    }
-
+void AuthManagerImpl::handleAuthResponse(network::HttpResponse resp, const AnyChatValueCallback<AuthToken>& callback) {
     ApiEnvelope<AuthTokenPayload> root{};
-    std::string err;
-    if (!parseApiEnvelopeResponse(resp, root, err, "auth failed")) {
-        callback(false, {}, err);
+    if (!parseApiEnvelopeResponse(resp, root, "auth failed")) {
+        if (callback.on_error) {
+            callback.on_error(root.code, root.message);
+        }
         return;
     }
 
@@ -497,16 +535,19 @@ void AuthManagerImpl::handleAuthResponse(network::HttpResponse resp, const AuthC
     token.expires_at_ms = root.data.expires_in > 0 ? (nowMs() + root.data.expires_in * 1000) : 0;
 
     if (token.access_token.empty()) {
-        callback(false, {}, "auth failed: access_token is empty");
+        if (callback.on_error) {
+            callback.on_error(-1, "auth failed: access_token is empty");
+        }
         return;
     }
 
     storeToken(token);
     http_->setAuthToken(token.access_token);
 
-    callback(true, token, "");
+    if (callback.on_success) {
+        callback.on_success(token);
+    }
 }
-
 void AuthManagerImpl::handleAuthNotification(const NotificationEvent& event) {
     if (event.notification_type != "auth.force_logout") {
         return;

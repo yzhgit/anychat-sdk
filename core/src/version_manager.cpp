@@ -9,14 +9,12 @@
 #include <sstream>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace anychat {
 namespace version_detail {
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
-using json_common::parseApiStatusSuccessResponse;
 using json_common::parseTimestampMs;
 using json_common::writeJson;
 
@@ -147,10 +145,12 @@ void VersionManagerImpl::checkVersion(
     const std::string& platform,
     const std::string& version,
     int32_t build_number,
-    CheckVersionCallback callback
+    AnyChatValueCallback<VersionCheckResult> callback
 ) {
     if (platform.empty() || version.empty()) {
-        callback(false, {}, "platform and version are required");
+        if (callback.on_error) {
+            callback.on_error(-1, "platform and version are required");
+        }
         return;
     }
 
@@ -161,23 +161,28 @@ void VersionManagerImpl::checkVersion(
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<VersionCheckPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
-        cb(true, toCheckResult(root.data), "");
+        if (cb.on_success) {
+            cb.on_success(toCheckResult(root.data));
+        }
     });
 }
 
 void VersionManagerImpl::getLatestVersion(
     const std::string& platform,
     const std::string& release_type,
-    LatestVersionCallback callback
+    AnyChatValueCallback<AppVersionInfo> callback
 ) {
     if (platform.empty()) {
-        callback(false, {}, "platform is required");
+        if (callback.on_error) {
+            callback.on_error(-1, "platform is required");
+        }
         return;
     }
 
@@ -188,18 +193,23 @@ void VersionManagerImpl::getLatestVersion(
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<LatestVersionWrappedPayload> wrapped{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, wrapped, err)) {
-            cb(false, {}, err);
+        if (!parseApiEnvelopeResponse(resp, wrapped)) {
+            if (cb.on_error) {
+                cb.on_error(wrapped.code, wrapped.message);
+            }
             return;
         }
 
         if (!wrapped.data.version.has_value()) {
-            cb(false, {}, "missing version");
+            if (cb.on_error) {
+                cb.on_error(-1, "missing version");
+            }
             return;
         }
 
-        cb(true, toVersionInfo(*wrapped.data.version), "");
+        if (cb.on_success) {
+            cb.on_success(toVersionInfo(*wrapped.data.version));
+        }
     });
 }
 
@@ -208,7 +218,7 @@ void VersionManagerImpl::listVersions(
     const std::string& release_type,
     int page,
     int page_size,
-    VersionListCallback callback
+    AnyChatValueCallback<VersionListResult> callback
 ) {
     if (page < 1) {
         page = 1;
@@ -225,25 +235,31 @@ void VersionManagerImpl::listVersions(
         path += "&release_type=" + urlEncode(release_type);
     }
 
-    http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
+    http_->get(path, [cb = std::move(callback), page, page_size](network::HttpResponse resp) {
         ApiEnvelope<VersionListDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err)) {
-            cb({}, 0, err);
+        if (!parseApiEnvelopeResponse(resp, root)) {
+            if (cb.on_error) {
+                cb.on_error(root.code, root.message);
+            }
             return;
         }
 
         int64_t total = 0;
         const auto* payloads = pickVersionList(root.data, total);
-        std::vector<AppVersionInfo> versions;
+        VersionListResult result{};
+        result.total = total;
+        result.page = page;
+        result.page_size = page_size;
         if (payloads != nullptr) {
-            versions.reserve(payloads->size());
+            result.versions.reserve(payloads->size());
             for (const auto& item : *payloads) {
-                versions.push_back(toVersionInfo(item));
+                result.versions.push_back(toVersionInfo(item));
             }
         }
 
-        cb(versions, total, "");
+        if (cb.on_success) {
+            cb.on_success(result);
+        }
     });
 }
 
@@ -254,10 +270,12 @@ void VersionManagerImpl::reportVersion(
     const std::string& device_id,
     const std::string& os_version,
     const std::string& sdk_version,
-    ResultCallback callback
+    AnyChatCallback callback
 ) {
     if (platform.empty() || version.empty()) {
-        callback(false, "platform and version are required");
+        if (callback.on_error) {
+            callback.on_error(-1, "platform and version are required");
+        }
         return;
     }
 
@@ -278,14 +296,24 @@ void VersionManagerImpl::reportVersion(
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
-        callback(false, err);
+        if (callback.on_error) {
+            callback.on_error(-1, err);
+        }
         return;
     }
 
     http_->post("/versions/report", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
-        std::string err;
-        const bool ok = parseApiStatusSuccessResponse(resp, err);
-        cb(ok, ok ? "" : err);
+        ApiEnvelope<void> root{};
+        const bool ok = parseApiEnvelopeResponse(resp, root);
+        if (ok) {
+            if (cb.on_success) {
+                cb.on_success();
+            }
+            return;
+        }
+        if (cb.on_error) {
+            cb.on_error(root.code, root.message);
+        }
     });
 }
 

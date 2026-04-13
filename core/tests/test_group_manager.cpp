@@ -1,14 +1,35 @@
 #include "group_manager.h"
+#include "json_common.h"
 #include "notification_manager.h"
 
 #include "db/database.h"
 #include "network/http_client.h"
 
+#include <functional>
 #include <memory>
 #include <string>
-#include <functional>
+#include <vector>
 
 #include <gtest/gtest.h>
+
+namespace {
+
+anychat::AnyChatCallback makeNoopCallback() {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = []() {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+template <typename T>
+anychat::AnyChatValueCallback<T> makeNoopValueCallback() {
+    anychat::AnyChatValueCallback<T> callback{};
+    callback.on_success = [](const T&) {};
+    callback.on_error = [](int, const std::string&) {};
+    return callback;
+}
+
+} // namespace
 
 class GroupManagerTest : public ::testing::Test {
 protected:
@@ -52,20 +73,25 @@ public:
     }
 };
 
+struct GroupCreatePayloadForTest {
+    std::string group_id{};
+    std::string name{};
+};
+
 TEST_F(GroupManagerTest, GroupInvitedNotificationFiresHandler) {
     anychat::Group received{};
     std::string inviter_id;
     int call_count = 0;
 
     auto listener = std::make_shared<TestGroupListener>();
-    listener->on_invited = [&](const anychat::Group& g, const std::string& inviter) {
-        received = g;
+    listener->on_invited = [&](const anychat::Group& group, const std::string& inviter) {
+        received = group;
         inviter_id = inviter;
         ++call_count;
     };
     mgr_->setListener(listener);
 
-    const std::string frame = R"({
+    notif_mgr_->handleRaw(R"({
         "type": "notification",
         "payload": {
             "notification_id": "notif-group-invite-001",
@@ -73,16 +99,15 @@ TEST_F(GroupManagerTest, GroupInvitedNotificationFiresHandler) {
             "timestamp": 1708329600,
             "payload": {
                 "group_id": "grp-001",
-                "group_name": "项目讨论组",
+                "group_name": "demo-group",
                 "inviter_user_id": "user-inviter-111"
             }
         }
-    })";
-    notif_mgr_->handleRaw(frame);
+    })");
 
     ASSERT_EQ(call_count, 1);
     EXPECT_EQ(received.group_id, "grp-001");
-    EXPECT_EQ(received.name, "项目讨论组");
+    EXPECT_EQ(received.name, "demo-group");
     EXPECT_EQ(inviter_id, "user-inviter-111");
 }
 
@@ -90,13 +115,13 @@ TEST_F(GroupManagerTest, GroupInfoUpdatedNotificationFiresUpdatedHandler) {
     anychat::Group updated{};
     int call_count = 0;
     auto listener = std::make_shared<TestGroupListener>();
-    listener->on_updated = [&](const anychat::Group& g) {
-        updated = g;
+    listener->on_updated = [&](const anychat::Group& group) {
+        updated = group;
         ++call_count;
     };
     mgr_->setListener(listener);
 
-    const std::string frame = R"({
+    notif_mgr_->handleRaw(R"({
         "type": "notification",
         "payload": {
             "notification_id": "notif-group-update-001",
@@ -104,17 +129,16 @@ TEST_F(GroupManagerTest, GroupInfoUpdatedNotificationFiresUpdatedHandler) {
             "timestamp": 1708329601,
             "payload": {
                 "group_id": "grp-002",
-                "group_name": "新名称",
+                "group_name": "updated-group",
                 "group_avatar": "https://cdn.example/avatar.png",
                 "updated_fields": ["name", "avatar"]
             }
         }
-    })";
-    notif_mgr_->handleRaw(frame);
+    })");
 
     EXPECT_EQ(call_count, 1);
     EXPECT_EQ(updated.group_id, "grp-002");
-    EXPECT_EQ(updated.name, "新名称");
+    EXPECT_EQ(updated.name, "updated-group");
     EXPECT_EQ(updated.avatar_url, "https://cdn.example/avatar.png");
 }
 
@@ -130,7 +154,7 @@ TEST_F(GroupManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     };
     mgr_->setListener(listener);
 
-    const std::string frame = R"({
+    notif_mgr_->handleRaw(R"({
         "type": "notification",
         "payload": {
             "notification_id": "notif-friend-003",
@@ -138,8 +162,7 @@ TEST_F(GroupManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
             "timestamp": 1708329602,
             "payload": { "from_user_id": "user-X" }
         }
-    })";
-    notif_mgr_->handleRaw(frame);
+    })");
 
     EXPECT_EQ(invited_count, 0);
     EXPECT_EQ(updated_count, 0);
@@ -150,13 +173,13 @@ TEST_F(GroupManagerTest, GroupMutedNotificationFiresUpdatedHandler) {
     int call_count = 0;
 
     auto listener = std::make_shared<TestGroupListener>();
-    listener->on_updated = [&](const anychat::Group& g) {
-        updated = g;
+    listener->on_updated = [&](const anychat::Group& group) {
+        updated = group;
         ++call_count;
     };
     mgr_->setListener(listener);
 
-    const std::string frame = R"({
+    notif_mgr_->handleRaw(R"({
         "type": "notification",
         "payload": {
             "notification_id": "notif-group-muted-001",
@@ -167,14 +190,118 @@ TEST_F(GroupManagerTest, GroupMutedNotificationFiresUpdatedHandler) {
                 "is_muted": true
             }
         }
-    })";
-    notif_mgr_->handleRaw(frame);
+    })");
 
     EXPECT_EQ(call_count, 1);
     EXPECT_EQ(updated.group_id, "grp-003");
     EXPECT_TRUE(updated.is_muted);
 }
 
-TEST_F(GroupManagerTest, GetListDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->getGroupList([](const std::vector<anychat::Group>&, const std::string&) {}));
+TEST_F(GroupManagerTest, GetGroupListDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getGroupList(makeNoopValueCallback<std::vector<anychat::Group>>()));
+}
+
+TEST_F(GroupManagerTest, GetInfoDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getInfo("grp-001", makeNoopValueCallback<anychat::Group>()));
+}
+
+TEST_F(GroupManagerTest, CreateDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->create("demo-group", {"user-001", "user-002"}, makeNoopValueCallback<anychat::Group>()));
+}
+
+TEST_F(GroupManagerTest, JoinDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->join("grp-001", "hello", makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, InviteDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->invite("grp-001", {"user-003", "user-004"}, makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, QuitDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->quit("grp-001", makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, DisbandDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->disband("grp-001", makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, UpdateDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->update("grp-001", "new-name", "https://cdn.example/new.png", makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, GetMembersDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getMembers("grp-001", 1, 20, makeNoopValueCallback<std::vector<anychat::GroupMember>>()));
+}
+
+TEST_F(GroupManagerTest, RemoveMemberDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->removeMember("grp-001", "user-002", makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, UpdateMemberRoleDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->updateMemberRole("grp-001", "user-002", anychat::GroupRole::Admin, makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, UpdateNicknameDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->updateNickname("grp-001", "tester", makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, TransferOwnershipDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->transferOwnership("grp-001", "user-009", makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, GetJoinRequestsDoesNotCrash) {
+    EXPECT_NO_THROW(
+        mgr_->getJoinRequests("grp-001", "pending", makeNoopValueCallback<std::vector<anychat::GroupJoinRequest>>())
+    );
+}
+
+TEST_F(GroupManagerTest, HandleJoinRequestDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->handleJoinRequest("grp-001", 1001, true, makeNoopCallback()));
+}
+
+TEST_F(GroupManagerTest, GetQRCodeDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->getQRCode("grp-001", makeNoopValueCallback<anychat::GroupQRCode>()));
+}
+
+TEST_F(GroupManagerTest, RefreshQRCodeDoesNotCrash) {
+    EXPECT_NO_THROW(mgr_->refreshQRCode("grp-001", makeNoopValueCallback<anychat::GroupQRCode>()));
+}
+
+TEST(GroupJsonCommonTest, ParseApiEnvelopeResponsePreservesServerCodeAndMessage) {
+    anychat::network::HttpResponse resp{};
+    resp.status_code = 403;
+    resp.body = R"({
+        "code": 40106,
+        "message": "already a group member",
+        "data": {
+            "group_id": "grp-001",
+            "name": "demo-group"
+        }
+    })";
+
+    anychat::json_common::ApiEnvelope<GroupCreatePayloadForTest> root{};
+
+    EXPECT_FALSE(anychat::json_common::parseApiEnvelopeResponse(resp, root, "create group failed"));
+    EXPECT_EQ(root.code, 40106);
+    EXPECT_EQ(root.message, "already a group member");
+}
+
+TEST(GroupJsonCommonTest, ParseApiEnvelopeResponseReturnsPayloadOnSuccess) {
+    anychat::network::HttpResponse resp{};
+    resp.status_code = 200;
+    resp.body = R"({
+        "code": 0,
+        "message": "success",
+        "data": {
+            "group_id": "grp-002",
+            "name": "created-group"
+        }
+    })";
+
+    anychat::json_common::ApiEnvelope<GroupCreatePayloadForTest> root{};
+
+    ASSERT_TRUE(anychat::json_common::parseApiEnvelopeResponse(resp, root, "create group failed"));
+    EXPECT_EQ(root.code, 0);
+    EXPECT_EQ(root.data.group_id, "grp-002");
+    EXPECT_EQ(root.data.name, "created-group");
 }

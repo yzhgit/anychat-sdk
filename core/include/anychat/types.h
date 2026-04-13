@@ -249,6 +249,13 @@ struct FileInfo {
     int64_t created_at_ms = 0;
 };
 
+struct FileListResult {
+    std::vector<FileInfo> files;
+    int64_t total = 0;
+    int32_t page = 0;
+    int32_t page_size = 0;
+};
+
 // ---- Outbound message state ----------------------------------------------
 enum class SendState
 {
@@ -316,6 +323,11 @@ struct UserStatusEvent {
     std::string platform;
 };
 
+struct UserSearchResult {
+    std::vector<UserInfo> users;
+    int64_t total = 0;
+};
+
 // ---- Version --------------------------------------------------------------
 struct VersionUpdateInfo {
     std::string title;
@@ -351,6 +363,13 @@ struct AppVersionInfo {
     int64_t file_size = 0;
     std::string file_hash;
     int64_t published_at_ms = 0;
+};
+
+struct VersionListResult {
+    std::vector<AppVersionInfo> versions;
+    int64_t total = 0;
+    int32_t page = 0;
+    int32_t page_size = 0;
 };
 
 // ---- Call -----------------------------------------------------------------
@@ -394,6 +413,16 @@ struct MeetingRoom {
     bool is_active = true;
     int64_t started_at = 0; // Unix seconds
     int64_t created_at_ms = 0;
+};
+
+struct CallLogResult {
+    std::vector<CallSession> calls;
+    int64_t total = 0;
+};
+
+struct MeetingListResult {
+    std::vector<MeetingRoom> rooms;
+    int64_t total = 0;
 };
 
 } // namespace anychat

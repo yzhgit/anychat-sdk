@@ -72,7 +72,7 @@ protected:
 TEST_F(OutboundQueueTest, EnqueuePersists) {
     const std::string local_id = "local-001";
 
-    queue_->enqueue("conv-1", "private", "text", "Hello world", local_id, nullptr);
+    queue_->enqueue("conv-1", "private", "text", "Hello world", local_id, anychat::AnyChatCallback{});
 
     // drainDb() ensures the async INSERT has been committed.
     drainDb();
@@ -87,7 +87,7 @@ TEST_F(OutboundQueueTest, EnqueuePersists) {
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, FlushOnConnect) {
     const std::string local_id = "local-002";
-    queue_->enqueue("conv-flush", "private", "text", "Test content", local_id, nullptr);
+    queue_->enqueue("conv-flush", "private", "text", "Test content", local_id, anychat::AnyChatCallback{});
     drainDb();
 
     std::vector<std::string> sent_payloads;
@@ -108,18 +108,23 @@ TEST_F(OutboundQueueTest, FlushOnConnect) {
 // ---------------------------------------------------------------------------
 // 3. AckRemovesRow
 //    Enqueue, connect, receive ack — the DB row should be deleted and the
-//    MessageCallback should be invoked with success=true.
+//    Success callback should be invoked.
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, AckRemovesRow) {
     const std::string local_id = "local-003";
 
     bool cb_called = false;
     bool cb_success = false;
-
-    queue_->enqueue("conv-ack", "private", "text", "Ack test", local_id, [&](bool success, const std::string& /*err*/) {
+    anychat::AnyChatCallback callback{};
+    callback.on_success = [&cb_called, &cb_success]() {
         cb_called = true;
-        cb_success = success;
-    });
+        cb_success = true;
+    };
+    callback.on_error = [&cb_called](int, const std::string&) {
+        cb_called = true;
+    };
+
+    queue_->enqueue("conv-ack", "private", "text", "Ack test", local_id, std::move(callback));
     drainDb();
 
     // Connect (flush any pending rows).
@@ -137,8 +142,8 @@ TEST_F(OutboundQueueTest, AckRemovesRow) {
     drainDb();
 
     EXPECT_EQ(rowCount(local_id), 0) << "Row should be removed from outbound_queue after ack";
-    EXPECT_TRUE(cb_called) << "MessageCallback should have been invoked";
-    EXPECT_TRUE(cb_success) << "MessageCallback should indicate success";
+    EXPECT_TRUE(cb_called) << "Success callback should have been invoked";
+    EXPECT_TRUE(cb_success) << "Success callback should indicate success";
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +154,7 @@ TEST_F(OutboundQueueTest, AckRemovesRow) {
 TEST_F(OutboundQueueTest, RetryOnReconnect) {
     const std::string local_id = "local-004";
 
-    queue_->enqueue("conv-retry", "private", "text", "Retry me", local_id, nullptr);
+    queue_->enqueue("conv-retry", "private", "text", "Retry me", local_id, anychat::AnyChatCallback{});
     drainDb();
 
     // First connection — row is sent, but NOT acknowledged (no ack received).
@@ -181,8 +186,8 @@ TEST_F(OutboundQueueTest, RetryOnReconnect) {
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, DuplicateLocalIdIgnored) {
     const std::string local_id = "local-dup";
-    queue_->enqueue("conv-1", "private", "text", "first", local_id, nullptr);
-    queue_->enqueue("conv-1", "private", "text", "second", local_id, nullptr);
+    queue_->enqueue("conv-1", "private", "text", "first", local_id, anychat::AnyChatCallback{});
+    queue_->enqueue("conv-1", "private", "text", "second", local_id, anychat::AnyChatCallback{});
     drainDb();
 
     EXPECT_EQ(rowCount(local_id), 1) << "Duplicate local_id should not create a second row";
@@ -193,9 +198,9 @@ TEST_F(OutboundQueueTest, DuplicateLocalIdIgnored) {
 //    Enqueue several messages, then call onConnected — each should be sent.
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, MultipleEnqueueFlushesAll) {
-    queue_->enqueue("conv-m", "private", "text", "msg-a", "local-a", nullptr);
-    queue_->enqueue("conv-m", "private", "text", "msg-b", "local-b", nullptr);
-    queue_->enqueue("conv-m", "private", "text", "msg-c", "local-c", nullptr);
+    queue_->enqueue("conv-m", "private", "text", "msg-a", "local-a", anychat::AnyChatCallback{});
+    queue_->enqueue("conv-m", "private", "text", "msg-b", "local-b", anychat::AnyChatCallback{});
+    queue_->enqueue("conv-m", "private", "text", "msg-c", "local-c", anychat::AnyChatCallback{});
     drainDb();
 
     EXPECT_EQ(totalRows(), 3);

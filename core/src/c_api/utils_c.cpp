@@ -95,6 +95,23 @@ void anychat_free_conversation_list(AnyChatConversationList_C* list) {
     list->count = 0;
 }
 
+void anychat_free_conversation_mark_read_result(AnyChatConversationMarkReadResult_C* result) {
+    if (!result)
+        return;
+    for (int i = 0; i < result->accepted_count; ++i)
+        std::free(result->accepted_ids[i]);
+    std::free(result->accepted_ids);
+    result->accepted_ids = nullptr;
+    result->accepted_count = 0;
+
+    for (int i = 0; i < result->ignored_count; ++i)
+        std::free(result->ignored_ids[i]);
+    std::free(result->ignored_ids);
+    result->ignored_ids = nullptr;
+    result->ignored_count = 0;
+    result->advanced_last_read_seq = 0;
+}
+
 void anychat_free_conversation_read_receipt_list(AnyChatConversationReadReceiptList_C* list) {
     if (!list)
         return;
