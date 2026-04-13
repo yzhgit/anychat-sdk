@@ -153,7 +153,7 @@ lifecycleScope.launch {
 val users = client.friend.searchUsers(query = "john")
 
 // Send friend request
-client.friend.sendRequest(userId = "user_456")
+client.friend.addFriend(userId = "user_456")
 
 // Get friend list
 val friends = client.friend.getFriendList()

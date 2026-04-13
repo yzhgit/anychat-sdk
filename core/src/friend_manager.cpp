@@ -258,14 +258,14 @@ std::string parseRequestStatus(const NotificationFriendEventPayload& payload) {
 
 bool isAddAction(const std::string& action) {
     const std::string lowered = toLowerCopy(action);
-    return lowered == "add" || lowered == "added" || lowered == "create" || lowered == "created"
-        || lowered == "block" || lowered == "blocked";
+    return lowered == "add" || lowered == "added" || lowered == "create" || lowered == "created" || lowered == "block"
+           || lowered == "blocked";
 }
 
 bool isRemoveAction(const std::string& action) {
     const std::string lowered = toLowerCopy(action);
     return lowered == "remove" || lowered == "removed" || lowered == "delete" || lowered == "deleted"
-        || lowered == "unblock" || lowered == "unblocked";
+           || lowered == "unblock" || lowered == "unblocked";
 }
 
 void completeBoolRequest(FriendCallback cb, network::HttpResponse resp, const std::string& fallback_error) {
@@ -282,7 +282,6 @@ void completeBoolRequest(FriendCallback cb, network::HttpResponse resp, const st
 
 namespace anychat {
 using namespace friend_manager_detail;
-
 
 FriendManagerImpl::FriendManagerImpl(
     db::Database* db,
@@ -342,11 +341,7 @@ void FriendManagerImpl::getFriendList(FriendListCallback cb) {
     });
 }
 
-void FriendManagerImpl::sendRequest(const std::string& to_user_id, const std::string& message, FriendCallback cb) {
-    sendRequest(to_user_id, message, "search", std::move(cb));
-}
-
-void FriendManagerImpl::sendRequest(
+void FriendManagerImpl::addFriend(
     const std::string& to_user_id,
     const std::string& message,
     const std::string& source,
@@ -372,8 +367,41 @@ void FriendManagerImpl::sendRequest(
     });
 }
 
-void FriendManagerImpl::handleRequest(int64_t request_id, bool accept, FriendCallback cb) {
-    const HandleFriendRequestBody body{.accept = accept, .action = accept ? "accept" : "reject"};
+void FriendManagerImpl::deleteFriend(const std::string& friend_id, FriendCallback cb) {
+    const std::string path = "/friends/" + friend_id;
+    http_->del(path, [cb = std::move(cb)](network::HttpResponse resp) {
+        completeBoolRequest(std::move(cb), std::move(resp), "delete friend failed");
+    });
+}
+
+void FriendManagerImpl::updateRemark(const std::string& friend_id, const std::string& remark, FriendCallback cb) {
+    const UpdateRemarkBody body{ .remark = remark };
+
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        if (cb) {
+            cb(false, err);
+        }
+        return;
+    }
+
+    const std::string path = "/friends/" + friend_id + "/remark";
+    http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
+        completeBoolRequest(std::move(cb), std::move(resp), "update remark failed");
+    });
+}
+
+void FriendManagerImpl::acceptFriendRequest(int64_t request_id, FriendCallback cb) {
+    handleFriendRequest(request_id, true, std::move(cb));
+}
+
+void FriendManagerImpl::rejectFriendRequest(int64_t request_id, FriendCallback cb) {
+    handleFriendRequest(request_id, false, std::move(cb));
+}
+
+void FriendManagerImpl::handleFriendRequest(int64_t request_id, bool accept, FriendCallback cb) {
+    const HandleFriendRequestBody body{ .accept = accept, .action = accept ? "accept" : "reject" };
 
     std::string body_json;
     std::string err;
@@ -390,11 +418,7 @@ void FriendManagerImpl::handleRequest(int64_t request_id, bool accept, FriendCal
     });
 }
 
-void FriendManagerImpl::getPendingRequests(FriendRequestListCallback cb) {
-    getRequests("received", std::move(cb));
-}
-
-void FriendManagerImpl::getRequests(const std::string& request_type, FriendRequestListCallback cb) {
+void FriendManagerImpl::getFriendRequests(const std::string& request_type, FriendRequestListCallback cb) {
     const std::string type = request_type.empty() ? "received" : request_type;
     const std::string path = "/friends/requests?type=" + type;
 
@@ -420,31 +444,6 @@ void FriendManagerImpl::getRequests(const std::string& request_type, FriendReque
         if (cb) {
             cb(std::move(requests), "");
         }
-    });
-}
-
-void FriendManagerImpl::deleteFriend(const std::string& friend_id, FriendCallback cb) {
-    const std::string path = "/friends/" + friend_id;
-    http_->del(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "delete friend failed");
-    });
-}
-
-void FriendManagerImpl::updateRemark(const std::string& friend_id, const std::string& remark, FriendCallback cb) {
-    const UpdateRemarkBody body{.remark = remark};
-
-    std::string body_json;
-    std::string err;
-    if (!writeJson(body, body_json, err)) {
-        if (cb) {
-            cb(false, err);
-        }
-        return;
-    }
-
-    const std::string path = "/friends/" + friend_id + "/remark";
-    http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp), "update remark failed");
     });
 }
 
@@ -475,7 +474,7 @@ void FriendManagerImpl::getBlacklist(BlacklistListCallback cb) {
 }
 
 void FriendManagerImpl::addToBlacklist(const std::string& user_id, FriendCallback cb) {
-    const AddBlacklistBody body{.user_id = user_id};
+    const AddBlacklistBody body{ .user_id = user_id };
 
     std::string body_json;
     std::string err;

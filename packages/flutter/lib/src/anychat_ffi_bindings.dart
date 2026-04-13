@@ -1344,7 +1344,7 @@ class AnyChatNativeBindings {
                       ffi.Pointer<AnyChatFriendList_C> list,
                       ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_friend_send_request(
+  int anychat_friend_add(
     AnyChatFriendHandle handle,
     ffi.Pointer<ffi.Char> to_user_id,
     ffi.Pointer<ffi.Char> message,
@@ -1377,7 +1377,7 @@ class AnyChatNativeBindings {
                               ffi.Pointer<ffi.Void> userdata,
                               ffi.Int success,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_friend_send_request');
+      'anychat_friend_add');
   late final _anychat_friend_send_request =
       _anychat_friend_send_requestPtr.asFunction<
           int Function(
@@ -1391,7 +1391,7 @@ class AnyChatNativeBindings {
                           ffi.Int success, ffi.Pointer<ffi.Char> error)>>)>();
 
   /// accept: 1 to accept, 0 to reject
-  int anychat_friend_handle_request(
+  int anychat_friend_accept_request(
     AnyChatFriendHandle handle,
     int request_id,
     int accept,
@@ -1424,7 +1424,7 @@ class AnyChatNativeBindings {
                               ffi.Pointer<ffi.Void> userdata,
                               ffi.Int success,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_friend_handle_request');
+      'anychat_friend_accept_request');
   late final _anychat_friend_handle_request =
       _anychat_friend_handle_requestPtr.asFunction<
           int Function(
@@ -1436,48 +1436,6 @@ class AnyChatNativeBindings {
                   ffi.NativeFunction<
                       ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
                           ffi.Int success, ffi.Pointer<ffi.Char> error)>>)>();
-
-  int anychat_friend_get_pending_requests(
-    AnyChatFriendHandle handle,
-    ffi.Pointer<ffi.Void> userdata,
-    ffi.Pointer<
-            ffi.NativeFunction<
-                ffi.Void Function(
-                    ffi.Pointer<ffi.Void> userdata,
-                    ffi.Pointer<AnyChatFriendRequestList_C> list,
-                    ffi.Pointer<ffi.Char> error)>>
-        callback,
-  ) {
-    return _anychat_friend_get_pending_requests(
-      handle,
-      userdata,
-      callback,
-    );
-  }
-
-  late final _anychat_friend_get_pending_requestsPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Int Function(
-                  AnyChatFriendHandle,
-                  ffi.Pointer<ffi.Void>,
-                  ffi.Pointer<
-                      ffi.NativeFunction<
-                          ffi.Void Function(
-                              ffi.Pointer<ffi.Void> userdata,
-                              ffi.Pointer<AnyChatFriendRequestList_C> list,
-                              ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_friend_get_pending_requests');
-  late final _anychat_friend_get_pending_requests =
-      _anychat_friend_get_pending_requestsPtr.asFunction<
-          int Function(
-              AnyChatFriendHandle,
-              ffi.Pointer<ffi.Void>,
-              ffi.Pointer<
-                  ffi.NativeFunction<
-                      ffi.Void Function(
-                          ffi.Pointer<ffi.Void> userdata,
-                          ffi.Pointer<AnyChatFriendRequestList_C> list,
-                          ffi.Pointer<ffi.Char> error)>>)>();
 
   int anychat_friend_delete(
     AnyChatFriendHandle handle,

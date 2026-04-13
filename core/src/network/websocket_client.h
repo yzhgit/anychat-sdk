@@ -5,7 +5,8 @@
 #include <memory>
 #include <string>
 
-namespace anychat::network {
+namespace anychat {
+namespace network {
 
 // Async WebSocket client backed by libwebsockets.
 // The internal event loop runs on a dedicated thread.
@@ -35,4 +36,5 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace anychat::network
+} // namespace network
+} // namespace anychat

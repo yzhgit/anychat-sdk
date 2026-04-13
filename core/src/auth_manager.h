@@ -1,15 +1,16 @@
 #pragma once
 
+#include "notification_manager.h"
+
 #include "anychat/auth.h"
 
 #include "db/database.h"
 #include "network/http_client.h"
-#include "notification_manager.h"
 
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
+
 
 namespace anychat {
 
@@ -75,7 +76,8 @@ public:
 
 private:
     void handleAuthResponse(network::HttpResponse resp, const AuthCallback& callback);
-    void handleResultResponse(network::HttpResponse resp, const std::string& fallback_message, const ResultCallback& cb);
+    void
+    handleResultResponse(network::HttpResponse resp, const std::string& fallback_message, const ResultCallback& cb);
     void handleAuthNotification(const NotificationEvent& event);
     void storeToken(const AuthToken& token);
     void clearToken();
@@ -90,8 +92,7 @@ private:
 };
 
 // Factory — creates a fully-functional AuthManager.
-std::unique_ptr<AuthManager>
-createAuthManager(
+std::unique_ptr<AuthManager> createAuthManager(
     std::shared_ptr<network::HttpClient> http,
     const std::string& device_id,
     db::Database* db = nullptr,

@@ -239,13 +239,11 @@ int  anychat_conv_set_listener(handle, listener /* AnyChatConvListener_C* */);
 
 ```c
 int  anychat_friend_get_list(handle, userdata, callback);
-int  anychat_friend_send_request(handle, to_user_id, message, userdata, callback);
-int  anychat_friend_send_request_with_source(handle, to_user_id, message, source, userdata, callback);
-int  anychat_friend_handle_request(handle, request_id, accept, userdata, callback);
-int  anychat_friend_get_pending_requests(handle, userdata, callback);
-int  anychat_friend_get_requests(handle, request_type, userdata, callback);
+int  anychat_friend_add(handle, to_user_id, message, source, userdata, callback);
 int  anychat_friend_delete(handle, friend_id, userdata, callback);
 int  anychat_friend_update_remark(handle, friend_id, remark, userdata, callback);
+int  anychat_friend_get_requests(handle, request_type, userdata, callback);
+int  anychat_friend_accept_request(handle, request_id, accept, userdata, callback);
 int  anychat_friend_get_blacklist(handle, userdata, callback);
 int  anychat_friend_add_to_blacklist(handle, user_id, userdata, callback);
 int  anychat_friend_remove_from_blacklist(handle, user_id, userdata, callback);

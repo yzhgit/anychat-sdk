@@ -1,26 +1,25 @@
 #pragma once
 
-#include <glaze/glaze.hpp>
-
 #include "network/http_client.h"
 
 #include <algorithm>
 #include <chrono>
-#include <cctype>
 #include <cstdint>
-#include <cstdlib>
 #include <cstdio>
-#include <ctime>
-#include <optional>
+#include <cstdlib>
 #include <string>
 #include <type_traits>
-#include <vector>
 #include <utility>
-#include <variant>
+
+#include <glaze/glaze.hpp>
+
+#include <cctype>
+#include <ctime>
+
 
 namespace anychat::json_common {
 
-template <typename T>
+template<typename T>
 struct ApiEnvelope {
     int32_t code = -1;
     std::string message{};
@@ -197,34 +196,34 @@ inline std::string toLower(std::string text) {
     return toLowerCopy(std::move(text));
 }
 
-template <typename T>
+template<typename T>
 struct IsStdVariant : std::false_type {};
 
-template <typename... Ts>
+template<typename... Ts>
 struct IsStdVariant<std::variant<Ts...>> : std::true_type {};
 
-template <typename T>
+template<typename T>
 inline constexpr bool kIsStdVariant = IsStdVariant<std::remove_cvref_t<T>>::value;
 
-template <typename T>
+template<typename T>
 struct IsOptional : std::false_type {};
 
-template <typename U>
+template<typename U>
 struct IsOptional<std::optional<U>> : std::true_type {};
 
-template <typename T>
+template<typename T>
 inline constexpr bool kIsOptional = IsOptional<std::remove_cvref_t<T>>::value;
 
-template <typename T, typename VariantT>
+template<typename T, typename VariantT>
 struct VariantHasType : std::false_type {};
 
-template <typename T, typename... Ts>
+template<typename T, typename... Ts>
 struct VariantHasType<T, std::variant<Ts...>> : std::bool_constant<(std::is_same_v<T, Ts> || ...)> {};
 
-template <typename T, typename VariantT>
+template<typename T, typename VariantT>
 inline constexpr bool kVariantHasType = VariantHasType<T, std::remove_cvref_t<VariantT>>::value;
 
-template <typename T, typename VariantT>
+template<typename T, typename VariantT>
 inline const T* getVariantIf(const VariantT& value) {
     if constexpr (kIsStdVariant<VariantT> && kVariantHasType<T, VariantT>) {
         return std::get_if<T>(&value);
@@ -256,9 +255,8 @@ inline bool parseBoolString(const std::string& text, bool& value_out) {
     return false;
 }
 
-template <typename ValueT>
-    requires (!kIsOptional<ValueT>)
-inline int64_t parseInt64Value(const ValueT& value, int64_t def = 0) {
+template<typename ValueT>
+requires(!kIsOptional<ValueT>) inline int64_t parseInt64Value(const ValueT& value, int64_t def = 0) {
     using RawT = std::remove_cvref_t<ValueT>;
 
     if constexpr (std::is_same_v<RawT, bool>) {
@@ -290,19 +288,18 @@ inline int64_t parseInt64Value(const ValueT& value, int64_t def = 0) {
     return def;
 }
 
-template <typename VariantT>
+template<typename VariantT>
 inline int64_t parseInt64Value(const std::optional<VariantT>& value, int64_t def = 0) {
     return value.has_value() ? parseInt64Value(*value, def) : def;
 }
 
-template <typename VariantT>
+template<typename VariantT>
 inline int32_t parseInt32Value(const std::optional<VariantT>& value, int32_t def = 0) {
     return static_cast<int32_t>(parseInt64Value(value, def));
 }
 
-template <typename ValueT>
-    requires (!kIsOptional<ValueT>)
-inline bool parseBoolValue(const ValueT& value, bool def = false) {
+template<typename ValueT>
+requires(!kIsOptional<ValueT>) inline bool parseBoolValue(const ValueT& value, bool def = false) {
     using RawT = std::remove_cvref_t<ValueT>;
 
     if constexpr (std::is_same_v<RawT, bool>) {
@@ -336,12 +333,12 @@ inline bool parseBoolValue(const ValueT& value, bool def = false) {
     return def;
 }
 
-template <typename VariantT>
+template<typename VariantT>
 inline bool parseBoolValue(const std::optional<VariantT>& value, bool def = false) {
     return value.has_value() ? parseBoolValue(*value, def) : def;
 }
 
-template <typename T, typename... Rest>
+template<typename T, typename... Rest>
 inline const std::vector<T>* pickList(const std::optional<std::vector<T>>& first, const Rest&... rest) {
     if (first.has_value()) {
         return &(*first);
@@ -353,10 +350,10 @@ inline const std::vector<T>* pickList(const std::optional<std::vector<T>>& first
     }
 }
 
-template <typename T>
+template<typename T>
 inline bool readJsonRelaxed(const std::string& json, T& out, std::string& err) {
     glz::context ctx{};
-    const auto ec = glz::read<glz::opts{.error_on_unknown_keys = false}>(out, json, ctx);
+    const auto ec = glz::read<glz::opts{ .error_on_unknown_keys = false }>(out, json, ctx);
     if (ec) {
         err = std::string("parse error: ") + glz::format_error(ec, json);
         return false;
@@ -364,7 +361,7 @@ inline bool readJsonRelaxed(const std::string& json, T& out, std::string& err) {
     return true;
 }
 
-template <typename T>
+template<typename T>
 inline bool parseApiEnvelopeResponse(
     const network::HttpResponse& resp,
     ApiEnvelope<T>& root,
@@ -442,7 +439,7 @@ inline bool parseApiStatusSuccessResponse(
     return true;
 }
 
-template <typename T>
+template<typename T>
 inline bool writeJson(const T& value, std::string& json, std::string& err) {
     const auto written = glz::write_json(value);
     if (!written) {
@@ -453,7 +450,7 @@ inline bool writeJson(const T& value, std::string& json, std::string& err) {
     return true;
 }
 
-template <typename T>
+template<typename T>
 inline std::optional<T> decodeJsonObject(const std::string& node_json, std::string& err) {
     if (node_json.empty()) {
         err = "parse error: empty object";
@@ -467,7 +464,7 @@ inline std::optional<T> decodeJsonObject(const std::string& node_json, std::stri
     return out;
 }
 
-template <typename T>
+template<typename T>
 inline bool parseJsonObject(const std::string& node_json, T& out, std::string& err) {
     auto parsed = decodeJsonObject<T>(node_json, err);
     if (!parsed.has_value()) {

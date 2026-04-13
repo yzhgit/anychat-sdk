@@ -4,7 +4,8 @@
 #include <memory>
 #include <string>
 
-namespace anychat::network {
+namespace anychat {
+namespace network {
 
 struct HttpResponse {
     int status_code = 0;
@@ -41,4 +42,5 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace anychat::network
+} // namespace network
+} // namespace anychat

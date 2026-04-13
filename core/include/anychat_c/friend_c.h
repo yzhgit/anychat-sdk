@@ -50,15 +50,7 @@ typedef struct {
 ANYCHAT_C_API int
 anychat_friend_get_list(AnyChatFriendHandle handle, void* userdata, AnyChatFriendListCallback callback);
 
-ANYCHAT_C_API int anychat_friend_send_request(
-    AnyChatFriendHandle handle,
-    const char* to_user_id,
-    const char* message,
-    void* userdata,
-    AnyChatFriendCallback callback
-);
-
-ANYCHAT_C_API int anychat_friend_send_request_with_source(
+ANYCHAT_C_API int anychat_friend_add(
     AnyChatFriendHandle handle,
     const char* to_user_id,
     const char* message,
@@ -67,19 +59,18 @@ ANYCHAT_C_API int anychat_friend_send_request_with_source(
     AnyChatFriendCallback callback
 );
 
-/* accept: 1 to accept, 0 to reject */
-ANYCHAT_C_API int anychat_friend_handle_request(
+ANYCHAT_C_API int anychat_friend_accept_request(
     AnyChatFriendHandle handle,
     int64_t request_id,
-    int accept,
     void* userdata,
     AnyChatFriendCallback callback
 );
 
-ANYCHAT_C_API int anychat_friend_get_pending_requests(
+ANYCHAT_C_API int anychat_friend_reject_request(
     AnyChatFriendHandle handle,
+    int64_t request_id,
     void* userdata,
-    AnyChatFriendRequestListCallback callback
+    AnyChatFriendCallback callback
 );
 
 /* request_type: "received" | "sent", NULL defaults to "received" */
@@ -119,16 +110,12 @@ ANYCHAT_C_API int anychat_friend_remove_from_blacklist(
     AnyChatFriendCallback callback
 );
 
-ANYCHAT_C_API int anychat_friend_get_blacklist(
-    AnyChatFriendHandle handle,
-    void* userdata,
-    AnyChatBlacklistListCallback callback
-);
+ANYCHAT_C_API int
+anychat_friend_get_blacklist(AnyChatFriendHandle handle, void* userdata, AnyChatBlacklistListCallback callback);
 
 /* ---- Incoming event listener ----
  * listener == NULL clears the current listener. */
-ANYCHAT_C_API int
-anychat_friend_set_listener(AnyChatFriendHandle handle, const AnyChatFriendListener_C* listener);
+ANYCHAT_C_API int anychat_friend_set_listener(AnyChatFriendHandle handle, const AnyChatFriendListener_C* listener);
 
 #ifdef __cplusplus
 }

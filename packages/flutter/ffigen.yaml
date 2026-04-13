@@ -127,9 +127,8 @@ functions:
 
     # Friend
     - 'anychat_friend_get_list'
-    - 'anychat_friend_send_request'
-    - 'anychat_friend_handle_request'
-    - 'anychat_friend_get_pending_requests'
+    - 'anychat_friend_add'
+    - 'anychat_friend_accept_request'
     - 'anychat_friend_delete'
     - 'anychat_friend_update_remark'
     - 'anychat_friend_add_to_blacklist'

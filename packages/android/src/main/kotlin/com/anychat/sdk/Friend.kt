@@ -38,7 +38,7 @@ class Friend internal constructor(private val handle: Long) {
      * @param toUserId Target user ID
      * @param message Optional message to include with the request
      */
-    suspend fun sendRequest(
+    suspend fun addFriend(
         toUserId: String,
         message: String = ""
     ): Unit = suspendCoroutine { continuation ->
@@ -61,7 +61,7 @@ class Friend internal constructor(private val handle: Long) {
      * @param requestId Friend request ID
      * @param accept True to accept, false to reject
      */
-    suspend fun handleRequest(
+    suspend fun handleFriendRequest(
         requestId: Long,
         accept: Boolean
     ): Unit = suspendCoroutine { continuation ->

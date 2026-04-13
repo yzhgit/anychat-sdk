@@ -145,7 +145,7 @@ Java_com_anychat_sdk_Friend_nativeSendRequest(
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
 
-    int result = anychat_friend_send_request(
+    int result = anychat_friend_add(
         friendHandle,
         toUserIdStr.c_str(),
         messageStr.c_str(),
@@ -180,7 +180,7 @@ Java_com_anychat_sdk_Friend_nativeHandleRequest(
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
 
-    int result = anychat_friend_handle_request(
+    int result = anychat_friend_accept_request(
         friendHandle,
         (int64_t)requestId,
         accept ? 1 : 0,
@@ -192,33 +192,6 @@ Java_com_anychat_sdk_Friend_nativeHandleRequest(
         delete ctx;
         env->DeleteGlobalRef(globalCallback);
         LOGE("Handle friend request failed with error code: %d", result);
-    }
-
-    JNI_CATCH(env)
-}
-
-// Get pending friend requests
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_anychat_sdk_Friend_nativeGetPendingRequests(
-    JNIEnv* env,
-    jobject thiz,
-    jlong handle,
-    jobject callback
-) {
-    JNI_TRY(env)
-
-    auto friendHandle = reinterpret_cast<AnyChatFriendHandle>(handle);
-
-    jobject globalCallback = env->NewGlobalRef(callback);
-    auto* ctx = new CallbackContext(g_jvm, globalCallback);
-
-    int result = anychat_friend_get_pending_requests(friendHandle, ctx, friendRequestListCallback);
-
-    if (result != ANYCHAT_OK) {
-        delete ctx;
-        env->DeleteGlobalRef(globalCallback);
-        LOGE("Get pending requests failed with error code: %d", result);
     }
 
     JNI_CATCH(env)

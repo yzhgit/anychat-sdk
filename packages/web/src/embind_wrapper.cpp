@@ -714,7 +714,7 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.friendCallbacks[callbackId] = callback;
 
-        int result = anychat_friend_send_request(
+        int result = anychat_friend_add(
             friendHandle_,
             toUserId.c_str(),
             message.c_str(),
@@ -732,7 +732,7 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.friendCallbacks[callbackId] = callback;
 
-        int result = anychat_friend_handle_request(
+        int result = anychat_friend_accept_request(
             friendHandle_,
             static_cast<int64_t>(requestId),
             accept ? 1 : 0,
@@ -743,22 +743,6 @@ public:
         if (result != ANYCHAT_OK) {
             g_callbacks.friendCallbacks.erase(callbackId);
             callback(std::string(anychat_get_last_error()));
-        }
-    }
-
-    void getPendingFriendRequests(val callback) {
-        int callbackId = g_callbacks.nextCallbackId++;
-        g_callbacks.friendRequestListCallbacks[callbackId] = callback;
-
-        int result = anychat_friend_get_pending_requests(
-            friendHandle_,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            friendRequestListCallbackWrapper
-        );
-
-        if (result != ANYCHAT_OK) {
-            g_callbacks.friendRequestListCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()), val::null());
         }
     }
 

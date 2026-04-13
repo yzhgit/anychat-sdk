@@ -152,7 +152,7 @@ class MainActivity : AppCompatActivity() {
         // Send friend request (if users found)
         if (users.list.isNotEmpty()) {
             val targetUser = users.list.first()
-            client.friend.sendRequest(
+            client.friend.addFriend(
                 userId = targetUser.id,
                 message = "Hi! Let's connect on AnyChat"
             )

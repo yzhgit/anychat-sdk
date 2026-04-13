@@ -4,7 +4,6 @@
 #include "network/http_client.h"
 
 #include <memory>
-#include <mutex>
 
 namespace anychat {
 

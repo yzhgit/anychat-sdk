@@ -3,7 +3,8 @@
 #include <functional>
 #include <string>
 
-namespace anychat::network {
+namespace anychat {
+namespace network {
 
 // IWebSocketClient — WebSocketClient 的可测试抽象接口。
 // 生产代码使用 WebSocketClient（libwebsockets），
@@ -28,4 +29,5 @@ public:
     virtual void setOnError(ErrorHandler handler) = 0;
 };
 
-} // namespace anychat::network
+} // namespace network
+} // namespace anychat

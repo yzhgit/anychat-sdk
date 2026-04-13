@@ -4,9 +4,9 @@
 #include "db/database.h"
 #include "network/http_client.h"
 
+#include <functional>
 #include <memory>
 #include <string>
-#include <functional>
 
 #include <gtest/gtest.h>
 
@@ -36,15 +36,17 @@ protected:
 
 class TestFriendListener final : public anychat::FriendListener {
 public:
-    std::function<void(const anychat::FriendRequest&)> on_request_received;
     std::function<void(const anychat::Friend&)> on_friend_added;
     std::function<void(const std::string&)> on_friend_deleted;
+    std::function<void(const anychat::Friend&)> on_friend_info_changed;
 
-    void onFriendRequestReceived(const anychat::FriendRequest& req) override {
-        if (on_request_received) {
-            on_request_received(req);
-        }
-    }
+    std::function<void(const anychat::BlacklistItem&)> on_blacklist_added;
+    std::function<void(const std::string&)> on_blacklist_removed;
+
+    std::function<void(const anychat::FriendRequest&)> on_request_received;
+    std::function<void(const anychat::FriendRequest&)> on_request_deleted;
+    std::function<void(const anychat::FriendRequest&)> on_request_accepted;
+    std::function<void(const anychat::FriendRequest&)> on_request_rejected;
 
     void onFriendAdded(const anychat::Friend& friend_info) override {
         if (on_friend_added) {
@@ -55,6 +57,48 @@ public:
     void onFriendDeleted(const std::string& user_id) override {
         if (on_friend_deleted) {
             on_friend_deleted(user_id);
+        }
+    }
+
+    void onFriendInfoChanged(const anychat::Friend& friend_info) override {
+        if (on_friend_info_changed) {
+            on_friend_info_changed(friend_info);
+        }
+    }
+
+    void onBlacklistAdded(const anychat::BlacklistItem& item) override {
+        if (on_blacklist_added) {
+            on_blacklist_added(item);
+        }
+    }
+
+    void onBlacklistRemoved(const std::string& blocked_user_id) override {
+        if (on_blacklist_removed) {
+            on_blacklist_removed(blocked_user_id);
+        }
+    }
+
+    void onFriendRequestReceived(const anychat::FriendRequest& req) override {
+        if (on_request_received) {
+            on_request_received(req);
+        }
+    }
+
+    void onFriendRequestDeleted(const anychat::FriendRequest& req) override {
+        if (on_request_deleted) {
+            on_request_deleted(req);
+        }
+    }
+
+    void onFriendRequestAccepted(const anychat::FriendRequest& req) override {
+        if (on_request_accepted) {
+            on_request_accepted(req);
+        }
+    }
+
+    void onFriendRequestRejected(const anychat::FriendRequest& req) override {
+        if (on_request_rejected) {
+            on_request_rejected(req);
         }
     }
 };
@@ -168,14 +212,12 @@ TEST_F(FriendManagerTest, GetListDoesNotCrash) {
 }
 
 TEST_F(FriendManagerTest, SendRequestWithSourceDoesNotCrash) {
-    EXPECT_NO_THROW(
-        mgr_->sendRequest("user-target-001", "hi", "search", [](bool /*ok*/, const std::string& /*err*/) {})
-    );
+    EXPECT_NO_THROW(mgr_->addFriend("user-target-001", "hi", "search", [](bool /*ok*/, const std::string& /*err*/) {}));
 }
 
 TEST_F(FriendManagerTest, GetRequestsDoesNotCrash) {
     EXPECT_NO_THROW(
-        mgr_->getRequests("received", [](const std::vector<anychat::FriendRequest>&, const std::string&) {})
+        mgr_->getFriendRequests("received", [](const std::vector<anychat::FriendRequest>&, const std::string&) {})
     );
 }
 

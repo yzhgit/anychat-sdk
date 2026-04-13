@@ -158,13 +158,13 @@ try await client.conversation.setPinned(conversationId: "conv_123", pinned: true
 let friends = try await client.friend.getFriendList()
 
 // Send friend request
-try await client.friend.sendRequest(
+try await client.friend.addFriend(
     toUserId: "user_456",
     message: "Let's be friends!"
 )
 
 // Handle friend request
-try await client.friend.handleRequest(
+try await client.friend.handleFriendRequest(
     requestId: 123,
     accept: true
 )

@@ -17,24 +17,24 @@ public:
 
     // FriendManager interface
     void getFriendList(FriendListCallback cb) override;
-    void sendRequest(const std::string& to_user_id, const std::string& message, FriendCallback cb) override;
-    void sendRequest(
-        const std::string& to_user_id,
-        const std::string& message,
-        const std::string& source,
-        FriendCallback cb
-    ) override;
-    void handleRequest(int64_t request_id, bool accept, FriendCallback cb) override;
-    void getPendingRequests(FriendRequestListCallback cb) override;
-    void getRequests(const std::string& request_type, FriendRequestListCallback cb) override;
+    void
+    addFriend(const std::string& to_user_id, const std::string& message, const std::string& source, FriendCallback cb)
+        override;
     void deleteFriend(const std::string& friend_id, FriendCallback cb) override;
     void updateRemark(const std::string& friend_id, const std::string& remark, FriendCallback cb) override;
+
+    void getFriendRequests(const std::string& request_type, FriendRequestListCallback cb) override;
+    virtual void acceptFriendRequest(int64_t request_id, FriendCallback cb) override;
+    virtual void rejectFriendRequest(int64_t request_id, FriendCallback cb) override;
+
     void getBlacklist(BlacklistListCallback cb) override;
     void addToBlacklist(const std::string& user_id, FriendCallback cb) override;
     void removeFromBlacklist(const std::string& user_id, FriendCallback cb) override;
+
     void setListener(std::shared_ptr<FriendListener> listener) override;
 
 private:
+    void handleFriendRequest(int64_t request_id, bool accept, FriendCallback cb);
     void handleFriendNotification(const NotificationEvent& event);
 
     db::Database* db_;

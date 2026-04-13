@@ -47,7 +47,7 @@ public actor FriendManager {
         }
     }
 
-    public func sendRequest(toUserId: String, message: String) async throws {
+    public func addFriend(toUserId: String, message: String) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
@@ -66,7 +66,7 @@ public actor FriendManager {
 
             withCString(toUserId) { userIdPtr in
                 withCString(message) { msgPtr in
-                    let result = anychat_friend_send_request(handle, userIdPtr, msgPtr, userdata, callback)
+                    let result = anychat_friend_add(handle, userIdPtr, msgPtr, userdata, callback)
                     if result != ANYCHAT_OK {
                         let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
                         ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
@@ -76,7 +76,7 @@ public actor FriendManager {
         }
     }
 
-    public func handleRequest(requestId: Int64, accept: Bool) async throws {
+    public func handleFriendRequest(requestId: Int64, accept: Bool) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
@@ -93,7 +93,7 @@ public actor FriendManager {
                 }
             }
 
-            let result = anychat_friend_handle_request(
+            let result = anychat_friend_accept_request(
                 handle,
                 requestId,
                 accept ? 1 : 0,
@@ -103,34 +103,6 @@ public actor FriendManager {
 
             if result != ANYCHAT_OK {
                 let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-            }
-        }
-    }
-
-    public func getPendingRequests() async throws -> [FriendRequest] {
-        try await withCheckedThrowingContinuation { continuation in
-            let context = CallbackContext(continuation: continuation)
-            let userdata = Unmanaged.passRetained(context).toOpaque()
-
-            let callback: AnyChatFriendRequestListCallback = { userdata, list, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<[FriendRequest]>>.fromOpaque(userdata).takeRetainedValue()
-
-                if let list = list {
-                    let requests = convertFriendRequestList(list)
-                    context.continuation.resume(returning: requests)
-                    var mutableList = list.pointee
-                    mutableList.free()
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to fetch requests"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
-            }
-
-            let result = anychat_friend_get_pending_requests(handle, userdata, callback)
-            if result != ANYCHAT_OK {
-                let ctx = Unmanaged<CallbackContext<[FriendRequest]>>.fromOpaque(userdata).takeRetainedValue()
                 ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
             }
         }
