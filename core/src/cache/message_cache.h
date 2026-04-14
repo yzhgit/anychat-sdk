@@ -1,6 +1,6 @@
 #pragma once
 
-#include "anychat/types.h"
+#include "internal/types.h"
 
 #include <algorithm>
 #include <functional>

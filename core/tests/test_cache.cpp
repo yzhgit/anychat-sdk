@@ -1,4 +1,4 @@
-#include "anychat/types.h"
+#include "internal/types.h"
 
 #include "cache/conversation_cache.h"
 #include "cache/lru_cache.h"

@@ -2,7 +2,7 @@
 
 #include "notification_manager.h"
 
-#include "anychat/auth.h"
+#include "internal/auth.h"
 
 #include "db/database.h"
 #include "network/http_client.h"

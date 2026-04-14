@@ -1,82 +1,145 @@
 #pragma once
 
-#include "callbacks.h"
 #include "types.h"
 
-#include <memory>
-#include <string>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace anychat {
+/* ---- Callback types ---- */
 
-class CallListener {
-public:
-    virtual ~CallListener() = default;
+typedef void (*AnyChatCallErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatCallSuccessCallback)(void* userdata);
+typedef void (*AnyChatCallSessionSuccessCallback)(void* userdata, const AnyChatCallSession_C* session);
+typedef void (*AnyChatCallListSuccessCallback)(void* userdata, const AnyChatCallList_C* list);
+typedef void (*AnyChatMeetingSuccessCallback)(void* userdata, const AnyChatMeetingRoom_C* room);
+typedef void (*AnyChatMeetingListSuccessCallback)(void* userdata, const AnyChatMeetingList_C* list);
 
-    virtual void onIncomingCall(const CallSession& session) {
-        (void) session;
-    }
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatCallSessionSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatCallSessionCallback_C;
 
-    virtual void onCallStatusChanged(const std::string& call_id, CallStatus status) {
-        (void) call_id;
-        (void) status;
-    }
-};
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatCallListSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatCallListCallback_C;
 
-class CallManager {
-public:
-    virtual ~CallManager() = default;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMeetingSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatMeetingCallback_C;
 
-    // ---- One-to-one calls ------------------------------------------------
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMeetingListSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatMeetingListCallback_C;
 
-    // POST /calling/calls
-    virtual void initiateCall(
-        const std::string& callee_id,
-        CallType type,
-        AnyChatValueCallback<CallSession> callback
-    ) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatCallSuccessCallback on_success;
+    AnyChatCallErrorCallback on_error;
+} AnyChatCallCallback_C;
 
-    // POST /calling/calls/{callId}/join
-    virtual void joinCall(const std::string& call_id, AnyChatValueCallback<CallSession> callback) = 0;
+/* Fired when an incoming call arrives. */
+typedef void (*AnyChatIncomingCallCallback)(void* userdata, const AnyChatCallSession_C* session);
 
-    // POST /calling/calls/{callId}/reject
-    virtual void rejectCall(const std::string& call_id, AnyChatCallback callback) = 0;
+/* Fired when the status of an ongoing call changes. */
+typedef void (*AnyChatCallStatusChangedCallback)(
+    void* userdata,
+    const char* call_id,
+    int status /* ANYCHAT_CALL_STATUS_* */
+);
 
-    // POST /calling/calls/{callId}/end
-    virtual void endCall(const std::string& call_id, AnyChatCallback callback) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatIncomingCallCallback on_incoming_call;
+    AnyChatCallStatusChangedCallback on_call_status_changed;
+} AnyChatCallListener_C;
 
-    // GET  /calling/calls/{callId}
-    virtual void getCallSession(const std::string& call_id, AnyChatValueCallback<CallSession> callback) = 0;
+/* ---- One-to-one call operations ---- */
 
-    // GET  /calling/calls?page=&pageSize=
-    virtual void getCallLogs(int page, int page_size, AnyChatValueCallback<CallLogResult> callback) = 0;
+/* call_type: ANYCHAT_CALL_AUDIO or ANYCHAT_CALL_VIDEO */
+ANYCHAT_C_API int anychat_call_initiate_call(
+    AnyChatCallHandle handle,
+    const char* callee_id,
+    int call_type,
+    const AnyChatCallSessionCallback_C* callback
+);
 
-    // ---- Meetings --------------------------------------------------------
+ANYCHAT_C_API int
+anychat_call_join_call(AnyChatCallHandle handle, const char* call_id, const AnyChatCallSessionCallback_C* callback);
 
-    // POST /calling/meetings
-    virtual void createMeeting(
-        const std::string& title,
-        const std::string& password,
-        int max_participants,
-        AnyChatValueCallback<MeetingRoom> callback
-    ) = 0;
+ANYCHAT_C_API int anychat_call_reject_call(
+    AnyChatCallHandle handle,
+    const char* call_id,
+    const AnyChatCallCallback_C* callback
+);
 
-    // POST /calling/meetings/{roomId}/join
-    virtual void
-    joinMeeting(const std::string& room_id, const std::string& password, AnyChatValueCallback<MeetingRoom> callback) = 0;
+ANYCHAT_C_API int
+anychat_call_end_call(AnyChatCallHandle handle, const char* call_id, const AnyChatCallCallback_C* callback);
 
-    // POST /calling/meetings/{roomId}/end
-    virtual void endMeeting(const std::string& room_id, AnyChatCallback callback) = 0;
+ANYCHAT_C_API int anychat_call_get_call_session(
+    AnyChatCallHandle handle,
+    const char* call_id,
+    const AnyChatCallSessionCallback_C* callback
+);
 
-    // GET  /calling/meetings/{roomId}
-    virtual void getMeeting(const std::string& room_id, AnyChatValueCallback<MeetingRoom> callback) = 0;
+ANYCHAT_C_API int anychat_call_get_call_logs(
+    AnyChatCallHandle handle,
+    int page,
+    int page_size,
+    const AnyChatCallListCallback_C* callback
+);
 
-    // GET  /calling/meetings?page=&pageSize=
-    virtual void listMeetings(int page, int page_size, AnyChatValueCallback<MeetingListResult> callback) = 0;
+/* ---- Meeting operations ---- */
 
-    // ---- WebSocket notification handlers ---------------------------------
+/* password: pass NULL or empty string for a meeting without password. */
+ANYCHAT_C_API int anychat_call_create_meeting(
+    AnyChatCallHandle handle,
+    const char* title,
+    const char* password,
+    int max_participants,
+    const AnyChatMeetingCallback_C* callback
+);
 
-    // livekit.call_invite / livekit.call_status / livekit.call_rejected.
-    virtual void setListener(std::shared_ptr<CallListener> listener) = 0;
-};
+ANYCHAT_C_API int anychat_call_join_meeting(
+    AnyChatCallHandle handle,
+    const char* room_id,
+    const char* password,
+    const AnyChatMeetingCallback_C* callback
+);
 
-} // namespace anychat
+ANYCHAT_C_API int anychat_call_end_meeting(
+    AnyChatCallHandle handle,
+    const char* room_id,
+    const AnyChatCallCallback_C* callback
+);
+
+ANYCHAT_C_API int
+anychat_call_get_meeting(AnyChatCallHandle handle, const char* room_id, const AnyChatMeetingCallback_C* callback);
+
+ANYCHAT_C_API int anychat_call_list_meetings(
+    AnyChatCallHandle handle,
+    int page,
+    int page_size,
+    const AnyChatMeetingListCallback_C* callback
+);
+
+/* ---- Incoming event listener ----
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_call_set_listener(AnyChatCallHandle handle, const AnyChatCallListener_C* listener);
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,89 +1,84 @@
 #pragma once
 
 #include "auth.h"
-#include "conversation.h"
-#include "file.h"
-#include "friend.h"
-#include "group.h"
-#include "message.h"
-#include "network_monitor.h"
-#include "call.h"
 #include "types.h"
-#include "user.h"
-#include "version.h"
 
-#include <functional>
-#include <memory>
-#include <string>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace anychat {
+/* ---- Client configuration ---- */
+typedef struct {
+    const char* gateway_url; /* WebSocket gateway, e.g. "wss://api.anychat.io" */
+    const char* api_base_url; /* HTTP API base, e.g. "https://api.anychat.io/api/v1" */
+    const char* device_id; /* Unique device identifier */
+    const char* db_path; /* SQLite database file path */
+    int connect_timeout_ms; /* default: 10000 */
+    int max_reconnect_attempts; /* default: 5 */
+    int auto_reconnect; /* 1 = enabled (default), 0 = disabled */
+} AnyChatClientConfig_C;
 
-struct ClientConfig {
-    // ---- Network ------------------------------------------------------------
-    std::string gateway_url; // WebSocket gateway, e.g. "wss://api.anychat.io"
-    std::string api_base_url; // HTTP API base path, e.g. "https://api.anychat.io/api/v1"
+/* Connection state change callback.
+ * state: one of ANYCHAT_STATE_* constants */
+typedef void (*AnyChatConnectionStateCallback)(void* userdata, int state);
 
-    // ---- Device -------------------------------------------------------------
-    std::string device_id; // Unique device identifier, generated and persisted by platform binding
-        // Android: Settings.Secure.ANDROID_ID or UUID
-        // iOS: UIDevice.identifierForVendor
-        // Web: UUID stored in localStorage
+/* ---- Lifecycle ---- */
 
-    // ---- Persistence --------------------------------------------------------
-    std::string db_path; // SQLite database file full path, injected by platform binding
-        // Android: Context.getDatabasePath("anychat.db").absolutePath
-        // iOS: <ApplicationSupport>/anychat.db
-        // Web: leave empty (Web SDK uses IndexedDB, not through C++ Core)
+/* Create a new client. Returns NULL on failure; call anychat_get_last_error().
+ * The caller owns the handle and must destroy it with anychat_client_destroy(). */
+ANYCHAT_C_API AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config);
 
-    // ---- Network Monitor -----------------------------------------------------
-    // Optional. Platform-implemented NetworkMonitor; when nullptr, SDK always considers network available.
-    std::shared_ptr<NetworkMonitor> network_monitor;
+/* Destroy the client and release all resources.
+ * Must not be called while callbacks are in flight on other threads. */
+ANYCHAT_C_API void anychat_client_destroy(AnyChatClientHandle handle);
 
-    // ---- Connection Parameters -----------------------------------------------
-    int connect_timeout_ms = 10'000;
-    int max_reconnect_attempts = 5; // WebSocket inner layer max retry attempts
-    bool auto_reconnect = true; // Whether to auto-reconnect after disconnection
-};
+/* ---- Authentication & Connection ---- */
 
-using ConnectionStateCallback = std::function<void(ConnectionState state)>;
+/* Login with account/password and automatically establish WebSocket connection.
+ * Note: WebSocket auto-reconnect is handled internally by the SDK.
+ * client_version: client version string (e.g. "1.0.0"), can be NULL */
+ANYCHAT_C_API int anychat_client_login(
+    AnyChatClientHandle handle,
+    const char* account,
+    const char* password,
+    const char* device_type,
+    const char* client_version,
+    const AnyChatAuthTokenCallback_C* callback
+);
 
-class AnyChatClient {
-public:
-    static std::shared_ptr<AnyChatClient> create(const ClientConfig& config);
+/* Logout: disconnect WebSocket and call HTTP logout endpoint. */
+ANYCHAT_C_API int anychat_client_logout(AnyChatClientHandle handle, const AnyChatAuthResultCallback_C* callback);
 
-    virtual ~AnyChatClient() = default;
+/* Check if the user is currently logged in. Returns 1 if logged in, 0 otherwise. */
+ANYCHAT_C_API int anychat_client_is_logged_in(AnyChatClientHandle handle);
 
-    // ---- Auth & Connection Management ---------------------------------
-    // login(): HTTP auth + auto-establish WebSocket connection
-    // logout(): disconnect WebSocket + HTTP logout
-    // Note: WebSocket auto-reconnect is managed internally by SDK, no manual connect call needed
-    // client_version: client version string (e.g. "1.0.0")
-    virtual void login(
-        const std::string& account,
-        const std::string& password,
-        const std::string& device_type,
-        const std::string& client_version,
-        AnyChatValueCallback<AuthToken> callback
-    ) = 0;
+/* Get current auth token (if logged in). Returns 0 on success, -1 if not logged in. */
+ANYCHAT_C_API int anychat_client_get_current_token(AnyChatClientHandle handle, AnyChatAuthToken_C* out_token);
 
-    virtual void logout(AnyChatCallback callback) = 0;
+/* Returns the current connection state (ANYCHAT_STATE_*). */
+ANYCHAT_C_API int anychat_client_get_connection_state(AnyChatClientHandle handle);
 
-    virtual bool isLoggedIn() const = 0;
-    virtual AuthToken getCurrentToken() const = 0;
+/* Register a callback for connection state changes.
+ * Pass NULL to clear a previously registered callback.
+ * userdata is passed through unchanged. */
+ANYCHAT_C_API void anychat_client_set_connection_callback(
+    AnyChatClientHandle handle,
+    void* userdata,
+    AnyChatConnectionStateCallback callback
+);
 
-    virtual ConnectionState connectionState() const = 0;
-    virtual void setOnConnectionStateChanged(ConnectionStateCallback callback) = 0;
+/* ---- Sub-module accessors ----
+ * The returned handles are owned by the client; do NOT destroy them separately. */
+ANYCHAT_C_API AnyChatAuthHandle anychat_client_get_auth(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatMessageHandle anychat_client_get_message(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatConvHandle anychat_client_get_conversation(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatFriendHandle anychat_client_get_friend(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatGroupHandle anychat_client_get_group(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatFileHandle anychat_client_get_file(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatUserHandle anychat_client_get_user(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatCallHandle anychat_client_get_call(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatVersionHandle anychat_client_get_version(AnyChatClientHandle handle);
 
-    // ---- Sub-modules -------------------------------------------------------
-    virtual AuthManager& authMgr() = 0;
-    virtual MessageManager& messageMgr() = 0;
-    virtual ConversationManager& conversationMgr() = 0;
-    virtual FriendManager& friendMgr() = 0;
-    virtual GroupManager& groupMgr() = 0;
-    virtual FileManager& fileMgr() = 0;
-    virtual UserManager& userMgr() = 0;
-    virtual CallManager& callMgr() = 0;
-    virtual VersionManager& versionMgr() = 0;
-};
-
-} // namespace anychat
+#ifdef __cplusplus
+}
+#endif

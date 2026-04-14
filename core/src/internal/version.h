@@ -1,40 +1,42 @@
 #pragma once
 
-#include "internal/version.h"
+#include "callbacks.h"
+#include "types.h"
 
-#include "network/http_client.h"
-
-#include <memory>
 #include <string>
 
 namespace anychat {
 
-class VersionManagerImpl : public VersionManager {
+class VersionManager {
 public:
-    explicit VersionManagerImpl(std::shared_ptr<network::HttpClient> http);
+    virtual ~VersionManager() = default;
 
-    void checkVersion(
+    // GET /versions/check?platform=&version=&buildNumber=
+    virtual void checkVersion(
         const std::string& platform,
         const std::string& version,
         int32_t build_number,
         AnyChatValueCallback<VersionCheckResult> callback
-    ) override;
+    ) = 0;
 
-    void getLatestVersion(
+    // GET /versions/latest?platform=&releaseType=
+    virtual void getLatestVersion(
         const std::string& platform,
         const std::string& release_type,
         AnyChatValueCallback<AppVersionInfo> callback
-    ) override;
+    ) = 0;
 
-    void listVersions(
+    // GET /versions/list?platform=&releaseType=&page=&pageSize=
+    virtual void listVersions(
         const std::string& platform,
         const std::string& release_type,
         int page,
         int page_size,
         AnyChatValueCallback<VersionListResult> callback
-    ) override;
+    ) = 0;
 
-    void reportVersion(
+    // POST /versions/report
+    virtual void reportVersion(
         const std::string& platform,
         const std::string& version,
         int32_t build_number,
@@ -42,12 +44,7 @@ public:
         const std::string& os_version,
         const std::string& sdk_version,
         AnyChatCallback callback
-    ) override;
-
-private:
-    static std::string urlEncode(const std::string& input);
-
-    std::shared_ptr<network::HttpClient> http_;
+    ) = 0;
 };
 
 } // namespace anychat

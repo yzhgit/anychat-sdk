@@ -1,99 +1,172 @@
 #pragma once
 
-#include "callbacks.h"
 #include "types.h"
 
-#include <memory>
-#include <string>
-#include <vector>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace anychat {
+/* ---- Callback types ---- */
 
-class MessageListener {
-public:
-    virtual ~MessageListener() = default;
+typedef void (*AnyChatMsgErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatMsgSuccessCallback)(void* userdata);
+typedef void (*AnyChatMsgListSuccessCallback)(void* userdata, const AnyChatMessageList_C* list);
+typedef void (*AnyChatMsgOfflineSuccessCallback)(void* userdata, const AnyChatOfflineMessageResult_C* result);
+typedef void (*AnyChatMsgSearchSuccessCallback)(void* userdata, const AnyChatMessageSearchResult_C* result);
+typedef void (*AnyChatMsgGroupReadStateSuccessCallback)(void* userdata, const AnyChatGroupMessageReadState_C* state);
 
-    virtual void onMessageReceived(const Message& message) {
-        (void) message;
-    }
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatMessageCallback_C;
 
-    virtual void onMessageReadReceipt(const MessageReadReceiptEvent& event) {
-        (void) event;
-    }
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgListSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatMessageListCallback_C;
 
-    virtual void onMessageRecalled(const Message& message) {
-        (void) message;
-    }
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgOfflineSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatOfflineMessageCallback_C;
 
-    virtual void onMessageDeleted(const Message& message) {
-        (void) message;
-    }
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgSearchSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatMessageSearchCallback_C;
 
-    virtual void onMessageEdited(const Message& message) {
-        (void) message;
-    }
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMsgGroupReadStateSuccessCallback on_success;
+    AnyChatMsgErrorCallback on_error;
+} AnyChatGroupMessageReadStateCallback_C;
 
-    virtual void onMessageTyping(const MessageTypingEvent& event) {
-        (void) event;
-    }
+/* Invoked on the SDK's internal thread each time a new message arrives. */
+typedef void (*AnyChatMessageReceivedCallback)(void* userdata, const AnyChatMessage_C* message);
+typedef void (*AnyChatMessageReadReceiptCallback)(void* userdata, const AnyChatMessageReadReceiptEvent_C* event);
+typedef void (*AnyChatMessageTypingCallback)(void* userdata, const AnyChatMessageTypingEvent_C* event);
 
-    virtual void onMessageMentioned(const Message& message) {
-        (void) message;
-    }
-};
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMessageReceivedCallback on_message_received;
+    AnyChatMessageReadReceiptCallback on_message_read_receipt;
+    AnyChatMessageReceivedCallback on_message_recalled;
+    AnyChatMessageReceivedCallback on_message_deleted;
+    AnyChatMessageReceivedCallback on_message_edited;
+    AnyChatMessageTypingCallback on_message_typing;
+    AnyChatMessageReceivedCallback on_message_mentioned;
+} AnyChatMessageListener_C;
 
-class MessageManager {
-public:
-    virtual ~MessageManager() = default;
+/* ---- Message operations ---- */
 
-    virtual void
-    sendTextMessage(const std::string& conv_id, const std::string& content, AnyChatCallback callback) = 0;
+/* Send a plain-text message to a conversation.
+ * Returns ANYCHAT_OK if the request was dispatched. */
+ANYCHAT_C_API int anychat_message_send_text(
+    AnyChatMessageHandle handle,
+    const char* conv_id,
+    const char* content,
+    const AnyChatMessageCallback_C* callback
+);
 
-    virtual void
-    getHistory(
-        const std::string& conv_id,
-        int64_t before_timestamp,
-        int limit,
-        AnyChatValueCallback<std::vector<Message>> callback
-    ) = 0;
+/* Fetch message history before a given timestamp.
+ * before_timestamp_ms: 0 means "fetch the most recent messages".
+ * limit: maximum number of messages to return. */
+ANYCHAT_C_API int anychat_message_get_history(
+    AnyChatMessageHandle handle,
+    const char* conv_id,
+    int64_t before_timestamp_ms,
+    int limit,
+    const AnyChatMessageListCallback_C* callback
+);
 
-    virtual void markAsRead(const std::string& conv_id, const std::string& message_id, AnyChatCallback callback) = 0;
+/* Mark a message as read.
+ * Returns ANYCHAT_OK if the request was dispatched. */
+ANYCHAT_C_API int anychat_message_mark_read(
+    AnyChatMessageHandle handle,
+    const char* conv_id,
+    const char* message_id,
+    const AnyChatMessageCallback_C* callback
+);
 
-    // GET /messages/offline?lastSeq={last_seq}&limit={limit}
-    virtual void getOfflineMessages(int64_t last_seq, int limit, AnyChatValueCallback<MessageOfflineResult> callback) = 0;
+/* Fetch offline messages after the given sequence. */
+ANYCHAT_C_API int anychat_message_get_offline(
+    AnyChatMessageHandle handle,
+    int64_t last_seq,
+    int limit,
+    const AnyChatOfflineMessageCallback_C* callback
+);
 
-    // POST /messages/ack
-    virtual void ackMessages(
-        const std::string& conv_id,
-        const std::vector<std::string>& message_ids,
-        AnyChatCallback callback
-    ) = 0;
+/* Ack one or more read messages in a conversation. */
+ANYCHAT_C_API int anychat_message_ack(
+    AnyChatMessageHandle handle,
+    const char* conv_id,
+    const char* const* message_ids,
+    int message_count,
+    const AnyChatMessageCallback_C* callback
+);
 
-    // GET /groups/{id}/messages/{msgId}/reads
-    virtual void getGroupMessageReadState(
-        const std::string& group_id,
-        const std::string& message_id,
-        AnyChatValueCallback<GroupMessageReadState> callback
-    ) = 0;
+/* Query group message read state. */
+ANYCHAT_C_API int anychat_message_get_group_read_state(
+    AnyChatMessageHandle handle,
+    const char* group_id,
+    const char* message_id,
+    const AnyChatGroupMessageReadStateCallback_C* callback
+);
 
-    // GET /messages/search
-    virtual void searchMessages(
-        const std::string& keyword,
-        const std::string& conversation_id,
-        const std::string& content_type,
-        int limit,
-        int offset,
-        AnyChatValueCallback<MessageSearchResult> callback
-    ) = 0;
+/* Search messages by keyword in a conversation scope. */
+ANYCHAT_C_API int anychat_message_search(
+    AnyChatMessageHandle handle,
+    const char* keyword,
+    const char* conversation_id,
+    const char* content_type,
+    int limit,
+    int offset,
+    const AnyChatMessageSearchCallback_C* callback
+);
 
-    // Message operations (aligns with ws/http capabilities).
-    virtual void recallMessage(const std::string& message_id, AnyChatCallback callback) = 0;
-    virtual void deleteMessage(const std::string& message_id, AnyChatCallback callback) = 0;
-    virtual void editMessage(const std::string& message_id, const std::string& content, AnyChatCallback callback) = 0;
-    virtual void
-    sendTyping(const std::string& conversation_id, bool typing, int32_t ttl_seconds, AnyChatCallback callback) = 0;
+/* Recall / delete / edit messages. */
+ANYCHAT_C_API int anychat_message_recall(
+    AnyChatMessageHandle handle,
+    const char* message_id,
+    const AnyChatMessageCallback_C* callback
+);
 
-    virtual void setListener(std::shared_ptr<MessageListener> listener) = 0;
-};
+ANYCHAT_C_API int anychat_message_delete(
+    AnyChatMessageHandle handle,
+    const char* message_id,
+    const AnyChatMessageCallback_C* callback
+);
 
-} // namespace anychat
+ANYCHAT_C_API int anychat_message_edit(
+    AnyChatMessageHandle handle,
+    const char* message_id,
+    const char* content,
+    const AnyChatMessageCallback_C* callback
+);
+
+/* Send typing status via WebSocket. */
+ANYCHAT_C_API int anychat_message_send_typing(
+    AnyChatMessageHandle handle,
+    const char* conversation_id,
+    int typing,
+    int ttl_seconds,
+    const AnyChatMessageCallback_C* callback
+);
+
+/* ---- Incoming message listener ----
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_message_set_listener(AnyChatMessageHandle handle, const AnyChatMessageListener_C* listener);
+
+#ifdef __cplusplus
+}
+#endif

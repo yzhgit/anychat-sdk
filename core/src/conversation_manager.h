@@ -1,7 +1,7 @@
 #pragma once
 #include "notification_manager.h"
 
-#include "anychat/conversation.h"
+#include "internal/conversation.h"
 
 #include "cache/conversation_cache.h"
 #include "db/database.h"

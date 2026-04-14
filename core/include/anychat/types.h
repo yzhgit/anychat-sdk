@@ -1,428 +1,508 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <vector>
+#include "errors.h"
 
-namespace anychat {
+#include <stdint.h>
 
-enum class ConnectionState
-{
-    Disconnected,
-    Connecting,
-    Connected,
-    Reconnecting,
-};
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-enum class MessageType
-{
-    Text,
-    Image,
-    File,
-    Audio,
-    Video,
-};
+/* ---- Opaque handle types ---- */
+typedef struct AnyChatClient_T* AnyChatClientHandle;
+typedef struct AnyChatAuthManager_T* AnyChatAuthHandle;
+typedef struct AnyChatMessage_T* AnyChatMessageHandle;
+typedef struct AnyChatConversation_T* AnyChatConvHandle;
+typedef struct AnyChatFriend_T* AnyChatFriendHandle;
+typedef struct AnyChatGroup_T* AnyChatGroupHandle;
+typedef struct AnyChatFile_T* AnyChatFileHandle;
+typedef struct AnyChatUser_T* AnyChatUserHandle;
+typedef struct AnyChatCall_T* AnyChatCallHandle;
+typedef struct AnyChatVersion_T* AnyChatVersionHandle;
 
-struct UserInfo {
-    std::string user_id;
-    std::string username;
-    std::string avatar_url;
-    std::string signature;
-    int32_t gender = 0;
-    std::string region;
-    bool is_friend = false;
-    bool is_blocked = false;
-};
+/* ---- Connection states ---- */
+#define ANYCHAT_STATE_DISCONNECTED 0
+#define ANYCHAT_STATE_CONNECTING 1
+#define ANYCHAT_STATE_CONNECTED 2
+#define ANYCHAT_STATE_RECONNECTING 3
 
-struct Message {
-    std::string message_id;
-    std::string local_id; // client-generated local ID for dedup
-    std::string conv_id; // conversation ID
-    std::string sender_id;
-    std::string content_type; // "text"|"image"|"audio"|"video"|"file"|"location"|"custom"
-    MessageType type = MessageType::Text;
-    std::string content; // text or file URL / JSON payload
-    int64_t seq = 0; // conversation-scoped sequence number
-    std::string reply_to; // message_id being replied to
-    int64_t timestamp_ms = 0;
-    int status = 0; // 0=normal, 1=recalled, 2=deleted
-    int send_state = 0; // 0=pending, 1=sent, 2=failed
-    bool is_read = false;
-};
+/* ---- Message types ---- */
+#define ANYCHAT_MSG_TEXT 0
+#define ANYCHAT_MSG_IMAGE 1
+#define ANYCHAT_MSG_FILE 2
+#define ANYCHAT_MSG_AUDIO 3
+#define ANYCHAT_MSG_VIDEO 4
 
-struct MessageOfflineResult {
-    std::vector<Message> messages;
-    bool has_more = false;
-    int64_t next_seq = 0;
-};
+/* ---- Conversation types ---- */
+#define ANYCHAT_CONV_PRIVATE 0
+#define ANYCHAT_CONV_GROUP 1
 
-struct MessageSearchResult {
-    std::vector<Message> messages;
-    int64_t total = 0;
-};
+/* ---- Message send states ---- */
+#define ANYCHAT_SEND_PENDING 0
+#define ANYCHAT_SEND_SENT 1
+#define ANYCHAT_SEND_FAILED 2
 
-struct GroupMessageReadMember {
-    std::string user_id;
-    std::string nickname;
-    int64_t read_at_ms = 0;
-};
+/* ---- Call types ---- */
+#define ANYCHAT_CALL_AUDIO 0
+#define ANYCHAT_CALL_VIDEO 1
 
-struct GroupMessageReadState {
-    int64_t read_count = 0;
-    int64_t unread_count = 0;
-    std::vector<GroupMessageReadMember> read_members;
-};
+/* ---- Call status ---- */
+#define ANYCHAT_CALL_STATUS_RINGING 0
+#define ANYCHAT_CALL_STATUS_CONNECTED 1
+#define ANYCHAT_CALL_STATUS_ENDED 2
+#define ANYCHAT_CALL_STATUS_REJECTED 3
+#define ANYCHAT_CALL_STATUS_MISSED 4
+#define ANYCHAT_CALL_STATUS_CANCELLED 5
 
-struct MessageReadReceiptEvent {
-    std::string conversation_id;
-    std::string from_user_id;
-    std::string message_id;
-    int64_t last_read_seq = 0;
-    std::string last_read_message_id;
-    int64_t read_at_ms = 0;
-};
+/* ---- Group roles ---- */
+#define ANYCHAT_GROUP_ROLE_OWNER 0
+#define ANYCHAT_GROUP_ROLE_ADMIN 1
+#define ANYCHAT_GROUP_ROLE_MEMBER 2
 
-struct MessageTypingEvent {
-    std::string conversation_id;
-    std::string from_user_id;
-    bool typing = false;
-    int64_t expire_at_ms = 0;
-    std::string device_id;
-};
+/* ---- Plain-old-data structs ---- */
 
-// ---- Auth ----------------------------------------------------------------
-struct AuthToken {
-    std::string access_token;
-    std::string refresh_token;
-    int64_t expires_at_ms = 0; // Unix ms, 0 = not set
-};
+typedef struct {
+    char access_token[512];
+    char refresh_token[512];
+    int64_t expires_at_ms;
+} AnyChatAuthToken_C;
 
-struct VerificationCodeResult {
-    std::string code_id;
-    int64_t expires_in = 0; // seconds
-};
+typedef struct {
+    char code_id[128];
+    int64_t expires_in;
+} AnyChatVerificationCodeResult_C;
 
-struct AuthDevice {
-    std::string device_id;
-    std::string device_type;
-    std::string client_version;
-    std::string last_login_ip;
-    int64_t last_login_at_ms = 0;
-    bool is_current = false;
-};
+typedef struct {
+    char device_id[128];
+    char device_type[32];
+    char client_version[64];
+    char last_login_ip[64];
+    int64_t last_login_at_ms;
+    int is_current;
+} AnyChatAuthDevice_C;
 
-// ---- Conversation --------------------------------------------------------
-enum class ConversationType
-{
-    Private,
-    Group
-};
+typedef struct {
+    AnyChatAuthDevice_C* items;
+    int count;
+} AnyChatAuthDeviceList_C;
 
-struct Conversation {
-    std::string conv_id;
-    ConversationType conv_type = ConversationType::Private;
-    std::string target_id; // user_id for private, group_id for group
-    std::string last_msg_id;
-    std::string last_msg_text;
-    int64_t last_msg_time_ms = 0;
-    int32_t unread_count = 0;
-    bool is_pinned = false;
-    bool is_muted = false;
-    int32_t burn_after_reading = 0; // seconds, 0 = disabled
-    int32_t auto_delete_duration = 0; // seconds, 0 = disabled
-    int64_t pin_time_ms = 0; // used for sort order
-    int64_t local_seq = 0;
-    int64_t updated_at_ms = 0;
-};
+typedef struct {
+    char user_id[64];
+    char username[128];
+    char avatar_url[512];
+    char signature[256];
+    int32_t gender; /* 0=unknown, 1=male, 2=female */
+    char region[64];
+    int is_friend;
+    int is_blocked;
+} AnyChatUserInfo_C;
 
-struct ConversationUnreadState {
-    int64_t unread_count = 0;
-    int64_t last_message_seq = 0;
-    bool has_last_message = false;
-    Message last_message;
-};
+typedef struct {
+    char message_id[64];
+    char local_id[64];
+    char conv_id[64];
+    char sender_id[64];
+    char content_type[32];
+    int type; /* ANYCHAT_MSG_* */
+    char* content; /* heap-allocated; free via anychat_free_message() */
+    int64_t seq;
+    char reply_to[64];
+    int64_t timestamp_ms;
+    int status; /* 0=normal, 1=recalled, 2=deleted */
+    int send_state; /* ANYCHAT_SEND_* */
+    int is_read;
+} AnyChatMessage_C;
 
-struct ConversationReadReceipt {
-    std::string user_id;
-    int64_t last_read_seq = 0;
-    std::string last_read_message_id;
-    int64_t read_at_ms = 0;
-    UserInfo user_info;
-};
+typedef struct {
+    AnyChatMessage_C* items;
+    int count;
+} AnyChatMessageList_C;
 
-struct ConversationMarkReadResult {
-    std::vector<std::string> accepted_ids;
-    std::vector<std::string> ignored_ids;
-    int64_t advanced_last_read_seq = 0;
-};
+typedef struct {
+    AnyChatMessage_C* items;
+    int count;
+    int has_more;
+    int64_t next_seq;
+} AnyChatOfflineMessageResult_C;
 
-// ---- Friend --------------------------------------------------------------
-struct Friend {
-    std::string user_id;
-    std::string remark;
-    int64_t updated_at_ms = 0;
-    bool is_deleted = false;
-    UserInfo user_info;
-};
+typedef struct {
+    AnyChatMessage_C* items;
+    int count;
+    int64_t total;
+} AnyChatMessageSearchResult_C;
 
-struct FriendRequest {
-    int64_t request_id = 0;
-    std::string from_user_id;
-    std::string to_user_id;
-    std::string message;
-    std::string source; // "search" | "qrcode" | "group" | "contacts"
-    std::string status; // "pending" | "accepted" | "rejected"
-    int64_t created_at_ms = 0;
-    UserInfo from_user_info;
-};
+typedef struct {
+    char user_id[64];
+    char nickname[128];
+    int64_t read_at_ms;
+} AnyChatGroupMessageReadMember_C;
 
-struct BlacklistItem {
-    int64_t id = 0;
-    std::string user_id;
-    std::string blocked_user_id;
-    int64_t created_at_ms = 0;
-    UserInfo blocked_user_info;
-};
+typedef struct {
+    AnyChatGroupMessageReadMember_C* items;
+    int count;
+    int64_t read_count;
+    int64_t unread_count;
+} AnyChatGroupMessageReadState_C;
 
-// ---- Group ---------------------------------------------------------------
-enum class GroupRole
-{
-    Owner,
-    Admin,
-    Member
-};
+typedef struct {
+    char conversation_id[64];
+    char from_user_id[64];
+    char message_id[64];
+    int64_t last_read_seq;
+    char last_read_message_id[64];
+    int64_t read_at_ms;
+} AnyChatMessageReadReceiptEvent_C;
 
-struct Group {
-    std::string group_id;
-    std::string name;
-    std::string display_name;
-    std::string avatar_url;
-    std::string announcement;
-    std::string description;
-    std::string group_remark;
-    std::string owner_id;
-    int32_t member_count = 0;
-    int32_t max_members = 0;
-    GroupRole my_role = GroupRole::Member;
-    bool join_verify = false;
-    bool is_muted = false;
-    int64_t created_at_ms = 0;
-    int64_t updated_at_ms = 0;
-};
+typedef struct {
+    char conversation_id[64];
+    char from_user_id[64];
+    int typing;
+    int64_t expire_at_ms;
+    char device_id[64];
+} AnyChatMessageTypingEvent_C;
 
-struct GroupMember {
-    std::string user_id;
-    std::string group_nickname;
-    GroupRole role = GroupRole::Member;
-    bool is_muted = false;
-    int64_t muted_until_ms = 0;
-    int64_t joined_at_ms = 0;
-    UserInfo user_info;
-};
+typedef struct {
+    char conv_id[64];
+    int conv_type; /* ANYCHAT_CONV_* */
+    char target_id[64];
+    char last_msg_id[64];
+    char last_msg_text[512];
+    int64_t last_msg_time_ms;
+    int32_t unread_count;
+    int is_pinned;
+    int is_muted;
+    int32_t burn_after_reading; /* seconds, 0 = disabled */
+    int32_t auto_delete_duration; /* seconds, 0 = disabled */
+    int64_t updated_at_ms;
+} AnyChatConversation_C;
 
-struct GroupJoinRequest {
-    int64_t request_id = 0;
-    std::string group_id;
-    std::string user_id;
-    std::string inviter_id;
-    std::string message;
-    std::string status; // "pending" | "accepted" | "rejected"
-    int64_t created_at_ms = 0;
-    UserInfo user_info;
-};
+typedef struct {
+    AnyChatConversation_C* items;
+    int count;
+} AnyChatConversationList_C;
 
-struct GroupQRCode {
-    std::string group_id;
-    std::string token;
-    std::string deep_link;
-    int64_t expire_at_ms = 0;
-};
+typedef struct {
+    int64_t unread_count;
+    int64_t last_message_seq;
+} AnyChatConversationUnreadState_C;
 
-// ---- File ----------------------------------------------------------------
-struct FileInfo {
-    std::string file_id;
-    std::string file_name;
-    std::string file_type; // "image" | "video" | "audio" | "file"
-    int64_t file_size_bytes = 0;
-    std::string mime_type;
-    std::string download_url;
-    int64_t created_at_ms = 0;
-};
+typedef struct {
+    char** accepted_ids;
+    int accepted_count;
+    char** ignored_ids;
+    int ignored_count;
+    int64_t advanced_last_read_seq;
+} AnyChatConversationMarkReadResult_C;
 
-struct FileListResult {
-    std::vector<FileInfo> files;
-    int64_t total = 0;
-    int32_t page = 0;
-    int32_t page_size = 0;
-};
+typedef struct {
+    char user_id[64];
+    int64_t last_read_seq;
+    char last_read_message_id[64];
+    int64_t read_at_ms;
+} AnyChatConversationReadReceipt_C;
 
-// ---- Outbound message state ----------------------------------------------
-enum class SendState
-{
-    Received = 0,
-    Sending = 1,
-    Failed = 2
-};
+typedef struct {
+    AnyChatConversationReadReceipt_C* items;
+    int count;
+} AnyChatConversationReadReceiptList_C;
 
-// ---- User ----------------------------------------------------------------
-struct UserProfile {
-    std::string user_id;
-    std::string nickname;
-    std::string avatar_url;
-    std::string phone;
-    std::string email;
-    std::string signature;
-    std::string region;
-    int32_t gender = 0; // 0=unknown, 1=male, 2=female
-    int64_t birthday_ms = 0;
-    std::string qrcode_url;
-    int64_t created_at_ms = 0;
-};
+typedef struct {
+    char user_id[64];
+    char remark[128];
+    int64_t updated_at_ms;
+    int is_deleted;
+    AnyChatUserInfo_C user_info;
+} AnyChatFriend_C;
 
-struct UserSettings {
-    std::string user_id;
-    bool notification_enabled = true;
-    bool sound_enabled = true;
-    bool vibration_enabled = true;
-    bool message_preview_enabled = true;
-    bool friend_verify_required = false;
-    bool search_by_phone = true;
-    bool search_by_id = true;
-    std::string language;
-};
+typedef struct {
+    AnyChatFriend_C* items;
+    int count;
+} AnyChatFriendList_C;
 
-struct UserQRCode {
-    std::string qrcode_url;
-    int64_t expires_at_ms = 0;
-};
+typedef struct {
+    int64_t request_id;
+    char from_user_id[64];
+    char to_user_id[64];
+    char message[256];
+    char source[32]; /* "search"|"qrcode"|"group"|"contacts" */
+    char status[32]; /* "pending"|"accepted"|"rejected" */
+    int64_t created_at_ms;
+    AnyChatUserInfo_C from_user_info;
+} AnyChatFriendRequest_C;
 
-struct BindPhoneResult {
-    std::string phone_number;
-    bool is_primary = false;
-};
+typedef struct {
+    AnyChatFriendRequest_C* items;
+    int count;
+} AnyChatFriendRequestList_C;
 
-struct ChangePhoneResult {
-    std::string old_phone_number;
-    std::string new_phone_number;
-};
+typedef struct {
+    int64_t id;
+    char user_id[64];
+    char blocked_user_id[64];
+    int64_t created_at_ms;
+    AnyChatUserInfo_C blocked_user_info;
+} AnyChatBlacklistItem_C;
 
-struct BindEmailResult {
-    std::string email;
-    bool is_primary = false;
-};
+typedef struct {
+    AnyChatBlacklistItem_C* items;
+    int count;
+} AnyChatBlacklistList_C;
 
-struct ChangeEmailResult {
-    std::string old_email;
-    std::string new_email;
-};
+typedef struct {
+    char group_id[64];
+    char name[128];
+    char avatar_url[512];
+    char owner_id[64];
+    int32_t member_count;
+    int my_role; /* ANYCHAT_GROUP_ROLE_* */
+    int join_verify;
+    int64_t updated_at_ms;
+    char display_name[128];
+    char announcement[512];
+    char description[512];
+    char group_remark[64];
+    int32_t max_members;
+    int is_muted;
+    int64_t created_at_ms;
+} AnyChatGroup_C;
 
-struct UserStatusEvent {
-    std::string user_id;
-    std::string status; // "online" | "offline" | "away"
-    int64_t last_active_at_ms = 0;
-    std::string platform;
-};
+typedef struct {
+    AnyChatGroup_C* items;
+    int count;
+} AnyChatGroupList_C;
 
-struct UserSearchResult {
-    std::vector<UserInfo> users;
-    int64_t total = 0;
-};
+typedef struct {
+    char user_id[64];
+    char group_nickname[128];
+    int role; /* ANYCHAT_GROUP_ROLE_* */
+    int is_muted;
+    int64_t muted_until_ms;
+    int64_t joined_at_ms;
+    AnyChatUserInfo_C user_info;
+} AnyChatGroupMember_C;
 
-// ---- Version --------------------------------------------------------------
-struct VersionUpdateInfo {
-    std::string title;
-    std::string content;
-    std::string download_url;
-    int64_t file_size = 0;
-    std::string file_hash;
-};
+typedef struct {
+    AnyChatGroupMember_C* items;
+    int count;
+} AnyChatGroupMemberList_C;
 
-struct VersionCheckResult {
-    bool has_update = false;
-    std::string latest_version;
-    int32_t latest_build_number = 0;
-    bool force_update = false;
-    std::string min_version;
-    int32_t min_build_number = 0;
-    VersionUpdateInfo update_info;
-};
+typedef struct {
+    int64_t request_id;
+    char group_id[64];
+    char user_id[64];
+    char inviter_id[64];
+    char message[256];
+    char status[32]; /* "pending"|"accepted"|"rejected" */
+    int64_t created_at_ms;
+    AnyChatUserInfo_C user_info;
+} AnyChatGroupJoinRequest_C;
 
-struct AppVersionInfo {
-    int64_t id = 0;
-    std::string platform;
-    std::string version;
-    int32_t build_number = 0;
-    int32_t version_code = 0;
-    std::string min_version;
-    int32_t min_build_number = 0;
-    bool force_update = false;
-    std::string release_type;
-    std::string title;
-    std::string content;
-    std::string download_url;
-    int64_t file_size = 0;
-    std::string file_hash;
-    int64_t published_at_ms = 0;
-};
+typedef struct {
+    AnyChatGroupJoinRequest_C* items;
+    int count;
+} AnyChatGroupJoinRequestList_C;
 
-struct VersionListResult {
-    std::vector<AppVersionInfo> versions;
-    int64_t total = 0;
-    int32_t page = 0;
-    int32_t page_size = 0;
-};
+typedef struct {
+    char group_id[64];
+    char token[128];
+    char deep_link[512];
+    int64_t expire_at_ms;
+} AnyChatGroupQRCode_C;
 
-// ---- Call -----------------------------------------------------------------
-enum class CallType
-{
-    Audio,
-    Video
-};
-enum class CallStatus
-{
-    Ringing,
-    Connected,
-    Ended,
-    Rejected,
-    Missed,
-    Cancelled
-};
+typedef struct {
+    char file_id[64];
+    char file_name[256];
+    char file_type[32];
+    int64_t file_size_bytes;
+    char mime_type[128];
+    char download_url[1024];
+    int64_t created_at_ms;
+} AnyChatFileInfo_C;
 
-struct CallSession {
-    std::string call_id;
-    std::string caller_id;
-    std::string callee_id;
-    CallType call_type = CallType::Audio;
-    CallStatus status = CallStatus::Ringing;
-    std::string room_name;
-    std::string token; // Call JWT — filled on initiateCall / joinCall
-    int64_t started_at = 0; // Unix seconds
-    int64_t connected_at = 0;
-    int64_t ended_at = 0;
-    int32_t duration = 0; // seconds
-};
+typedef struct {
+    AnyChatFileInfo_C* items;
+    int count;
+    int64_t total;
+    int32_t page;
+    int32_t page_size;
+} AnyChatFileList_C;
 
-struct MeetingRoom {
-    std::string room_id;
-    std::string creator_id;
-    std::string title;
-    std::string room_name;
-    std::string token; // Call JWT — filled on createMeeting / joinMeeting
-    bool has_password = false;
-    int32_t max_participants = 0;
-    bool is_active = true;
-    int64_t started_at = 0; // Unix seconds
-    int64_t created_at_ms = 0;
-};
+typedef struct {
+    char user_id[64];
+    char nickname[128];
+    char avatar_url[512];
+    char phone[32];
+    char email[128];
+    char signature[256];
+    char region[64];
+    int32_t gender; /* 0=unknown, 1=male, 2=female */
+    int64_t birthday_ms;
+    char qrcode_url[512];
+    int64_t created_at_ms;
+} AnyChatUserProfile_C;
 
-struct CallLogResult {
-    std::vector<CallSession> calls;
-    int64_t total = 0;
-};
+typedef struct {
+    char user_id[64];
+    int notification_enabled;
+    int sound_enabled;
+    int vibration_enabled;
+    int message_preview_enabled;
+    int friend_verify_required;
+    int search_by_phone;
+    int search_by_id;
+    char language[16];
+} AnyChatUserSettings_C;
 
-struct MeetingListResult {
-    std::vector<MeetingRoom> rooms;
-    int64_t total = 0;
-};
+typedef struct {
+    AnyChatUserInfo_C* items;
+    int count;
+    int64_t total;
+} AnyChatUserList_C;
 
-} // namespace anychat
+typedef struct {
+    char qrcode_url[512];
+    int64_t expires_at_ms;
+} AnyChatUserQRCode_C;
+
+typedef struct {
+    char phone_number[32];
+    int is_primary;
+} AnyChatBindPhoneResult_C;
+
+typedef struct {
+    char old_phone_number[32];
+    char new_phone_number[32];
+} AnyChatChangePhoneResult_C;
+
+typedef struct {
+    char email[128];
+    int is_primary;
+} AnyChatBindEmailResult_C;
+
+typedef struct {
+    char old_email[128];
+    char new_email[128];
+} AnyChatChangeEmailResult_C;
+
+typedef struct {
+    char user_id[64];
+    char status[32];
+    int64_t last_active_at_ms;
+    char platform[32];
+} AnyChatUserStatusEvent_C;
+
+typedef struct {
+    char call_id[64];
+    char caller_id[64];
+    char callee_id[64];
+    int call_type; /* ANYCHAT_CALL_* */
+    int status; /* ANYCHAT_CALL_STATUS_* */
+    char room_name[128];
+    char token[512];
+    int64_t started_at;
+    int64_t connected_at;
+    int64_t ended_at;
+    int32_t duration; /* seconds */
+} AnyChatCallSession_C;
+
+typedef struct {
+    AnyChatCallSession_C* items;
+    int count;
+    int64_t total;
+} AnyChatCallList_C;
+
+typedef struct {
+    char room_id[64];
+    char creator_id[64];
+    char title[128];
+    char room_name[128];
+    char token[512];
+    int has_password;
+    int32_t max_participants;
+    int is_active;
+    int64_t started_at;
+    int64_t created_at_ms;
+} AnyChatMeetingRoom_C;
+
+typedef struct {
+    AnyChatMeetingRoom_C* items;
+    int count;
+    int64_t total;
+} AnyChatMeetingList_C;
+
+typedef struct {
+    char title[128];
+    char content[2048];
+    char download_url[1024];
+    int64_t file_size;
+    char file_hash[128];
+} AnyChatVersionUpdateInfo_C;
+
+typedef struct {
+    int has_update;
+    char latest_version[64];
+    int32_t latest_build_number;
+    int force_update;
+    char min_version[64];
+    int32_t min_build_number;
+    AnyChatVersionUpdateInfo_C update_info;
+} AnyChatVersionCheckResult_C;
+
+typedef struct {
+    int64_t id;
+    char platform[32];
+    char version[64];
+    int32_t build_number;
+    int32_t version_code;
+    char min_version[64];
+    int32_t min_build_number;
+    int force_update;
+    char release_type[32];
+    char title[128];
+    char content[2048];
+    char download_url[1024];
+    int64_t file_size;
+    char file_hash[128];
+    int64_t published_at_ms;
+} AnyChatVersionInfo_C;
+
+typedef struct {
+    AnyChatVersionInfo_C* items;
+    int count;
+    int64_t total;
+    int32_t page;
+    int32_t page_size;
+} AnyChatVersionList_C;
+
+/* ---- Memory management ---- */
+
+/* Free a string allocated by the SDK. */
+ANYCHAT_C_API void anychat_free_string(char* str);
+
+/* Free the content field of a single message struct. */
+ANYCHAT_C_API void anychat_free_message(AnyChatMessage_C* msg);
+
+/* Free a list allocated by the SDK. The structs themselves are also freed. */
+ANYCHAT_C_API void anychat_free_message_list(AnyChatMessageList_C* list);
+ANYCHAT_C_API void anychat_free_offline_message_result(AnyChatOfflineMessageResult_C* result);
+ANYCHAT_C_API void anychat_free_message_search_result(AnyChatMessageSearchResult_C* result);
+ANYCHAT_C_API void anychat_free_group_message_read_state(AnyChatGroupMessageReadState_C* state);
+ANYCHAT_C_API void anychat_free_conversation_list(AnyChatConversationList_C* list);
+ANYCHAT_C_API void anychat_free_conversation_mark_read_result(AnyChatConversationMarkReadResult_C* result);
+ANYCHAT_C_API void anychat_free_conversation_read_receipt_list(AnyChatConversationReadReceiptList_C* list);
+ANYCHAT_C_API void anychat_free_friend_list(AnyChatFriendList_C* list);
+ANYCHAT_C_API void anychat_free_friend_request_list(AnyChatFriendRequestList_C* list);
+ANYCHAT_C_API void anychat_free_blacklist_list(AnyChatBlacklistList_C* list);
+ANYCHAT_C_API void anychat_free_group_list(AnyChatGroupList_C* list);
+ANYCHAT_C_API void anychat_free_group_member_list(AnyChatGroupMemberList_C* list);
+ANYCHAT_C_API void anychat_free_group_join_request_list(AnyChatGroupJoinRequestList_C* list);
+ANYCHAT_C_API void anychat_free_user_list(AnyChatUserList_C* list);
+ANYCHAT_C_API void anychat_free_call_list(AnyChatCallList_C* list);
+ANYCHAT_C_API void anychat_free_meeting_list(AnyChatMeetingList_C* list);
+ANYCHAT_C_API void anychat_free_auth_device_list(AnyChatAuthDeviceList_C* list);
+ANYCHAT_C_API void anychat_free_file_list(AnyChatFileList_C* list);
+ANYCHAT_C_API void anychat_free_version_list(AnyChatVersionList_C* list);
+
+#ifdef __cplusplus
+}
+#endif

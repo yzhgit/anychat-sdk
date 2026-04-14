@@ -2,7 +2,7 @@
 
 #include "notification_manager.h"
 
-#include "../include/anychat/message.h"
+#include "internal/message.h"
 #include "db/database.h"
 
 #include <functional>

@@ -1,7 +1,7 @@
 #pragma once
 #include "notification_manager.h"
 
-#include "anychat/friend.h"
+#include "internal/friend.h"
 
 #include "db/database.h"
 #include "network/http_client.h"

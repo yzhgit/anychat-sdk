@@ -1,7 +1,7 @@
 #pragma once
 
-#include "anychat/network_monitor.h"
-#include "anychat/types.h"
+#include "internal/network_monitor.h"
+#include "internal/types.h"
 
 #include "network/iwebsocket_client.h"
 

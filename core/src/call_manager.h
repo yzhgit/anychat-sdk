@@ -2,7 +2,7 @@
 
 #include "notification_manager.h"
 
-#include "anychat/call.h"
+#include "internal/call.h"
 
 #include "network/http_client.h"
 

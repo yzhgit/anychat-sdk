@@ -1,6 +1,6 @@
 #pragma once
 
-#include "anychat/user.h"
+#include "internal/user.h"
 
 #include "network/http_client.h"
 

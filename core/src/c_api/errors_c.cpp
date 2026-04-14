@@ -1,4 +1,4 @@
-#include "anychat_c/errors_c.h"
+#include "anychat/errors.h"
 
 #include <string>
 

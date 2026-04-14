@@ -1,4 +1,4 @@
-#include "anychat_c/version_c.h"
+#include "anychat/version.h"
 
 #include "handles_c.h"
 #include "utils_c.h"

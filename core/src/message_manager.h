@@ -3,7 +3,7 @@
 #include "notification_manager.h"
 #include "outbound_queue.h"
 
-#include "anychat/message.h"
+#include "internal/message.h"
 
 #include "cache/message_cache.h"
 #include "db/database.h"

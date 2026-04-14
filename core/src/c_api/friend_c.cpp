@@ -1,4 +1,4 @@
-#include "anychat_c/friend_c.h"
+#include "anychat/friend.h"
 
 #include "handles_c.h"
 #include "utils_c.h"

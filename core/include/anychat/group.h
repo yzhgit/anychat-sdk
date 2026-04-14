@@ -1,135 +1,189 @@
 #pragma once
 
-#include "callbacks.h"
 #include "types.h"
 
-#include <memory>
-#include <string>
-#include <vector>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace anychat {
+/* ---- Callback types ---- */
 
-class GroupListener {
-public:
-    virtual ~GroupListener() = default;
+typedef void (*AnyChatGroupErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatGroupSuccessCallback)(void* userdata);
+typedef void (*AnyChatGroupListSuccessCallback)(void* userdata, const AnyChatGroupList_C* list);
+typedef void (*AnyChatGroupInfoSuccessCallback)(void* userdata, const AnyChatGroup_C* group);
+typedef void (*AnyChatGroupMemberListSuccessCallback)(void* userdata, const AnyChatGroupMemberList_C* list);
+typedef void (*AnyChatGroupJoinRequestListSuccessCallback)(void* userdata, const AnyChatGroupJoinRequestList_C* list);
+typedef void (*AnyChatGroupQRCodeSuccessCallback)(void* userdata, const AnyChatGroupQRCode_C* qrcode);
 
-    virtual void onGroupInvited(const Group& group, const std::string& inviter_id) {
-        (void) group;
-        (void) inviter_id;
-    }
+/* Fired when the current user is invited to a group. */
+typedef void (*AnyChatGroupInvitedCallback)(void* userdata, const AnyChatGroup_C* group, const char* inviter_id);
 
-    virtual void onGroupUpdated(const Group& group) {
-        (void) group;
-    }
-};
+/* Fired when group metadata changes. */
+typedef void (*AnyChatGroupUpdatedCallback)(void* userdata, const AnyChatGroup_C* group);
 
-class GroupManager {
-public:
-    virtual ~GroupManager() = default;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatGroupInvitedCallback on_group_invited;
+    AnyChatGroupUpdatedCallback on_group_updated;
+} AnyChatGroupListener_C;
 
-    virtual void getGroupList(AnyChatValueCallback<std::vector<Group>> cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatGroupSuccessCallback on_success;
+    AnyChatGroupErrorCallback on_error;
+} AnyChatGroupCallback_C;
 
-    virtual void getInfo(const std::string& group_id, AnyChatValueCallback<Group> cb) {
-        (void) group_id;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatGroupListSuccessCallback on_success;
+    AnyChatGroupErrorCallback on_error;
+} AnyChatGroupListCallback_C;
 
-    virtual void
-    create(const std::string& name, const std::vector<std::string>& member_ids, AnyChatValueCallback<Group> cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatGroupInfoSuccessCallback on_success;
+    AnyChatGroupErrorCallback on_error;
+} AnyChatGroupInfoCallback_C;
 
-    virtual void join(const std::string& group_id, const std::string& message, AnyChatCallback cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatGroupMemberListSuccessCallback on_success;
+    AnyChatGroupErrorCallback on_error;
+} AnyChatGroupMemberListCallback_C;
 
-    virtual void invite(const std::string& group_id, const std::vector<std::string>& user_ids, AnyChatCallback cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatGroupJoinRequestListSuccessCallback on_success;
+    AnyChatGroupErrorCallback on_error;
+} AnyChatGroupJoinRequestListCallback_C;
 
-    virtual void quit(const std::string& group_id, AnyChatCallback cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatGroupQRCodeSuccessCallback on_success;
+    AnyChatGroupErrorCallback on_error;
+} AnyChatGroupQRCodeCallback_C;
 
-    virtual void disband(const std::string& group_id, AnyChatCallback cb) {
-        (void) group_id;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+/* ---- Group operations ---- */
 
-    virtual void
-    update(const std::string& group_id, const std::string& name, const std::string& avatar_url, AnyChatCallback cb)
-        = 0;
+ANYCHAT_C_API int anychat_group_get_list(AnyChatGroupHandle handle, const AnyChatGroupListCallback_C* callback);
+ANYCHAT_C_API int
+anychat_group_get_info(AnyChatGroupHandle handle, const char* group_id, const AnyChatGroupInfoCallback_C* callback);
 
-    virtual void
-    getMembers(const std::string& group_id, int page, int page_size, AnyChatValueCallback<std::vector<GroupMember>> cb)
-        = 0;
+/* member_ids: NULL-terminated array of user ID strings.
+ * member_count: length of the array (excluding the terminating NULL). */
+ANYCHAT_C_API int anychat_group_create(
+    AnyChatGroupHandle handle,
+    const char* name,
+    const char* const* member_ids,
+    int member_count,
+    const AnyChatGroupInfoCallback_C* callback
+);
 
-    virtual void removeMember(const std::string& group_id, const std::string& user_id, AnyChatCallback cb) {
-        (void) group_id;
-        (void) user_id;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+ANYCHAT_C_API int anychat_group_join(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* message,
+    const AnyChatGroupCallback_C* callback
+);
 
-    virtual void
-    updateMemberRole(const std::string& group_id, const std::string& user_id, GroupRole role, AnyChatCallback cb) {
-        (void) group_id;
-        (void) user_id;
-        (void) role;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+ANYCHAT_C_API int anychat_group_invite(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* const* user_ids,
+    int user_count,
+    const AnyChatGroupCallback_C* callback
+);
 
-    virtual void updateNickname(const std::string& group_id, const std::string& nickname, AnyChatCallback cb) {
-        (void) group_id;
-        (void) nickname;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+ANYCHAT_C_API int
+anychat_group_quit(AnyChatGroupHandle handle, const char* group_id, const AnyChatGroupCallback_C* callback);
 
-    virtual void transferOwnership(const std::string& group_id, const std::string& new_owner_id, AnyChatCallback cb) {
-        (void) group_id;
-        (void) new_owner_id;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+ANYCHAT_C_API int
+anychat_group_disband(AnyChatGroupHandle handle, const char* group_id, const AnyChatGroupCallback_C* callback);
 
-    virtual void getJoinRequests(
-        const std::string& group_id,
-        const std::string& status,
-        AnyChatValueCallback<std::vector<GroupJoinRequest>> cb
-    ) {
-        (void) group_id;
-        (void) status;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+ANYCHAT_C_API int anychat_group_update(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* name,
+    const char* avatar_url,
+    const AnyChatGroupCallback_C* callback
+);
 
-    virtual void handleJoinRequest(const std::string& group_id, int64_t request_id, bool accept, AnyChatCallback cb) {
-        (void) group_id;
-        (void) request_id;
-        (void) accept;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+ANYCHAT_C_API int anychat_group_get_members(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    int page,
+    int page_size,
+    const AnyChatGroupMemberListCallback_C* callback
+);
 
-    virtual void getQRCode(const std::string& group_id, AnyChatValueCallback<GroupQRCode> cb) {
-        (void) group_id;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+ANYCHAT_C_API int anychat_group_remove_member(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* user_id,
+    const AnyChatGroupCallback_C* callback
+);
 
-    virtual void refreshQRCode(const std::string& group_id, AnyChatValueCallback<GroupQRCode> cb) {
-        (void) group_id;
-        if (cb.on_error) {
-            cb.on_error(-1, "unsupported operation");
-        }
-    }
+ANYCHAT_C_API int anychat_group_update_member_role(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* user_id,
+    const char* role,
+    const AnyChatGroupCallback_C* callback
+);
 
-    virtual void setListener(std::shared_ptr<GroupListener> listener) = 0;
-};
+ANYCHAT_C_API int anychat_group_update_nickname(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* nickname,
+    const AnyChatGroupCallback_C* callback
+);
 
-} // namespace anychat
+ANYCHAT_C_API int anychat_group_transfer_ownership(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* new_owner_id,
+    const AnyChatGroupCallback_C* callback
+);
+
+ANYCHAT_C_API int anychat_group_get_join_requests(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const char* status,
+    const AnyChatGroupJoinRequestListCallback_C* callback
+);
+
+ANYCHAT_C_API int anychat_group_handle_join_request(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    int64_t request_id,
+    int accept,
+    const AnyChatGroupCallback_C* callback
+);
+
+ANYCHAT_C_API int anychat_group_get_qrcode(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const AnyChatGroupQRCodeCallback_C* callback
+);
+
+ANYCHAT_C_API int anychat_group_refresh_qrcode(
+    AnyChatGroupHandle handle,
+    const char* group_id,
+    const AnyChatGroupQRCodeCallback_C* callback
+);
+
+/* ---- Incoming event listener ----
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_group_set_listener(AnyChatGroupHandle handle, const AnyChatGroupListener_C* listener);
+
+#ifdef __cplusplus
+}
+#endif

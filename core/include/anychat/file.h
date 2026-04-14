@@ -1,52 +1,100 @@
 #pragma once
 
-#include "callbacks.h"
 #include "types.h"
 
-#include <functional>
-#include <cstdint>
-#include <string>
-#include <vector>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace anychat {
+/* ---- Callback types ---- */
 
-using UploadProgressCallback = std::function<void(int64_t uploaded, int64_t total)>;
+typedef void (*AnyChatFileErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatFileSuccessCallback)(void* userdata);
+typedef void (*AnyChatFileInfoSuccessCallback)(void* userdata, const AnyChatFileInfo_C* info);
+typedef void (*AnyChatDownloadUrlSuccessCallback)(void* userdata, const char* url);
+typedef void (*AnyChatFileListSuccessCallback)(void* userdata, const AnyChatFileList_C* list);
 
-class FileManager {
-public:
-    virtual ~FileManager() = default;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFileSuccessCallback on_success;
+    AnyChatFileErrorCallback on_error;
+} AnyChatFileCallback_C;
 
-    // Three-step upload: get-token → PUT → complete
-    // local_path: absolute path to the file to upload
-    // on_progress: called periodically with bytes uploaded / total
-    // on_done: called with the file_id and download_url on success
-    virtual void upload(
-        const std::string& local_path,
-        const std::string& file_type, // "image" | "video" | "audio" | "file"
-        UploadProgressCallback on_progress,
-        AnyChatValueCallback<FileInfo> on_done
-    ) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFileInfoSuccessCallback on_success;
+    AnyChatFileErrorCallback on_error;
+} AnyChatFileInfoCallback_C;
 
-    // GET /files/{fileId}/download → presigned URL
-    virtual void getDownloadUrl(const std::string& file_id, AnyChatValueCallback<std::string> cb) = 0;
+/* Progress during upload: uploaded and total are byte counts. */
+typedef void (*AnyChatUploadProgressCallback)(void* userdata, int64_t uploaded, int64_t total);
 
-    // GET /files/{fileId}
-    virtual void getFileInfo(const std::string& file_id, AnyChatValueCallback<FileInfo> cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatDownloadUrlSuccessCallback on_success;
+    AnyChatFileErrorCallback on_error;
+} AnyChatDownloadUrlCallback_C;
 
-    // GET /files?fileType=&page=&pageSize=
-    // file_type empty means no type filter.
-    virtual void listFiles(const std::string& file_type, int page, int page_size, AnyChatValueCallback<FileListResult> cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFileListSuccessCallback on_success;
+    AnyChatFileErrorCallback on_error;
+} AnyChatFileListCallback_C;
 
-    // Three-step client log upload: POST /logs/upload -> PUT upload_url -> POST /logs/complete
-    virtual void uploadClientLog(
-        const std::string& local_path,
-        UploadProgressCallback on_progress,
-        AnyChatValueCallback<FileInfo> on_done,
-        int32_t expires_hours = 0
-    ) = 0;
+/* ---- File operations ---- */
 
-    // DELETE /files/{fileId}
-    virtual void deleteFile(const std::string& file_id, AnyChatCallback cb) = 0;
-};
+/* Upload a local file.
+ * file_type: "image" | "video" | "audio" | "file"
+ * on_progress: may be NULL.
+ * on_done: fired when the upload completes (success or failure). */
+ANYCHAT_C_API int anychat_file_upload(
+    AnyChatFileHandle handle,
+    const char* local_path,
+    const char* file_type,
+    AnyChatUploadProgressCallback on_progress,
+    const AnyChatFileInfoCallback_C* on_done
+);
 
-} // namespace anychat
+/* Retrieve a presigned download URL for a file. */
+ANYCHAT_C_API int anychat_file_get_download_url(
+    AnyChatFileHandle handle,
+    const char* file_id,
+    const AnyChatDownloadUrlCallback_C* callback
+);
+
+/* Retrieve metadata for a single file. */
+ANYCHAT_C_API int anychat_file_get_info(
+    AnyChatFileHandle handle,
+    const char* file_id,
+    const AnyChatFileInfoCallback_C* callback
+);
+
+/* List user files; file_type may be NULL/empty for all types. */
+ANYCHAT_C_API int anychat_file_list(
+    AnyChatFileHandle handle,
+    const char* file_type,
+    int page,
+    int page_size,
+    const AnyChatFileListCallback_C* callback
+);
+
+/* Upload client log file via /logs/upload + /logs/complete. */
+ANYCHAT_C_API int anychat_file_upload_log(
+    AnyChatFileHandle handle,
+    const char* local_path,
+    int32_t expires_hours,
+    AnyChatUploadProgressCallback on_progress,
+    const AnyChatFileInfoCallback_C* on_done
+);
+
+/* Delete a file from the server. */
+ANYCHAT_C_API int
+anychat_file_delete(AnyChatFileHandle handle, const char* file_id, const AnyChatFileCallback_C* callback);
+
+#ifdef __cplusplus
+}
+#endif

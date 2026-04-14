@@ -1,5 +1,5 @@
 /*
- * anychat_c.h — AnyChat SDK C interface
+ * anychat.h — AnyChat SDK C interface
  *
  * This is the single include entry point. Include only this file.
  *
@@ -18,15 +18,15 @@
  */
 #pragma once
 
-#include "auth_c.h"
-#include "client_c.h"
-#include "conversation_c.h"
-#include "errors_c.h"
-#include "file_c.h"
-#include "friend_c.h"
-#include "group_c.h"
-#include "message_c.h"
-#include "call_c.h"
-#include "types_c.h"
-#include "user_c.h"
-#include "version_c.h"
+#include "auth.h"
+#include "client.h"
+#include "conversation.h"
+#include "errors.h"
+#include "file.h"
+#include "friend.h"
+#include "group.h"
+#include "message.h"
+#include "call.h"
+#include "types.h"
+#include "user.h"
+#include "version.h"

@@ -1,4 +1,4 @@
-#include "anychat_c/message_c.h"
+#include "anychat/message.h"
 
 #include "handles_c.h"
 #include "utils_c.h"

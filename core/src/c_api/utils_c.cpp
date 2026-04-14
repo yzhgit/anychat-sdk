@@ -1,6 +1,6 @@
 #include "utils_c.h"
 
-#include "anychat_c/types_c.h"
+#include "anychat/types.h"
 
 #include <cstdlib>
 #include <cstring>

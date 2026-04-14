@@ -5,7 +5,7 @@
 
 #include "connection_manager.h" // 待测类（内部头）
 
-#include "anychat/network_monitor.h"
+#include "internal/network_monitor.h"
 
 #include "network/iwebsocket_client.h"
 

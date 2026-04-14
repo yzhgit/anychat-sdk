@@ -1,4 +1,6 @@
-add_library(anychat_core STATIC
+include(GNUInstallDirs)
+
+set(ANYCHAT_INTERNAL_SOURCES
     src/client.cpp
     src/auth_manager.cpp
     src/connection_manager.cpp
@@ -19,37 +21,7 @@ add_library(anychat_core STATIC
     src/network/websocket_client.cpp
 )
 
-target_include_directories(anychat_core
-    PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-target_compile_features(anychat_core PUBLIC cxx_std_23)
-
-# Enable position-independent code for static libraries (needed for shared library linking)
-set_target_properties(anychat_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-# ── Dependencies ──────────────────────────────────────────────────────────────
-
-target_link_libraries(anychat_core
-    PRIVATE glaze::glaze
-    PRIVATE CURL::libcurl
-            SQLite::SQLite3
-)
-
-# libwebsockets: handle both target names produced by the submodule build.
-if(TARGET websockets)
-    target_link_libraries(anychat_core PRIVATE websockets)
-elseif(TARGET websockets_shared)
-    target_link_libraries(anychat_core PRIVATE websockets_shared)
-else()
-    message(FATAL_ERROR "[AnyChat] libwebsockets target not found. "
-        "Ensure the thirdparty/libwebsockets submodule is initialised.")
-endif()
-
-# ── C API wrapper layer ───────────────────────────────────────────────────────
-
-add_library(anychat_c STATIC
+set(ANYCHAT_C_API_SOURCES
     src/c_api/errors_c.cpp
     src/c_api/utils_c.cpp
     src/c_api/client_c.cpp
@@ -64,50 +36,62 @@ add_library(anychat_c STATIC
     src/c_api/version_c.cpp
 )
 
-target_include_directories(anychat_c
-    PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api
+option(BUILD_ANYCHAT_SHARED "Build the public AnyChat C SDK as a shared library" OFF)
+set(_anychat_library_type STATIC)
+if(BUILD_ANYCHAT_SHARED)
+    set(_anychat_library_type SHARED)
+endif()
+
+add_library(anychat ${_anychat_library_type}
+    ${ANYCHAT_INTERNAL_SOURCES}
+    ${ANYCHAT_C_API_SOURCES}
+)
+add_library(AnyChat::anychat ALIAS anychat)
+
+target_include_directories(anychat
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_compile_features(anychat_c PUBLIC cxx_std_23)
+target_compile_features(anychat PRIVATE cxx_std_23)
 
-# Enable position-independent code for static libraries (needed for shared library linking)
-set_target_properties(anychat_c PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-target_link_libraries(anychat_c
-    PUBLIC anychat_core
+set_target_properties(anychat PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 0
 )
 
-# Optional shared-library variant (for cross-compiler binary distribution).
-option(BUILD_ANYCHAT_C_SHARED "Build C API as a shared library" OFF)
-if(BUILD_ANYCHAT_C_SHARED)
-    add_library(anychat_c_shared SHARED
-        src/c_api/errors_c.cpp
-        src/c_api/utils_c.cpp
-        src/c_api/client_c.cpp
-        src/c_api/auth_c.cpp
-        src/c_api/message_c.cpp
-        src/c_api/conversation_c.cpp
-        src/c_api/friend_c.cpp
-        src/c_api/group_c.cpp
-        src/c_api/file_c.cpp
-        src/c_api/user_c.cpp
-        src/c_api/call_c.cpp
-        src/c_api/version_c.cpp
-    )
-    target_compile_definitions(anychat_c_shared
+if(BUILD_ANYCHAT_SHARED)
+    target_compile_definitions(anychat
         PRIVATE ANYCHAT_C_EXPORTS
         PUBLIC ANYCHAT_C_SHARED
     )
-    target_include_directories(anychat_c_shared
-        PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api
-    )
-    target_compile_features(anychat_c_shared PUBLIC cxx_std_23)
-    target_link_libraries(anychat_c_shared PUBLIC anychat_core)
-    set_target_properties(anychat_c_shared PROPERTIES
-        OUTPUT_NAME anychat_c
-        VERSION     ${PROJECT_VERSION}
-        SOVERSION   0
-    )
 endif()
+
+target_link_libraries(anychat
+    PRIVATE glaze::glaze
+    PRIVATE CURL::libcurl
+            SQLite::SQLite3
+)
+
+if(TARGET websockets)
+    target_link_libraries(anychat PRIVATE websockets)
+elseif(TARGET websockets_shared)
+    target_link_libraries(anychat PRIVATE websockets_shared)
+else()
+    message(FATAL_ERROR "[AnyChat] libwebsockets target not found. "
+        "Ensure the thirdparty/libwebsockets submodule is initialised.")
+endif()
+
+install(TARGETS anychat
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)
+
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/anychat"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)

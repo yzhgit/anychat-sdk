@@ -1,79 +1,179 @@
 #pragma once
 
-#include "callbacks.h"
 #include "types.h"
 
-#include <memory>
-#include <string>
-#include <utility>
-#include <vector>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace anychat {
+/* ---- Callback types ---- */
 
-class ConversationListener {
-public:
-    virtual ~ConversationListener() = default;
+typedef void (*AnyChatConvErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatConvSuccessCallback)(void* userdata);
+typedef void (*AnyChatConvListSuccessCallback)(void* userdata, const AnyChatConversationList_C* list);
+typedef void (*AnyChatConvInfoSuccessCallback)(void* userdata, const AnyChatConversation_C* conversation);
+typedef void (*AnyChatConvTotalUnreadSuccessCallback)(void* userdata, int32_t total_unread);
+typedef void (*AnyChatConvUnreadStateSuccessCallback)(void* userdata, const AnyChatConversationUnreadState_C* unread_state);
+typedef void (*AnyChatConvReadReceiptListSuccessCallback)(
+    void* userdata,
+    const AnyChatConversationReadReceiptList_C* list
+);
+typedef void (*AnyChatConvSequenceSuccessCallback)(void* userdata, int64_t current_seq);
+typedef void (*AnyChatConvMarkReadResultSuccessCallback)(void* userdata, const AnyChatConversationMarkReadResult_C* result);
 
-    virtual void onConversationUpdated(const Conversation& conv) {
-        (void) conv;
-    }
-};
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvListSuccessCallback on_success;
+    AnyChatConvErrorCallback on_error;
+} AnyChatConvListCallback_C;
 
-class ConversationManager {
-public:
-    virtual ~ConversationManager() = default;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvSuccessCallback on_success;
+    AnyChatConvErrorCallback on_error;
+} AnyChatConvCallback_C;
 
-    // Returns cached + DB sorted list (pinned first, then by last_msg_time desc)
-    virtual void getConversationList(AnyChatValueCallback<std::vector<Conversation>> cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvInfoSuccessCallback on_success;
+    AnyChatConvErrorCallback on_error;
+} AnyChatConvInfoCallback_C;
 
-    // GET /conversations/{id}
-    virtual void getConversation(const std::string& conv_id, AnyChatValueCallback<Conversation> cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvTotalUnreadSuccessCallback on_success;
+    AnyChatConvErrorCallback on_error;
+} AnyChatConvTotalUnreadCallback_C;
 
-    // Delete conversation (local + DELETE /conversations/{id})
-    virtual void deleteConversation(const std::string& conv_id, AnyChatCallback cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvUnreadStateSuccessCallback on_success;
+    AnyChatConvErrorCallback on_error;
+} AnyChatConvUnreadStateCallback_C;
 
-    // POST /conversations/{id}/read-all
-    virtual void markAllRead(const std::string& conv_id, AnyChatCallback cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvReadReceiptListSuccessCallback on_success;
+    AnyChatConvErrorCallback on_error;
+} AnyChatConvReadReceiptListCallback_C;
 
-    // POST /conversations/{id}/messages/read
-    virtual void markMessagesRead(
-        const std::string& conv_id,
-        const std::vector<std::string>& message_ids,
-        AnyChatValueCallback<ConversationMarkReadResult> cb
-    ) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvSequenceSuccessCallback on_success;
+    AnyChatConvErrorCallback on_error;
+} AnyChatConvSequenceCallback_C;
 
-    // Toggle pinned (local + PUT /conversations/{id}/pin)
-    virtual void setPinned(const std::string& conv_id, bool pinned, AnyChatCallback cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvMarkReadResultSuccessCallback on_success;
+    AnyChatConvErrorCallback on_error;
+} AnyChatConvMarkReadResultCallback_C;
 
-    // Toggle muted (local + PUT /conversations/{id}/mute)
-    virtual void setMuted(const std::string& conv_id, bool muted, AnyChatCallback cb) = 0;
+/* Fired when any conversation is created or updated. */
+typedef void (*AnyChatConvUpdatedCallback)(void* userdata, const AnyChatConversation_C* conversation);
 
-    // PUT /conversations/{id}/burn
-    virtual void setBurnAfterReading(const std::string& conv_id, int32_t duration, AnyChatCallback cb) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvUpdatedCallback on_conversation_updated;
+} AnyChatConvListener_C;
 
-    // PUT /conversations/{id}/auto_delete
-    virtual void setAutoDelete(const std::string& conv_id, int32_t duration, AnyChatCallback cb) = 0;
+/* ---- Conversation operations ---- */
 
-    // GET /conversations/unread/total
-    virtual void getTotalUnread(AnyChatValueCallback<int32_t> cb) = 0;
+/* Return cached + DB list (pinned first, then by last_msg_time desc). */
+ANYCHAT_C_API int anychat_conv_get_list(AnyChatConvHandle handle, const AnyChatConvListCallback_C* callback);
 
-    // GET /conversations/{id}/messages/unread-count
-    // last_read_seq < 0 means "not provided".
-    virtual void
-    getMessageUnreadCount(const std::string& conv_id, int64_t last_read_seq, AnyChatValueCallback<ConversationUnreadState> cb) = 0;
+/* Get total unread count across all conversations. */
+ANYCHAT_C_API int
+anychat_conv_get_total_unread(AnyChatConvHandle handle, const AnyChatConvTotalUnreadCallback_C* callback);
 
-    virtual void getMessageUnreadCount(const std::string& conv_id, AnyChatValueCallback<ConversationUnreadState> cb) {
-        getMessageUnreadCount(conv_id, -1, std::move(cb));
-    }
+/* Get one conversation by ID. */
+ANYCHAT_C_API int
+anychat_conv_get(AnyChatConvHandle handle, const char* conv_id, const AnyChatConvInfoCallback_C* callback);
 
-    // GET /conversations/{id}/messages/read-receipts
-    virtual void getMessageReadReceipts(const std::string& conv_id, AnyChatValueCallback<std::vector<ConversationReadReceipt>> cb) = 0;
+/* Mark all messages as read for a conversation (POST /read-all). */
+ANYCHAT_C_API int
+anychat_conv_mark_all_read(AnyChatConvHandle handle, const char* conv_id, const AnyChatConvCallback_C* callback);
 
-    // GET /conversations/{id}/messages/sequence
-    virtual void getMessageSequence(const std::string& conv_id, AnyChatValueCallback<int64_t> cb) = 0;
+/* Batch mark messages read by message IDs. */
+ANYCHAT_C_API int anychat_conv_mark_messages_read(
+    AnyChatConvHandle handle,
+    const char* conv_id,
+    const char* const* message_ids,
+    int message_id_count,
+    const AnyChatConvMarkReadResultCallback_C* callback
+);
 
-    // Listener fired whenever a conversation is updated (new message, read, etc.)
-    virtual void setListener(std::shared_ptr<ConversationListener> listener) = 0;
-};
+/* Pin or unpin a conversation (pinned = 1, unpinned = 0). */
+ANYCHAT_C_API int anychat_conv_set_pinned(
+    AnyChatConvHandle handle,
+    const char* conv_id,
+    int pinned,
+    const AnyChatConvCallback_C* callback
+);
 
-} // namespace anychat
+/* Mute or unmute a conversation (muted = 1, unmuted = 0). */
+ANYCHAT_C_API int anychat_conv_set_muted(
+    AnyChatConvHandle handle,
+    const char* conv_id,
+    int muted,
+    const AnyChatConvCallback_C* callback
+);
+
+/* Set burn-after-reading duration in seconds (0 = disabled). */
+ANYCHAT_C_API int anychat_conv_set_burn_after_reading(
+    AnyChatConvHandle handle,
+    const char* conv_id,
+    int32_t duration,
+    const AnyChatConvCallback_C* callback
+);
+
+/* Set auto-delete duration in seconds (0 = disabled). */
+ANYCHAT_C_API int anychat_conv_set_auto_delete(
+    AnyChatConvHandle handle,
+    const char* conv_id,
+    int32_t duration,
+    const AnyChatConvCallback_C* callback
+);
+
+/* Delete a conversation (local + server). */
+ANYCHAT_C_API int
+anychat_conv_delete(AnyChatConvHandle handle, const char* conv_id, const AnyChatConvCallback_C* callback);
+
+/* Get unread count in one conversation. */
+ANYCHAT_C_API int anychat_conv_get_message_unread_count(
+    AnyChatConvHandle handle,
+    const char* conv_id,
+    int64_t last_read_seq,
+    const AnyChatConvUnreadStateCallback_C* callback
+);
+
+/* Get message read receipts in one conversation. */
+ANYCHAT_C_API int anychat_conv_get_message_read_receipts(
+    AnyChatConvHandle handle,
+    const char* conv_id,
+    const AnyChatConvReadReceiptListCallback_C* callback
+);
+
+/* Get latest message sequence in one conversation. */
+ANYCHAT_C_API int anychat_conv_get_message_sequence(
+    AnyChatConvHandle handle,
+    const char* conv_id,
+    const AnyChatConvSequenceCallback_C* callback
+);
+
+/* Register conversation notification listener.
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_conv_set_listener(AnyChatConvHandle handle, const AnyChatConvListener_C* listener);
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,109 +1,206 @@
 #pragma once
 
-#include "callbacks.h"
 #include "types.h"
 
-#include <memory>
-#include <string>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace anychat {
+/* ---- Callback types ---- */
 
-class UserListener {
-public:
-    virtual ~UserListener() = default;
+typedef void (*AnyChatUserErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatUserSuccessCallback)(void* userdata);
+typedef void (*AnyChatUserProfileSuccessCallback)(void* userdata, const AnyChatUserProfile_C* profile);
+typedef void (*AnyChatUserSettingsSuccessCallback)(void* userdata, const AnyChatUserSettings_C* settings);
+typedef void (*AnyChatUserInfoSuccessCallback)(void* userdata, const AnyChatUserInfo_C* info);
+typedef void (*AnyChatUserListSuccessCallback)(void* userdata, const AnyChatUserList_C* list);
+typedef void (*AnyChatUserQRCodeSuccessCallback)(void* userdata, const AnyChatUserQRCode_C* qrcode);
+typedef void (*AnyChatBindPhoneSuccessCallback)(void* userdata, const AnyChatBindPhoneResult_C* result);
+typedef void (*AnyChatChangePhoneSuccessCallback)(void* userdata, const AnyChatChangePhoneResult_C* result);
+typedef void (*AnyChatBindEmailSuccessCallback)(void* userdata, const AnyChatBindEmailResult_C* result);
+typedef void (*AnyChatChangeEmailSuccessCallback)(void* userdata, const AnyChatChangeEmailResult_C* result);
 
-    virtual void onProfileUpdated(const UserInfo& info) {
-        (void) info;
-    }
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserProfileSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserProfileCallback_C;
 
-    virtual void onFriendProfileChanged(const UserInfo& info) {
-        (void) info;
-    }
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserSettingsSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserSettingsCallback_C;
 
-    virtual void onUserStatusChanged(const UserStatusEvent& event) {
-        (void) event;
-    }
-};
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserInfoSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserInfoCallback_C;
 
-class UserManager {
-public:
-    virtual ~UserManager() = default;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserListSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserListCallback_C;
 
-    // GET  /users/me
-    virtual void getProfile(AnyChatValueCallback<UserProfile> callback) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserCallback_C;
 
-    // PUT  /users/me
-    virtual void updateProfile(const UserProfile& profile, AnyChatValueCallback<UserProfile> callback) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserQRCodeSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatUserQRCodeCallback_C;
 
-    // GET  /users/me/settings
-    virtual void getSettings(AnyChatValueCallback<UserSettings> callback) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatBindPhoneSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatBindPhoneCallback_C;
 
-    // PUT  /users/me/settings
-    virtual void updateSettings(const UserSettings& settings, AnyChatValueCallback<UserSettings> callback) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatChangePhoneSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatChangePhoneCallback_C;
 
-    // POST /users/me/push-token
-    virtual void
-    updatePushToken(const std::string& push_token, const std::string& platform, AnyChatCallback callback) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatBindEmailSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatBindEmailCallback_C;
 
-    // POST /users/me/push-token
-    virtual void updatePushToken(
-        const std::string& push_token,
-        const std::string& platform,
-        const std::string& device_id,
-        AnyChatCallback callback
-    ) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatChangeEmailSuccessCallback on_success;
+    AnyChatUserErrorCallback on_error;
+} AnyChatChangeEmailCallback_C;
 
-    // GET  /users/search?keyword=&page=&pageSize=
-    virtual void searchUsers(
-        const std::string& keyword,
-        int page,
-        int page_size,
-        AnyChatValueCallback<UserSearchResult> callback
-    ) = 0;
+typedef void (*AnyChatUserProfileUpdatedCallback)(void* userdata, const AnyChatUserInfo_C* info);
+typedef void (*AnyChatUserFriendProfileChangedCallback)(void* userdata, const AnyChatUserInfo_C* info);
+typedef void (*AnyChatUserStatusChangedCallback)(void* userdata, const AnyChatUserStatusEvent_C* event);
 
-    // GET  /users/{userId}
-    virtual void getUserInfo(const std::string& user_id, AnyChatValueCallback<UserInfo> callback) = 0;
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserProfileUpdatedCallback on_profile_updated;
+    AnyChatUserFriendProfileChangedCallback on_friend_profile_changed;
+    AnyChatUserStatusChangedCallback on_status_changed;
+} AnyChatUserListener_C;
 
-    // POST /users/me/phone/bind
-    virtual void bindPhone(
-        const std::string& phone_number,
-        const std::string& verify_code,
-        AnyChatValueCallback<BindPhoneResult> callback
-    ) = 0;
+/* ---- User operations ---- */
 
-    // POST /users/me/phone/change
-    virtual void changePhone(
-        const std::string& old_phone_number,
-        const std::string& new_phone_number,
-        const std::string& new_verify_code,
-        const std::string& old_verify_code,
-        AnyChatValueCallback<ChangePhoneResult> callback
-    ) = 0;
+ANYCHAT_C_API int
+anychat_user_get_profile(AnyChatUserHandle handle, const AnyChatUserProfileCallback_C* callback);
 
-    // POST /users/me/email/bind
-    virtual void bindEmail(
-        const std::string& email,
-        const std::string& verify_code,
-        AnyChatValueCallback<BindEmailResult> callback
-    ) = 0;
+ANYCHAT_C_API int anychat_user_update_profile(
+    AnyChatUserHandle handle,
+    const AnyChatUserProfile_C* profile,
+    const AnyChatUserProfileCallback_C* callback
+);
 
-    // POST /users/me/email/change
-    virtual void changeEmail(
-        const std::string& old_email,
-        const std::string& new_email,
-        const std::string& new_verify_code,
-        const std::string& old_verify_code,
-        AnyChatValueCallback<ChangeEmailResult> callback
-    ) = 0;
+ANYCHAT_C_API int
+anychat_user_get_settings(AnyChatUserHandle handle, const AnyChatUserSettingsCallback_C* callback);
 
-    // POST /users/me/qrcode/refresh
-    virtual void refreshQRCode(AnyChatValueCallback<UserQRCode> callback) = 0;
+ANYCHAT_C_API int anychat_user_update_settings(
+    AnyChatUserHandle handle,
+    const AnyChatUserSettings_C* settings,
+    const AnyChatUserSettingsCallback_C* callback
+);
 
-    // GET /users/qrcode?qrcode=
-    virtual void getUserByQRCode(const std::string& qrcode, AnyChatValueCallback<UserInfo> callback) = 0;
+/* Update the push notification token for this device.
+ * platform: "ios" | "android" | "web" */
+ANYCHAT_C_API int anychat_user_update_push_token(
+    AnyChatUserHandle handle,
+    const char* push_token,
+    const char* platform,
+    const AnyChatUserCallback_C* callback
+);
 
-    // WebSocket notification listener.
-    virtual void setListener(std::shared_ptr<UserListener> listener) = 0;
-};
+/* Same as anychat_user_update_push_token but allows overriding device_id. */
+ANYCHAT_C_API int anychat_user_update_push_token_with_device(
+    AnyChatUserHandle handle,
+    const char* push_token,
+    const char* platform,
+    const char* device_id,
+    const AnyChatUserCallback_C* callback
+);
 
-} // namespace anychat
+/* Search for users by keyword (username / phone / e-mail). */
+ANYCHAT_C_API int anychat_user_search(
+    AnyChatUserHandle handle,
+    const char* keyword,
+    int page,
+    int page_size,
+    const AnyChatUserListCallback_C* callback
+);
+
+/* Fetch public info for a specific user. */
+ANYCHAT_C_API int
+anychat_user_get_info(AnyChatUserHandle handle, const char* user_id, const AnyChatUserInfoCallback_C* callback);
+
+/* Bind/change phone */
+ANYCHAT_C_API int anychat_user_bind_phone(
+    AnyChatUserHandle handle,
+    const char* phone_number,
+    const char* verify_code,
+    const AnyChatBindPhoneCallback_C* callback
+);
+
+ANYCHAT_C_API int anychat_user_change_phone(
+    AnyChatUserHandle handle,
+    const char* old_phone_number,
+    const char* new_phone_number,
+    const char* new_verify_code,
+    const char* old_verify_code,
+    const AnyChatChangePhoneCallback_C* callback
+);
+
+/* Bind/change email */
+ANYCHAT_C_API int anychat_user_bind_email(
+    AnyChatUserHandle handle,
+    const char* email,
+    const char* verify_code,
+    const AnyChatBindEmailCallback_C* callback
+);
+
+ANYCHAT_C_API int anychat_user_change_email(
+    AnyChatUserHandle handle,
+    const char* old_email,
+    const char* new_email,
+    const char* new_verify_code,
+    const char* old_verify_code,
+    const AnyChatChangeEmailCallback_C* callback
+);
+
+/* QR code operations */
+ANYCHAT_C_API int
+anychat_user_refresh_qrcode(AnyChatUserHandle handle, const AnyChatUserQRCodeCallback_C* callback);
+
+ANYCHAT_C_API int anychat_user_get_by_qrcode(
+    AnyChatUserHandle handle,
+    const char* qrcode,
+    const AnyChatUserInfoCallback_C* callback
+);
+
+/* User WebSocket notification listener.
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_user_set_listener(AnyChatUserHandle handle, const AnyChatUserListener_C* listener);
+
+#ifdef __cplusplus
+}
+#endif
