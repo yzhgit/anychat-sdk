@@ -15,32 +15,27 @@ This package wraps the native FFI bindings for iOS.
 
   s.dependency 'Flutter'
 
-  # Link against the C API static library
-  s.vendored_libraries = 'libanychat_c.a', 'libanychat_core.a'
+  s.vendored_libraries = 'libanychat.a'
 
-  # Include paths for C headers
   s.xcconfig = {
     'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/../../../core/include"',
-    'OTHER_LDFLAGS' => '-lc++ -lz'
+    'OTHER_LDFLAGS' => '-lc++ -lz -force_load "${PODS_TARGET_SRCROOT}/libanychat.a"'
   }
 
-  # Frameworks
   s.frameworks = 'Foundation', 'Security'
   s.libraries = 'c++', 'z', 'resolv'
 
   s.ios.deployment_target = '12.0'
 
-  # Pre-build script: build anychat_c and anychat_core
   s.prepare_command = <<-CMD
-    cd ../../../core
+    cd ../../..
     mkdir -p build-ios
     cd build-ios
     cmake .. -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_TOOLCHAIN_FILE=../../cmake/ios.toolchain.cmake \
+             -DCMAKE_TOOLCHAIN_FILE=cmake/ios.toolchain.cmake \
              -DPLATFORM=OS64 \
              -DBUILD_TESTS=OFF
-    cmake --build . --target anychat_c anychat_core
-    cp bin/libanychat_c.a ../../packages/flutter/ios/
-    cp bin/libanychat_core.a ../../packages/flutter/ios/
+    cmake --build . --target anychat
+    cp core/libanychat.a ../packages/flutter/ios/ || cp libanychat.a ../packages/flutter/ios/ || true
   CMD
 end

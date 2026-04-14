@@ -34,9 +34,6 @@
 ///   print('Connection state: $state');
 /// });
 ///
-/// // Connect
-/// client.connect();
-///
 /// // Login
 /// final token = await client.login(
 ///   account: 'user@example.com',
@@ -64,7 +61,7 @@
 /// - [Backend API Documentation](https://yzhgit.github.io/anychat-server)
 /// - [Backend Repository](https://github.com/yzhgit/anychat-server)
 ///
-library anychat_sdk;
+library;
 
 // Core SDK exports
 export 'src/anychat_client.dart';

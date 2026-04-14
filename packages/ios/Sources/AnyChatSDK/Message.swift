@@ -7,13 +7,25 @@
 
 import Foundation
 
+private final class MessageListenerContext: @unchecked Sendable {
+    var continuation: AsyncStream<Message>.Continuation?
+}
+
 public actor MessageManager {
     private let handle: AnyChatMessageHandle
-    private var receivedContinuation: AsyncStream<Message>.Continuation?
+    private let listenerContext = MessageListenerContext()
+    private var listenerUserdata: UnsafeMutableRawPointer?
 
     init(handle: AnyChatMessageHandle) {
         self.handle = handle
-        setupCallbacks()
+    }
+
+    deinit {
+        anychat_message_set_listener(handle, nil)
+        if let userdata = listenerUserdata {
+            Unmanaged<MessageListenerContext>.fromOpaque(userdata).release()
+            listenerUserdata = nil
+        }
     }
 
     // MARK: - Message Operations
@@ -22,37 +34,39 @@ public actor MessageManager {
         sessionId: String,
         content: String
     ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatMessageCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Send failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
+            var callback = AnyChatMessageCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatMessageCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                ctx.continuation.resume(returning: ())
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(sessionId) { sessionPtr in
+            let result = withCString(sessionId) { sessionPtr in
                 withCString(content) { contentPtr in
-                    let result = anychat_message_send_text(
+                    anychat_message_send_text(
                         handle,
                         sessionPtr,
                         contentPtr,
-                        userdata,
-                        callback
+                        &callback
                     )
-
-                    if result != ANYCHAT_OK {
-                        let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                        ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                    }
                 }
+            }
+
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
@@ -62,41 +76,46 @@ public actor MessageManager {
         beforeTimestamp: Date? = nil,
         limit: Int = 20
     ) async throws -> [Message] {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Message], Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatMessageListCallback = { userdata, list, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<[Message]>>.fromOpaque(userdata).takeRetainedValue()
-
-                if let list = list {
-                    let messages = convertMessageList(list)
-                    context.continuation.resume(returning: messages)
-                    var mutableList = list.pointee
-                    mutableList.free()
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to fetch history"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatMessageListCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatMessageListCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, list in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<[Message]>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let list else {
+                    ctx.continuation.resume(returning: [])
+                    return
                 }
+                let messages = convertMessageList(list)
+                ctx.continuation.resume(returning: messages)
+                var mutableList = list.pointee
+                mutableList.free()
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<[Message]>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
             let timestampMs = beforeTimestamp.map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0
-
-            withCString(sessionId) { sessionPtr in
-                let result = anychat_message_get_history(
+            let result = withCString(sessionId) { sessionPtr in
+                anychat_message_get_history(
                     handle,
                     sessionPtr,
                     timestampMs,
                     Int32(limit),
-                    userdata,
-                    callback
+                    &callback
                 )
+            }
 
-                if result != ANYCHAT_OK {
-                    let ctx = Unmanaged<CallbackContext<[Message]>>.fromOpaque(userdata).takeRetainedValue()
-                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                }
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<[Message]>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
@@ -105,37 +124,39 @@ public actor MessageManager {
         sessionId: String,
         messageId: String
     ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatMessageCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Mark read failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
+            var callback = AnyChatMessageCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatMessageCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                ctx.continuation.resume(returning: ())
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(sessionId) { sessionPtr in
+            let result = withCString(sessionId) { sessionPtr in
                 withCString(messageId) { messagePtr in
-                    let result = anychat_message_mark_read(
+                    anychat_message_mark_read(
                         handle,
                         sessionPtr,
                         messagePtr,
-                        userdata,
-                        callback
+                        &callback
                     )
-
-                    if result != ANYCHAT_OK {
-                        let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                        ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                    }
                 }
+            }
+
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
@@ -144,23 +165,40 @@ public actor MessageManager {
 
     public var receivedMessages: AsyncStream<Message> {
         AsyncStream { continuation in
-            self.receivedContinuation = continuation
+            Task { await self.setReceivedContinuation(continuation) }
         }
     }
 
-    // MARK: - Private
+    // MARK: - Listener
 
-    private func setupCallbacks() {
-        let callback: AnyChatMessageReceivedCallback = { userdata, message in
-            guard let userdata = userdata, let message = message else { return }
-            let context = Unmanaged<StreamContext<Message>>.fromOpaque(userdata).takeUnretainedValue()
-            context.continuation.yield(Message(from: message.pointee))
+    private func setReceivedContinuation(_ continuation: AsyncStream<Message>.Continuation) {
+        listenerContext.continuation = continuation
+        refreshListener()
+    }
+
+    private func refreshListener() {
+        guard listenerContext.continuation != nil else {
+            anychat_message_set_listener(handle, nil)
+            if let userdata = listenerUserdata {
+                Unmanaged<MessageListenerContext>.fromOpaque(userdata).release()
+                listenerUserdata = nil
+            }
+            return
         }
 
-        Task {
-            let context = StreamContext(continuation: receivedContinuation!)
-            let userdata = Unmanaged.passRetained(context).toOpaque()
-            anychat_message_set_received_callback(handle, userdata, callback)
+        if listenerUserdata == nil {
+            listenerUserdata = Unmanaged.passRetained(listenerContext).toOpaque()
         }
+
+        var listener = AnyChatMessageListener_C()
+        listener.struct_size = UInt32(MemoryLayout<AnyChatMessageListener_C>.size)
+        listener.userdata = listenerUserdata
+        listener.on_message_received = { userdata, message in
+            guard let userdata, let message else { return }
+            let context = Unmanaged<MessageListenerContext>.fromOpaque(userdata).takeUnretainedValue()
+            context.continuation?.yield(Message(from: message.pointee))
+        }
+
+        anychat_message_set_listener(handle, &listener)
     }
 }

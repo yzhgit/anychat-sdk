@@ -7,26 +7,28 @@
 
 import Foundation
 
+private final class ConnectionStateStreamContext: @unchecked Sendable {
+    var continuation: AsyncStream<ConnectionState>.Continuation?
+}
+
 public actor AnyChatClient {
     private let handleWrapper: ClientHandleWrapper
-    private var connectionStateContinuation: AsyncStream<ConnectionState>.Continuation?
+    private let connectionContext = ConnectionStateStreamContext()
+    private var connectionContextPointer: UnsafeMutableRawPointer?
 
     public let auth: AuthManager
     public let message: MessageManager
     public let conversation: ConversationManager
+    public let friend: FriendManager
+    public let group: GroupManager
+    public let user: UserManager
+    public let file: FileManager
+    public let call: CallManager
 
     // MARK: - Initialization
 
     public init(config: ClientConfig) throws {
-        // Create C config
         var cConfig = AnyChatClientConfig_C()
-
-        // Store strings temporarily to keep them alive during the C call
-        let gatewayURL = config.gatewayURL
-        let apiBaseURL = config.apiBaseURL
-        let deviceId = config.deviceId
-        let dbPath = config.dbPath
-
         cConfig.gateway_url = nil
         cConfig.api_base_url = nil
         cConfig.device_id = nil
@@ -35,115 +37,90 @@ public actor AnyChatClient {
         cConfig.max_reconnect_attempts = Int32(config.maxReconnectAttempts)
         cConfig.auto_reconnect = config.autoReconnect ? 1 : 0
 
-        // Create client handle with proper string management
-        let handle = withCString(gatewayURL) { gatewayPtr in
-            withCString(apiBaseURL) { apiPtr in
-                withCString(deviceId) { devicePtr in
-                    withCString(dbPath) { dbPtr in
-                        var config = cConfig
-                        config.gateway_url = gatewayPtr
-                        config.api_base_url = apiPtr
-                        config.device_id = devicePtr
-                        config.db_path = dbPtr
-                        return anychat_client_create(&config)
+        let handle = withCString(config.gatewayURL) { gatewayPtr in
+            withCString(config.apiBaseURL) { apiPtr in
+                withCString(config.deviceId) { devicePtr in
+                    withCString(config.dbPath) { dbPtr in
+                        var cfg = cConfig
+                        cfg.gateway_url = gatewayPtr
+                        cfg.api_base_url = apiPtr
+                        cfg.device_id = devicePtr
+                        cfg.db_path = dbPtr
+                        return anychat_client_create(&cfg)
                     }
                 }
             }
         }
 
-        guard let handle = handle else {
-            let errorMsg = getLastError()
-            throw AnyChatError.unknown(code: -1, message: errorMsg)
+        guard let handle else {
+            throw AnyChatError.unknown(code: -1, message: getLastError())
         }
 
         self.handleWrapper = ClientHandleWrapper(handle: handle)
 
-        // Get sub-module handles
-        let authHandle = anychat_client_get_auth(handle)
-        let messageHandle = anychat_client_get_message(handle)
-        let convHandle = anychat_client_get_conversation(handle)
+        guard
+            let authHandle = anychat_client_get_auth(handle),
+            let messageHandle = anychat_client_get_message(handle),
+            let convHandle = anychat_client_get_conversation(handle),
+            let friendHandle = anychat_client_get_friend(handle),
+            let groupHandle = anychat_client_get_group(handle),
+            let userHandle = anychat_client_get_user(handle),
+            let fileHandle = anychat_client_get_file(handle),
+            let callHandle = anychat_client_get_call(handle)
+        else {
+            throw AnyChatError.unknown(code: -1, message: "Failed to get sub-module handles")
+        }
 
-        self.auth = AuthManager(handle: authHandle!)
-        self.message = MessageManager(handle: messageHandle!)
-        self.conversation = ConversationManager(handle: convHandle!)
+        self.auth = AuthManager(handle: authHandle, clientHandle: handle)
+        self.message = MessageManager(handle: messageHandle)
+        self.conversation = ConversationManager(handle: convHandle)
+        self.friend = FriendManager(handle: friendHandle)
+        self.group = GroupManager(handle: groupHandle)
+        self.user = UserManager(handle: userHandle)
+        self.file = FileManager(handle: fileHandle)
+        self.call = CallManager(handle: callHandle)
 
         setupConnectionCallback()
     }
 
     deinit {
-        // Cleanup is handled by ClientHandleWrapper
+        anychat_client_set_connection_callback(handleWrapper.handle, nil, nil)
+        if let pointer = connectionContextPointer {
+            Unmanaged<ConnectionStateStreamContext>.fromOpaque(pointer).release()
+            connectionContextPointer = nil
+        }
     }
 
-    // MARK: - Connection Management
-
-    public func connect() {
-        anychat_client_connect(handleWrapper.handle)
-    }
-
-    public func disconnect() {
-        anychat_client_disconnect(handleWrapper.handle)
-    }
+    // MARK: - Connection
 
     public func getConnectionState() -> ConnectionState {
         let state = anychat_client_get_connection_state(handleWrapper.handle)
         return ConnectionState(rawValue: Int(state)) ?? .disconnected
     }
 
-    // MARK: - Event Streams
-
     public var connectionState: AsyncStream<ConnectionState> {
         AsyncStream { continuation in
-            self.connectionStateContinuation = continuation
+            Task { await self.setConnectionStateContinuation(continuation) }
         }
     }
 
     // MARK: - Private
 
     private func setupConnectionCallback() {
+        let pointer = Unmanaged.passRetained(connectionContext).toOpaque()
+        connectionContextPointer = pointer
+
         let callback: AnyChatConnectionStateCallback = { userdata, state in
-            guard let userdata = userdata else { return }
-            let context = Unmanaged<StreamContext<ConnectionState>>.fromOpaque(userdata).takeUnretainedValue()
-            if let connectionState = ConnectionState(rawValue: Int(state)) {
-                context.continuation.yield(connectionState)
-            }
+            guard let userdata else { return }
+            let context = Unmanaged<ConnectionStateStreamContext>.fromOpaque(userdata).takeUnretainedValue()
+            guard let mapped = ConnectionState(rawValue: Int(state)) else { return }
+            context.continuation?.yield(mapped)
         }
 
-        Task {
-            let context = StreamContext(continuation: connectionStateContinuation!)
-            let userdata = Unmanaged.passRetained(context).toOpaque()
-            anychat_client_set_connection_callback(
-                handleWrapper.handle,
-                userdata,
-                callback
-            )
-        }
-    }
-}
-
-// MARK: - Manager Access Extension
-extension AnyChatClient {
-    public var friend: FriendManager {
-        let handle = anychat_client_get_friend(handleWrapper.handle)
-        return FriendManager(handle: handle!)
+        anychat_client_set_connection_callback(handleWrapper.handle, pointer, callback)
     }
 
-    public var group: GroupManager {
-        let handle = anychat_client_get_group(handleWrapper.handle)
-        return GroupManager(handle: handle!)
-    }
-
-    public var user: UserManager {
-        let handle = anychat_client_get_user(handleWrapper.handle)
-        return UserManager(handle: handle!)
-    }
-
-    public var file: FileManager {
-        let handle = anychat_client_get_file(handleWrapper.handle)
-        return FileManager(handle: handle!)
-    }
-
-    public var call: CallManager {
-        let handle = anychat_client_get_call(handleWrapper.handle)
-        return CallManager(handle: handle!)
+    private func setConnectionStateContinuation(_ continuation: AsyncStream<ConnectionState>.Continuation) {
+        connectionContext.continuation = continuation
     }
 }

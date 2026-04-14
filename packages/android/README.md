@@ -92,9 +92,6 @@ lifecycleScope.launch {
         )
         Log.d("AnyChat", "Login successful, token: ${loginResult.token}")
 
-        // Connect to WebSocket
-        client.connect()
-
     } catch (e: Exception) {
         Log.e("AnyChat", "Auth failed", e)
     }

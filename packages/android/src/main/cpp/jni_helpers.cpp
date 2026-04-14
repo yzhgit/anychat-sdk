@@ -1,5 +1,4 @@
 #include "jni_helpers.h"
-#include "anychat_c.h"
 #include <vector>
 
 namespace anychat {

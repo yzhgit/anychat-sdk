@@ -36,9 +36,6 @@ export { EventEmitter } from './EventEmitter';
  *   console.log('New message:', message);
  * });
  *
- * // Connect to the server
- * client.connect();
- *
  * // Login
  * try {
  *   const token = await client.login('user@example.com', 'password');

@@ -70,7 +70,6 @@ let config = ClientConfig(
 )
 
 let client = try AnyChatClient(config: config)
-client.connect()
 ```
 
 ### Authentication

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <jni.h>
+#include "anychat/anychat.h"
 #include <string>
 #include <memory>
 #include <android/log.h>

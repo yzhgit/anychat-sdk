@@ -33,7 +33,7 @@ data class ClientConfig(
  *     dbPath = context.getDatabasePath("anychat.db").absolutePath
  * )
  * val client = AnyChatClient(config)
- * client.connect()
+ * client.auth.login("account", "password")
  *
  * // Listen to connection state
  * client.connectionStateFlow.collect { state ->
@@ -70,20 +70,6 @@ class AnyChatClient(private val config: ClientConfig) {
         if (nativeHandle == 0L) {
             throw RuntimeException("Failed to create AnyChatClient")
         }
-    }
-
-    /**
-     * Connect to the server
-     */
-    fun connect() {
-        nativeConnect(nativeHandle)
-    }
-
-    /**
-     * Disconnect from the server
-     */
-    fun disconnect() {
-        nativeDisconnect(nativeHandle)
     }
 
     /**
@@ -137,8 +123,6 @@ class AnyChatClient(private val config: ClientConfig) {
     ): Long
 
     private external fun nativeDestroy(handle: Long)
-    private external fun nativeConnect(handle: Long)
-    private external fun nativeDisconnect(handle: Long)
     private external fun nativeGetConnectionState(handle: Long): Int
     private external fun nativeSetConnectionCallback(handle: Long, callback: ConnectionStateCallback?)
     private external fun nativeGetAuth(handle: Long): Long

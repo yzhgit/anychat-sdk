@@ -74,10 +74,7 @@ void main() async {
     print('Connection state: $state');
   });
 
-  // 4. Connect
-  client.connect();
-
-  // 5. Login
+  // 4. Login (includes connection setup)
   try {
     final token = await client.login(
       account: 'user@example.com',
@@ -88,12 +85,12 @@ void main() async {
     print('Login failed: $e');
   }
 
-  // 6. Listen for incoming messages
+  // 5. Listen for incoming messages
   client.messageReceivedStream.listen((message) {
     print('New message: ${message.content}');
   });
 
-  // 7. Send a message
+  // 6. Send a message
   await client.sendTextMessage(
     sessionId: 'conv-123',
     content: 'Hello from Flutter!',
@@ -213,13 +210,13 @@ This package uses Dart FFI to call native C libraries, providing:
 └────────────────────────────┘
             ↓ dart:ffi
 ┌────────────────────────────┐
-│  anychat_c (C ABI)         │
+│  anychat (C ABI)           │
 │  - Stable C interface      │
 │  - Opaque handles          │
 └────────────────────────────┘
             ↓ C++
 ┌────────────────────────────┐
-│  anychat_core (C++)        │
+│  anychat (C++)             │
 │  - WebSocket, HTTP, SQLite │
 │  - Business logic          │
 └────────────────────────────┘

@@ -1,12 +1,10 @@
 #include "jni_helpers.h"
-#include "anychat_c.h"
 
 using namespace anychat::jni;
 
 extern JavaVM* g_jvm;
 
-// Friend list callback wrapper
-static void friendListCallback(void* userdata, const AnyChatFriendList_C* list, const char* error) {
+static void friendListSuccess(void* userdata, const AnyChatFriendList_C* list) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
     if (!ctx || !ctx->callback) return;
 
@@ -14,18 +12,31 @@ static void friendListCallback(void* userdata, const AnyChatFriendList_C* list, 
     if (!env) return;
 
     jclass cls = env->GetObjectClass(ctx->callback);
-    jmethodID mid = env->GetMethodID(cls, "onFriendList",
-        "(Ljava/util/List;Ljava/lang/String;)V");
+    jmethodID mid = env->GetMethodID(cls, "onFriendList", "(Ljava/util/List;Ljava/lang/String;)V");
 
     if (mid) {
-        jobject listObj = nullptr;
-        if (list) {
-            listObj = convertFriendList(env, list);
-        }
-        jstring errorStr = toJString(env, error);
-        env->CallVoidMethod(ctx->callback, mid, listObj, errorStr);
-
+        jobject listObj = list ? convertFriendList(env, list) : nullptr;
+        env->CallVoidMethod(ctx->callback, mid, listObj, nullptr);
         if (listObj) env->DeleteLocalRef(listObj);
+    }
+
+    env->DeleteLocalRef(cls);
+    delete ctx;
+}
+
+static void friendListError(void* userdata, int code, const char* error) {
+    auto* ctx = static_cast<CallbackContext*>(userdata);
+    if (!ctx || !ctx->callback) return;
+
+    JNIEnv* env = getEnvForCallback(ctx->jvm);
+    if (!env) return;
+
+    jclass cls = env->GetObjectClass(ctx->callback);
+    jmethodID mid = env->GetMethodID(cls, "onFriendList", "(Ljava/util/List;Ljava/lang/String;)V");
+
+    if (mid) {
+        jstring errorStr = toJString(env, error);
+        env->CallVoidMethod(ctx->callback, mid, nullptr, errorStr);
         if (errorStr) env->DeleteLocalRef(errorStr);
     }
 
@@ -33,8 +44,7 @@ static void friendListCallback(void* userdata, const AnyChatFriendList_C* list, 
     delete ctx;
 }
 
-// Friend request list callback wrapper
-static void friendRequestListCallback(void* userdata, const AnyChatFriendRequestList_C* list, const char* error) {
+static void friendRequestListSuccess(void* userdata, const AnyChatFriendRequestList_C* list) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
     if (!ctx || !ctx->callback) return;
 
@@ -42,34 +52,47 @@ static void friendRequestListCallback(void* userdata, const AnyChatFriendRequest
     if (!env) return;
 
     jclass cls = env->GetObjectClass(ctx->callback);
-    jmethodID mid = env->GetMethodID(cls, "onFriendRequestList",
-        "(Ljava/util/List;Ljava/lang/String;)V");
+    jmethodID mid = env->GetMethodID(cls, "onFriendRequestList", "(Ljava/util/List;Ljava/lang/String;)V");
 
     if (mid) {
         jobject listObj = nullptr;
         if (list && list->count > 0) {
-            // Convert to Java list
             jclass arrayListClass = env->FindClass("java/util/ArrayList");
             jmethodID arrayListInit = env->GetMethodID(arrayListClass, "<init>", "(I)V");
             jmethodID arrayListAdd = env->GetMethodID(arrayListClass, "add", "(Ljava/lang/Object;)Z");
 
             listObj = env->NewObject(arrayListClass, arrayListInit, list->count);
-
-            for (int i = 0; i < list->count; i++) {
+            for (int i = 0; i < list->count; ++i) {
                 jobject requestObj = convertFriendRequest(env, list->items[i]);
                 if (requestObj) {
                     env->CallBooleanMethod(listObj, arrayListAdd, requestObj);
                     env->DeleteLocalRef(requestObj);
                 }
             }
-
             env->DeleteLocalRef(arrayListClass);
         }
 
-        jstring errorStr = toJString(env, error);
-        env->CallVoidMethod(ctx->callback, mid, listObj, errorStr);
-
+        env->CallVoidMethod(ctx->callback, mid, listObj, nullptr);
         if (listObj) env->DeleteLocalRef(listObj);
+    }
+
+    env->DeleteLocalRef(cls);
+    delete ctx;
+}
+
+static void friendRequestListError(void* userdata, int code, const char* error) {
+    auto* ctx = static_cast<CallbackContext*>(userdata);
+    if (!ctx || !ctx->callback) return;
+
+    JNIEnv* env = getEnvForCallback(ctx->jvm);
+    if (!env) return;
+
+    jclass cls = env->GetObjectClass(ctx->callback);
+    jmethodID mid = env->GetMethodID(cls, "onFriendRequestList", "(Ljava/util/List;Ljava/lang/String;)V");
+
+    if (mid) {
+        jstring errorStr = toJString(env, error);
+        env->CallVoidMethod(ctx->callback, mid, nullptr, errorStr);
         if (errorStr) env->DeleteLocalRef(errorStr);
     }
 
@@ -77,8 +100,25 @@ static void friendRequestListCallback(void* userdata, const AnyChatFriendRequest
     delete ctx;
 }
 
-// Friend callback wrapper
-static void friendCallback(void* userdata, int success, const char* error) {
+static void friendSuccess(void* userdata) {
+    auto* ctx = static_cast<CallbackContext*>(userdata);
+    if (!ctx || !ctx->callback) return;
+
+    JNIEnv* env = getEnvForCallback(ctx->jvm);
+    if (!env) return;
+
+    jclass cls = env->GetObjectClass(ctx->callback);
+    jmethodID mid = env->GetMethodID(cls, "onResult", "(ZLjava/lang/String;)V");
+
+    if (mid) {
+        env->CallVoidMethod(ctx->callback, mid, JNI_TRUE, nullptr);
+    }
+
+    env->DeleteLocalRef(cls);
+    delete ctx;
+}
+
+static void friendError(void* userdata, int code, const char* error) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
     if (!ctx || !ctx->callback) return;
 
@@ -90,7 +130,7 @@ static void friendCallback(void* userdata, int success, const char* error) {
 
     if (mid) {
         jstring errorStr = toJString(env, error);
-        env->CallVoidMethod(ctx->callback, mid, (jboolean)success, errorStr);
+        env->CallVoidMethod(ctx->callback, mid, JNI_FALSE, errorStr);
         if (errorStr) env->DeleteLocalRef(errorStr);
     }
 
@@ -98,7 +138,33 @@ static void friendCallback(void* userdata, int success, const char* error) {
     delete ctx;
 }
 
-// Get friend list
+static AnyChatFriendListCallback_C makeFriendListCallback(CallbackContext* ctx) {
+    AnyChatFriendListCallback_C callback{};
+    callback.struct_size = sizeof(callback);
+    callback.userdata = ctx;
+    callback.on_success = friendListSuccess;
+    callback.on_error = friendListError;
+    return callback;
+}
+
+static AnyChatFriendRequestListCallback_C makeFriendRequestListCallback(CallbackContext* ctx) {
+    AnyChatFriendRequestListCallback_C callback{};
+    callback.struct_size = sizeof(callback);
+    callback.userdata = ctx;
+    callback.on_success = friendRequestListSuccess;
+    callback.on_error = friendRequestListError;
+    return callback;
+}
+
+static AnyChatFriendCallback_C makeFriendCallback(CallbackContext* ctx) {
+    AnyChatFriendCallback_C callback{};
+    callback.struct_size = sizeof(callback);
+    callback.userdata = ctx;
+    callback.on_success = friendSuccess;
+    callback.on_error = friendError;
+    return callback;
+}
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Friend_nativeGetList(
@@ -110,22 +176,19 @@ Java_com_anychat_sdk_Friend_nativeGetList(
     JNI_TRY(env)
 
     auto friendHandle = reinterpret_cast<AnyChatFriendHandle>(handle);
-
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatFriendListCallback_C friendListCb = makeFriendListCallback(ctx);
 
-    int result = anychat_friend_get_list(friendHandle, ctx, friendListCallback);
-
+    int result = anychat_friend_get_list(friendHandle, &friendListCb);
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Get friend list failed with error code: %d", result);
     }
 
     JNI_CATCH(env)
 }
 
-// Send friend request
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Friend_nativeSendRequest(
@@ -141,28 +204,26 @@ Java_com_anychat_sdk_Friend_nativeSendRequest(
     auto friendHandle = reinterpret_cast<AnyChatFriendHandle>(handle);
     JStringWrapper toUserIdStr(env, toUserId);
     JStringWrapper messageStr(env, message);
-
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatFriendCallback_C friendCb = makeFriendCallback(ctx);
 
     int result = anychat_friend_add(
         friendHandle,
         toUserIdStr.c_str(),
         messageStr.c_str(),
-        ctx,
-        friendCallback
+        nullptr,
+        &friendCb
     );
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Send friend request failed with error code: %d", result);
     }
 
     JNI_CATCH(env)
 }
 
-// Handle friend request
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Friend_nativeHandleRequest(
@@ -176,28 +237,46 @@ Java_com_anychat_sdk_Friend_nativeHandleRequest(
     JNI_TRY(env)
 
     auto friendHandle = reinterpret_cast<AnyChatFriendHandle>(handle);
-
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatFriendCallback_C friendCb = makeFriendCallback(ctx);
 
-    int result = anychat_friend_accept_request(
-        friendHandle,
-        (int64_t)requestId,
-        accept ? 1 : 0,
-        ctx,
-        friendCallback
-    );
+    int result = accept
+        ? anychat_friend_accept_request(friendHandle, (int64_t)requestId, &friendCb)
+        : anychat_friend_reject_request(friendHandle, (int64_t)requestId, &friendCb);
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Handle friend request failed with error code: %d", result);
     }
 
     JNI_CATCH(env)
 }
 
-// Delete friend
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_anychat_sdk_Friend_nativeGetPendingRequests(
+    JNIEnv* env,
+    jobject thiz,
+    jlong handle,
+    jobject callback
+) {
+    JNI_TRY(env)
+
+    auto friendHandle = reinterpret_cast<AnyChatFriendHandle>(handle);
+    jobject globalCallback = env->NewGlobalRef(callback);
+    auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatFriendRequestListCallback_C requestListCb = makeFriendRequestListCallback(ctx);
+
+    int result = anychat_friend_get_requests(friendHandle, "received", &requestListCb);
+    if (result != ANYCHAT_OK) {
+        delete ctx;
+        LOGE("Get pending friend requests failed with error code: %d", result);
+    }
+
+    JNI_CATCH(env)
+}
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Friend_nativeDelete(
@@ -211,22 +290,19 @@ Java_com_anychat_sdk_Friend_nativeDelete(
 
     auto friendHandle = reinterpret_cast<AnyChatFriendHandle>(handle);
     JStringWrapper friendIdStr(env, friendId);
-
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatFriendCallback_C friendCb = makeFriendCallback(ctx);
 
-    int result = anychat_friend_delete(friendHandle, friendIdStr.c_str(), ctx, friendCallback);
-
+    int result = anychat_friend_delete(friendHandle, friendIdStr.c_str(), &friendCb);
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Delete friend failed with error code: %d", result);
     }
 
     JNI_CATCH(env)
 }
 
-// Update friend remark
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Friend_nativeUpdateRemark(
@@ -242,21 +318,13 @@ Java_com_anychat_sdk_Friend_nativeUpdateRemark(
     auto friendHandle = reinterpret_cast<AnyChatFriendHandle>(handle);
     JStringWrapper friendIdStr(env, friendId);
     JStringWrapper remarkStr(env, remark);
-
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatFriendCallback_C friendCb = makeFriendCallback(ctx);
 
-    int result = anychat_friend_update_remark(
-        friendHandle,
-        friendIdStr.c_str(),
-        remarkStr.c_str(),
-        ctx,
-        friendCallback
-    );
-
+    int result = anychat_friend_update_remark(friendHandle, friendIdStr.c_str(), remarkStr.c_str(), &friendCb);
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Update friend remark failed with error code: %d", result);
     }
 

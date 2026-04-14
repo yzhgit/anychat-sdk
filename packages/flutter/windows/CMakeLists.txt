@@ -8,20 +8,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(ANYCHAT_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 
-# Include the core build
-add_subdirectory("${ANYCHAT_SDK_ROOT}/core" anychat_core_build)
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+add_subdirectory("${ANYCHAT_SDK_ROOT}" anychat_sdk_build)
 
-# Create the Flutter plugin DLL
 add_library(anychat_flutter_plugin SHARED
-    # Empty; we're just re-exporting anychat_c
+    ${ANYCHAT_SDK_ROOT}/core/src/c_api/utils_c.cpp
 )
 
 target_link_libraries(anychat_flutter_plugin
-    PUBLIC anychat_c
+    PUBLIC anychat
 )
 
 set_target_properties(anychat_flutter_plugin PROPERTIES
-    PUBLIC_HEADER "${ANYCHAT_SDK_ROOT}/core/include/anychat_c/anychat_c.h"
+    PUBLIC_HEADER "${ANYCHAT_SDK_ROOT}/core/include/anychat/anychat.h"
     WINDOWS_EXPORT_ALL_SYMBOLS ON
 )
 

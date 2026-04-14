@@ -17,53 +17,66 @@ public actor UserManager {
     // MARK: - Profile Operations
 
     public func getProfile() async throws -> UserProfile {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UserProfile, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatUserProfileCallback = { userdata, success, profile, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<UserProfile>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0, let profile = profile?.pointee {
-                    context.continuation.resume(returning: UserProfile(from: profile))
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to get profile"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatUserProfileCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatUserProfileCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, profile in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserProfile>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let profile else {
+                    ctx.continuation.resume(throwing: AnyChatError.network)
+                    return
                 }
+                ctx.continuation.resume(returning: UserProfile(from: profile.pointee))
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserProfile>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            let result = anychat_user_get_profile(handle, userdata, callback)
+            let result = anychat_user_get_profile(handle, &callback)
             if result != ANYCHAT_OK {
                 let ctx = Unmanaged<CallbackContext<UserProfile>>.fromOpaque(userdata).takeRetainedValue()
-                ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func updateProfile(_ profile: UserProfile) async throws -> UserProfile {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UserProfile, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatUserProfileCallback = { userdata, success, profile, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<UserProfile>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0, let profile = profile?.pointee {
-                    context.continuation.resume(returning: UserProfile(from: profile))
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to update profile"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatUserProfileCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatUserProfileCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, profile in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserProfile>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let profile else {
+                    ctx.continuation.resume(throwing: AnyChatError.network)
+                    return
                 }
+                ctx.continuation.resume(returning: UserProfile(from: profile.pointee))
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserProfile>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
             var cProfile = profile.toCStruct()
-            let result = anychat_user_update_profile(handle, &cProfile, userdata, callback)
-
+            let result = anychat_user_update_profile(handle, &cProfile, &callback)
             if result != ANYCHAT_OK {
                 let ctx = Unmanaged<CallbackContext<UserProfile>>.fromOpaque(userdata).takeRetainedValue()
-                ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
@@ -71,53 +84,66 @@ public actor UserManager {
     // MARK: - Settings Operations
 
     public func getSettings() async throws -> UserSettings {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UserSettings, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatUserSettingsCallback = { userdata, success, settings, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<UserSettings>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0, let settings = settings?.pointee {
-                    context.continuation.resume(returning: UserSettings(from: settings))
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to get settings"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatUserSettingsCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatUserSettingsCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, settings in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserSettings>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let settings else {
+                    ctx.continuation.resume(throwing: AnyChatError.network)
+                    return
                 }
+                ctx.continuation.resume(returning: UserSettings(from: settings.pointee))
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserSettings>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            let result = anychat_user_get_settings(handle, userdata, callback)
+            let result = anychat_user_get_settings(handle, &callback)
             if result != ANYCHAT_OK {
                 let ctx = Unmanaged<CallbackContext<UserSettings>>.fromOpaque(userdata).takeRetainedValue()
-                ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func updateSettings(_ settings: UserSettings) async throws -> UserSettings {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UserSettings, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatUserSettingsCallback = { userdata, success, settings, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<UserSettings>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0, let settings = settings?.pointee {
-                    context.continuation.resume(returning: UserSettings(from: settings))
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to update settings"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatUserSettingsCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatUserSettingsCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, settings in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserSettings>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let settings else {
+                    ctx.continuation.resume(throwing: AnyChatError.network)
+                    return
                 }
+                ctx.continuation.resume(returning: UserSettings(from: settings.pointee))
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserSettings>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
             var cSettings = settings.toCStruct()
-            let result = anychat_user_update_settings(handle, &cSettings, userdata, callback)
-
+            let result = anychat_user_update_settings(handle, &cSettings, &callback)
             if result != ANYCHAT_OK {
                 let ctx = Unmanaged<CallbackContext<UserSettings>>.fromOpaque(userdata).takeRetainedValue()
-                ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
@@ -128,37 +154,39 @@ public actor UserManager {
         token: String,
         platform: String = "ios"
     ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatUserResultCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to update push token"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
+            var callback = AnyChatUserCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatUserCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                ctx.continuation.resume(returning: ())
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(token) { tokenPtr in
+            let result = withCString(token) { tokenPtr in
                 withCString(platform) { platformPtr in
-                    let result = anychat_user_update_push_token(
+                    anychat_user_update_push_token(
                         handle,
                         tokenPtr,
                         platformPtr,
-                        userdata,
-                        callback
+                        &callback
                     )
-
-                    if result != ANYCHAT_OK {
-                        let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                        ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                    }
                 }
+            }
+
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
@@ -170,67 +198,80 @@ public actor UserManager {
         page: Int = 1,
         pageSize: Int = 20
     ) async throws -> ([UserInfo], Int64) {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<([UserInfo], Int64), Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatUserListCallback = { userdata, list, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<([UserInfo], Int64)>>.fromOpaque(userdata).takeRetainedValue()
-
-                if let list = list {
-                    let result = convertUserList(list)
-                    context.continuation.resume(returning: result)
-                    var mutableList = list.pointee
-                    mutableList.free()
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Search failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatUserListCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatUserListCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, list in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<([UserInfo], Int64)>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let list else {
+                    ctx.continuation.resume(returning: ([], 0))
+                    return
                 }
+                let result = convertUserList(list)
+                ctx.continuation.resume(returning: result)
+                var mutableList = list.pointee
+                mutableList.free()
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<([UserInfo], Int64)>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(keyword) { keywordPtr in
-                let result = anychat_user_search(
+            let result = withCString(keyword) { keywordPtr in
+                anychat_user_search(
                     handle,
                     keywordPtr,
                     Int32(page),
                     Int32(pageSize),
-                    userdata,
-                    callback
+                    &callback
                 )
+            }
 
-                if result != ANYCHAT_OK {
-                    let ctx = Unmanaged<CallbackContext<([UserInfo], Int64)>>.fromOpaque(userdata).takeRetainedValue()
-                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                }
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<([UserInfo], Int64)>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func getInfo(userId: String) async throws -> UserInfo {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UserInfo, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatUserInfoCallback = { userdata, success, info, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<UserInfo>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0, let info = info?.pointee {
-                    context.continuation.resume(returning: UserInfo(from: info))
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to get user info"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatUserInfoCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatUserInfoCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, info in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserInfo>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let info else {
+                    ctx.continuation.resume(throwing: AnyChatError.network)
+                    return
                 }
+                ctx.continuation.resume(returning: UserInfo(from: info.pointee))
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<UserInfo>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(userId) { userIdPtr in
-                let result = anychat_user_get_info(handle, userIdPtr, userdata, callback)
+            let result = withCString(userId) { userIdPtr in
+                anychat_user_get_info(handle, userIdPtr, &callback)
+            }
 
-                if result != ANYCHAT_OK {
-                    let ctx = Unmanaged<CallbackContext<UserInfo>>.fromOpaque(userdata).takeRetainedValue()
-                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                }
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<UserInfo>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }

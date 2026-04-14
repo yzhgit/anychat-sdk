@@ -14,4 +14,4 @@ FOUNDATION_EXPORT double AnyChatSDKVersionNumber;
 FOUNDATION_EXPORT const unsigned char AnyChatSDKVersionString[];
 
 // Import C API headers
-#import "../../core/include/anychat_c/anychat_c.h"
+#import "../../core/include/anychat/anychat.h"

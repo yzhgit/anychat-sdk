@@ -1,12 +1,16 @@
 #include "jni_helpers.h"
-#include "anychat_c.h"
+#include <map>
+#include <memory>
+#include <mutex>
 
 using namespace anychat::jni;
 
 extern JavaVM* g_jvm;
 
-// Conversation list callback wrapper
-static void convListCallback(void* userdata, const AnyChatConversationList_C* list, const char* error) {
+static std::map<jlong, std::unique_ptr<CallbackContext>> g_convListenerCallbacks;
+static std::mutex g_convListenerMutex;
+
+static void convListSuccess(void* userdata, const AnyChatConversationList_C* list) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
     if (!ctx || !ctx->callback) return;
 
@@ -14,18 +18,31 @@ static void convListCallback(void* userdata, const AnyChatConversationList_C* li
     if (!env) return;
 
     jclass cls = env->GetObjectClass(ctx->callback);
-    jmethodID mid = env->GetMethodID(cls, "onConversationList",
-        "(Ljava/util/List;Ljava/lang/String;)V");
+    jmethodID mid = env->GetMethodID(cls, "onConversationList", "(Ljava/util/List;Ljava/lang/String;)V");
 
     if (mid) {
-        jobject listObj = nullptr;
-        if (list) {
-            listObj = convertConversationList(env, list);
-        }
-        jstring errorStr = toJString(env, error);
-        env->CallVoidMethod(ctx->callback, mid, listObj, errorStr);
-
+        jobject listObj = list ? convertConversationList(env, list) : nullptr;
+        env->CallVoidMethod(ctx->callback, mid, listObj, nullptr);
         if (listObj) env->DeleteLocalRef(listObj);
+    }
+
+    env->DeleteLocalRef(cls);
+    delete ctx;
+}
+
+static void convListError(void* userdata, int code, const char* error) {
+    auto* ctx = static_cast<CallbackContext*>(userdata);
+    if (!ctx || !ctx->callback) return;
+
+    JNIEnv* env = getEnvForCallback(ctx->jvm);
+    if (!env) return;
+
+    jclass cls = env->GetObjectClass(ctx->callback);
+    jmethodID mid = env->GetMethodID(cls, "onConversationList", "(Ljava/util/List;Ljava/lang/String;)V");
+
+    if (mid) {
+        jstring errorStr = toJString(env, error);
+        env->CallVoidMethod(ctx->callback, mid, nullptr, errorStr);
         if (errorStr) env->DeleteLocalRef(errorStr);
     }
 
@@ -33,8 +50,25 @@ static void convListCallback(void* userdata, const AnyChatConversationList_C* li
     delete ctx;
 }
 
-// Conversation callback wrapper
-static void convCallback(void* userdata, int success, const char* error) {
+static void convSuccess(void* userdata) {
+    auto* ctx = static_cast<CallbackContext*>(userdata);
+    if (!ctx || !ctx->callback) return;
+
+    JNIEnv* env = getEnvForCallback(ctx->jvm);
+    if (!env) return;
+
+    jclass cls = env->GetObjectClass(ctx->callback);
+    jmethodID mid = env->GetMethodID(cls, "onResult", "(ZLjava/lang/String;)V");
+
+    if (mid) {
+        env->CallVoidMethod(ctx->callback, mid, JNI_TRUE, nullptr);
+    }
+
+    env->DeleteLocalRef(cls);
+    delete ctx;
+}
+
+static void convError(void* userdata, int code, const char* error) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
     if (!ctx || !ctx->callback) return;
 
@@ -46,7 +80,7 @@ static void convCallback(void* userdata, int success, const char* error) {
 
     if (mid) {
         jstring errorStr = toJString(env, error);
-        env->CallVoidMethod(ctx->callback, mid, (jboolean)success, errorStr);
+        env->CallVoidMethod(ctx->callback, mid, JNI_FALSE, errorStr);
         if (errorStr) env->DeleteLocalRef(errorStr);
     }
 
@@ -54,10 +88,9 @@ static void convCallback(void* userdata, int success, const char* error) {
     delete ctx;
 }
 
-// Conversation updated callback wrapper
 static void convUpdatedCallback(void* userdata, const AnyChatConversation_C* conversation) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
-    if (!ctx || !ctx->callback) return;
+    if (!ctx || !ctx->callback || !conversation) return;
 
     JNIEnv* env = getEnvForCallback(ctx->jvm);
     if (!env) return;
@@ -77,7 +110,24 @@ static void convUpdatedCallback(void* userdata, const AnyChatConversation_C* con
     env->DeleteLocalRef(cls);
 }
 
-// Get conversation list
+static AnyChatConvListCallback_C makeConvListCallback(CallbackContext* ctx) {
+    AnyChatConvListCallback_C callback{};
+    callback.struct_size = sizeof(callback);
+    callback.userdata = ctx;
+    callback.on_success = convListSuccess;
+    callback.on_error = convListError;
+    return callback;
+}
+
+static AnyChatConvCallback_C makeConvCallback(CallbackContext* ctx) {
+    AnyChatConvCallback_C callback{};
+    callback.struct_size = sizeof(callback);
+    callback.userdata = ctx;
+    callback.on_success = convSuccess;
+    callback.on_error = convError;
+    return callback;
+}
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Conversation_nativeGetList(
@@ -89,22 +139,45 @@ Java_com_anychat_sdk_Conversation_nativeGetList(
     JNI_TRY(env)
 
     auto convHandle = reinterpret_cast<AnyChatConvHandle>(handle);
-
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatConvListCallback_C listCb = makeConvListCallback(ctx);
 
-    int result = anychat_conv_get_list(convHandle, ctx, convListCallback);
-
+    int result = anychat_conv_get_list(convHandle, &listCb);
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Get conversation list failed with error code: %d", result);
     }
 
     JNI_CATCH(env)
 }
 
-// Set conversation pinned
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_anychat_sdk_Conversation_nativeMarkRead(
+    JNIEnv* env,
+    jobject thiz,
+    jlong handle,
+    jstring convId,
+    jobject callback
+) {
+    JNI_TRY(env)
+
+    auto convHandle = reinterpret_cast<AnyChatConvHandle>(handle);
+    JStringWrapper convIdStr(env, convId);
+    jobject globalCallback = env->NewGlobalRef(callback);
+    auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatConvCallback_C convCb = makeConvCallback(ctx);
+
+    int result = anychat_conv_mark_all_read(convHandle, convIdStr.c_str(), &convCb);
+    if (result != ANYCHAT_OK) {
+        delete ctx;
+        LOGE("Mark conversation read failed with error code: %d", result);
+    }
+
+    JNI_CATCH(env)
+}
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Conversation_nativeSetPinned(
@@ -119,28 +192,19 @@ Java_com_anychat_sdk_Conversation_nativeSetPinned(
 
     auto convHandle = reinterpret_cast<AnyChatConvHandle>(handle);
     JStringWrapper convIdStr(env, convId);
-
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatConvCallback_C convCb = makeConvCallback(ctx);
 
-    int result = anychat_conv_set_pinned(
-        convHandle,
-        convIdStr.c_str(),
-        pinned ? 1 : 0,
-        ctx,
-        convCallback
-    );
-
+    int result = anychat_conv_set_pinned(convHandle, convIdStr.c_str(), pinned ? 1 : 0, &convCb);
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Set conversation pinned failed with error code: %d", result);
     }
 
     JNI_CATCH(env)
 }
 
-// Set conversation muted
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Conversation_nativeSetMuted(
@@ -155,28 +219,19 @@ Java_com_anychat_sdk_Conversation_nativeSetMuted(
 
     auto convHandle = reinterpret_cast<AnyChatConvHandle>(handle);
     JStringWrapper convIdStr(env, convId);
-
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatConvCallback_C convCb = makeConvCallback(ctx);
 
-    int result = anychat_conv_set_muted(
-        convHandle,
-        convIdStr.c_str(),
-        muted ? 1 : 0,
-        ctx,
-        convCallback
-    );
-
+    int result = anychat_conv_set_muted(convHandle, convIdStr.c_str(), muted ? 1 : 0, &convCb);
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Set conversation muted failed with error code: %d", result);
     }
 
     JNI_CATCH(env)
 }
 
-// Delete conversation
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Conversation_nativeDelete(
@@ -190,22 +245,19 @@ Java_com_anychat_sdk_Conversation_nativeDelete(
 
     auto convHandle = reinterpret_cast<AnyChatConvHandle>(handle);
     JStringWrapper convIdStr(env, convId);
-
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatConvCallback_C convCb = makeConvCallback(ctx);
 
-    int result = anychat_conv_delete(convHandle, convIdStr.c_str(), ctx, convCallback);
-
+    int result = anychat_conv_delete(convHandle, convIdStr.c_str(), &convCb);
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Delete conversation failed with error code: %d", result);
     }
 
     JNI_CATCH(env)
 }
 
-// Set conversation updated callback
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_anychat_sdk_Conversation_nativeSetUpdatedCallback(
@@ -217,13 +269,38 @@ Java_com_anychat_sdk_Conversation_nativeSetUpdatedCallback(
     JNI_TRY(env)
 
     auto convHandle = reinterpret_cast<AnyChatConvHandle>(handle);
+    std::unique_ptr<CallbackContext> oldCtx;
 
-    if (callback) {
-        jobject globalCallback = env->NewGlobalRef(callback);
-        auto* ctx = new CallbackContext(g_jvm, globalCallback);
-        anychat_conv_set_updated_callback(convHandle, ctx, convUpdatedCallback);
-    } else {
-        anychat_conv_set_updated_callback(convHandle, nullptr, nullptr);
+    {
+        std::lock_guard<std::mutex> lock(g_convListenerMutex);
+        auto existing = g_convListenerCallbacks.find(handle);
+        if (existing != g_convListenerCallbacks.end()) {
+            oldCtx = std::move(existing->second);
+            g_convListenerCallbacks.erase(existing);
+        }
+
+        if (callback) {
+            jobject globalCallback = env->NewGlobalRef(callback);
+            auto ctx = std::make_unique<CallbackContext>(g_jvm, globalCallback);
+
+            AnyChatConvListener_C listener{};
+            listener.struct_size = sizeof(listener);
+            listener.userdata = ctx.get();
+            listener.on_conversation_updated = convUpdatedCallback;
+
+            int result = anychat_conv_set_listener(convHandle, &listener);
+            if (result != ANYCHAT_OK) {
+                LOGE("Set conversation listener failed with error code: %d", result);
+                return;
+            }
+
+            g_convListenerCallbacks[handle] = std::move(ctx);
+        } else {
+            int result = anychat_conv_set_listener(convHandle, nullptr);
+            if (result != ANYCHAT_OK) {
+                LOGE("Clear conversation listener failed with error code: %d", result);
+            }
+        }
     }
 
     JNI_CATCH(env)

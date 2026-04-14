@@ -7,6 +7,19 @@
 
 import Foundation
 
+private final class FileUploadContext: @unchecked Sendable {
+    let continuation: CheckedContinuation<FileInfo, Error>
+    let onProgress: ((Int64, Int64) -> Void)?
+
+    init(
+        continuation: CheckedContinuation<FileInfo, Error>,
+        onProgress: ((Int64, Int64) -> Void)?
+    ) {
+        self.continuation = continuation
+        self.onProgress = onProgress
+    }
+}
+
 public actor FileManager {
     private let handle: AnyChatFileHandle
 
@@ -21,107 +34,119 @@ public actor FileManager {
         fileType: String,
         onProgress: ((Int64, Int64) -> Void)? = nil
     ) async throws -> FileInfo {
-        try await withCheckedThrowingContinuation { continuation in
-            let context = CallbackContext(continuation: continuation)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<FileInfo, Error>) in
+            let context = FileUploadContext(
+                continuation: continuation,
+                onProgress: onProgress
+            )
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            // Progress callback wrapper
-            let progressCallback: AnyChatUploadProgressCallback? = onProgress != nil ? { userdata, uploaded, total in
-                if let progress = onProgress {
-                    progress(uploaded, total)
+            var doneCallback = AnyChatFileInfoCallback_C()
+            doneCallback.struct_size = UInt32(MemoryLayout<AnyChatFileInfoCallback_C>.size)
+            doneCallback.userdata = userdata
+            doneCallback.on_success = { cbUserdata, info in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<FileUploadContext>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let info else {
+                    ctx.continuation.resume(throwing: AnyChatError.network)
+                    return
                 }
-            } : nil
-
-            // Completion callback
-            let doneCallback: AnyChatFileInfoCallback = { userdata, success, info, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<FileInfo>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0, let info = info?.pointee {
-                    context.continuation.resume(returning: FileInfo(from: info))
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Upload failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
+                ctx.continuation.resume(returning: FileInfo(from: info.pointee))
+            }
+            doneCallback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<FileUploadContext>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(localPath) { pathPtr in
+            let progressCallback: AnyChatUploadProgressCallback? = { cbUserdata, uploaded, total in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<FileUploadContext>.fromOpaque(cbUserdata).takeUnretainedValue()
+                ctx.onProgress?(uploaded, total)
+            }
+
+            let result = withCString(localPath) { pathPtr in
                 withCString(fileType) { typePtr in
-                    let result = anychat_file_upload(
+                    anychat_file_upload(
                         handle,
                         pathPtr,
                         typePtr,
-                        userdata,
                         progressCallback,
-                        doneCallback
+                        &doneCallback
                     )
-
-                    if result != ANYCHAT_OK {
-                        let ctx = Unmanaged<CallbackContext<FileInfo>>.fromOpaque(userdata).takeRetainedValue()
-                        ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                    }
                 }
+            }
+
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<FileUploadContext>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func getDownloadURL(fileId: String) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatDownloadUrlCallback = { userdata, success, url, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<String>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0, let url = url {
-                    context.continuation.resume(returning: String(cString: url))
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to get download URL"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatDownloadUrlCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatDownloadUrlCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, url in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<String>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let url else {
+                    ctx.continuation.resume(throwing: AnyChatError.network)
+                    return
                 }
+                ctx.continuation.resume(returning: String(cString: url))
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<String>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(fileId) { fileIdPtr in
-                let result = anychat_file_get_download_url(
-                    handle,
-                    fileIdPtr,
-                    userdata,
-                    callback
-                )
+            let result = withCString(fileId) { fileIdPtr in
+                anychat_file_get_download_url(handle, fileIdPtr, &callback)
+            }
 
-                if result != ANYCHAT_OK {
-                    let ctx = Unmanaged<CallbackContext<String>>.fromOpaque(userdata).takeRetainedValue()
-                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                }
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<String>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func delete(fileId: String) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatFileCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Delete failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
+            var callback = AnyChatFileCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatFileCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                ctx.continuation.resume(returning: ())
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(fileId) { fileIdPtr in
-                let result = anychat_file_delete(handle, fileIdPtr, userdata, callback)
+            let result = withCString(fileId) { fileIdPtr in
+                anychat_file_delete(handle, fileIdPtr, &callback)
+            }
 
-                if result != ANYCHAT_OK {
-                    let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                }
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }

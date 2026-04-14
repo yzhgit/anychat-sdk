@@ -9,14 +9,19 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 #include <string>
+#include <map>
 #include <vector>
 #include <functional>
 #include <memory>
 #include <cstring>
 
-#include "anychat_c/anychat_c.h"
+#include "anychat/anychat.h"
 
 using namespace emscripten;
+
+std::string dispatchErrorMessage(int code) {
+    return std::string("Request dispatch failed (code=") + std::to_string(code) + ")";
+}
 
 // ============================================================================
 // Helper: Convert C structs to JavaScript objects
@@ -169,30 +174,43 @@ void connectionStateCallbackWrapper(void* userdata, int state) {
     }
 }
 
-void authCallbackWrapper(void* userdata, int success, const AnyChatAuthToken_C* token, const char* error) {
+void authSuccessCallbackWrapper(void* userdata, const AnyChatAuthToken_C* token) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.authCallbacks.find(callbackId);
     if (it != g_callbacks.authCallbacks.end()) {
         val callback = it->second;
-        if (success && token) {
+        if (token) {
             callback(val::null(), authTokenToJS(*token));
         } else {
-            callback(std::string(error ? error : "Unknown error"), val::null());
+            callback(std::string("Unknown error"), val::null());
         }
         g_callbacks.authCallbacks.erase(it);
     }
 }
 
-void resultCallbackWrapper(void* userdata, int success, const char* error) {
+void authErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.authCallbacks.find(callbackId);
+    if (it != g_callbacks.authCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"), val::null());
+        g_callbacks.authCallbacks.erase(it);
+    }
+}
+
+void resultSuccessCallbackWrapper(void* userdata) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.resultCallbacks.find(callbackId);
     if (it != g_callbacks.resultCallbacks.end()) {
-        val callback = it->second;
-        if (success) {
-            callback(val::null());
-        } else {
-            callback(std::string(error ? error : "Unknown error"));
-        }
+        it->second(val::null());
+        g_callbacks.resultCallbacks.erase(it);
+    }
+}
+
+void resultErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.resultCallbacks.find(callbackId);
+    if (it != g_callbacks.resultCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"));
         g_callbacks.resultCallbacks.erase(it);
     }
 }
@@ -203,21 +221,25 @@ void authExpiredCallbackWrapper(void* userdata) {
     }
 }
 
-void messageCallbackWrapper(void* userdata, int success, const char* error) {
+void messageSuccessCallbackWrapper(void* userdata) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.messageCallbacks.find(callbackId);
     if (it != g_callbacks.messageCallbacks.end()) {
-        val callback = it->second;
-        if (success) {
-            callback(val::null());
-        } else {
-            callback(std::string(error ? error : "Unknown error"));
-        }
+        it->second(val::null());
         g_callbacks.messageCallbacks.erase(it);
     }
 }
 
-void messageListCallbackWrapper(void* userdata, const AnyChatMessageList_C* list, const char* error) {
+void messageErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.messageCallbacks.find(callbackId);
+    if (it != g_callbacks.messageCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"));
+        g_callbacks.messageCallbacks.erase(it);
+    }
+}
+
+void messageListSuccessCallbackWrapper(void* userdata, const AnyChatMessageList_C* list) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.messageListCallbacks.find(callbackId);
     if (it != g_callbacks.messageListCallbacks.end()) {
@@ -229,8 +251,17 @@ void messageListCallbackWrapper(void* userdata, const AnyChatMessageList_C* list
             }
             callback(val::null(), arr);
         } else {
-            callback(std::string(error ? error : "Unknown error"), val::null());
+            callback(val::null(), val::array());
         }
+        g_callbacks.messageListCallbacks.erase(it);
+    }
+}
+
+void messageListErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.messageListCallbacks.find(callbackId);
+    if (it != g_callbacks.messageListCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"), val::null());
         g_callbacks.messageListCallbacks.erase(it);
     }
 }
@@ -241,7 +272,7 @@ void messageReceivedCallbackWrapper(void* userdata, const AnyChatMessage_C* mess
     }
 }
 
-void convListCallbackWrapper(void* userdata, const AnyChatConversationList_C* list, const char* error) {
+void convListSuccessCallbackWrapper(void* userdata, const AnyChatConversationList_C* list) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.convListCallbacks.find(callbackId);
     if (it != g_callbacks.convListCallbacks.end()) {
@@ -253,22 +284,35 @@ void convListCallbackWrapper(void* userdata, const AnyChatConversationList_C* li
             }
             callback(val::null(), arr);
         } else {
-            callback(std::string(error ? error : "Unknown error"), val::null());
+            callback(val::null(), val::array());
         }
         g_callbacks.convListCallbacks.erase(it);
     }
 }
 
-void convCallbackWrapper(void* userdata, int success, const char* error) {
+void convListErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.convListCallbacks.find(callbackId);
+    if (it != g_callbacks.convListCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"), val::null());
+        g_callbacks.convListCallbacks.erase(it);
+    }
+}
+
+void convSuccessCallbackWrapper(void* userdata) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.convCallbacks.find(callbackId);
     if (it != g_callbacks.convCallbacks.end()) {
-        val callback = it->second;
-        if (success) {
-            callback(val::null());
-        } else {
-            callback(std::string(error ? error : "Unknown error"));
-        }
+        it->second(val::null());
+        g_callbacks.convCallbacks.erase(it);
+    }
+}
+
+void convErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.convCallbacks.find(callbackId);
+    if (it != g_callbacks.convCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"));
         g_callbacks.convCallbacks.erase(it);
     }
 }
@@ -279,7 +323,7 @@ void convUpdatedCallbackWrapper(void* userdata, const AnyChatConversation_C* con
     }
 }
 
-void friendListCallbackWrapper(void* userdata, const AnyChatFriendList_C* list, const char* error) {
+void friendListSuccessCallbackWrapper(void* userdata, const AnyChatFriendList_C* list) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.friendListCallbacks.find(callbackId);
     if (it != g_callbacks.friendListCallbacks.end()) {
@@ -291,13 +335,22 @@ void friendListCallbackWrapper(void* userdata, const AnyChatFriendList_C* list, 
             }
             callback(val::null(), arr);
         } else {
-            callback(std::string(error ? error : "Unknown error"), val::null());
+            callback(val::null(), val::array());
         }
         g_callbacks.friendListCallbacks.erase(it);
     }
 }
 
-void friendRequestListCallbackWrapper(void* userdata, const AnyChatFriendRequestList_C* list, const char* error) {
+void friendListErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.friendListCallbacks.find(callbackId);
+    if (it != g_callbacks.friendListCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"), val::null());
+        g_callbacks.friendListCallbacks.erase(it);
+    }
+}
+
+void friendRequestListSuccessCallbackWrapper(void* userdata, const AnyChatFriendRequestList_C* list) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.friendRequestListCallbacks.find(callbackId);
     if (it != g_callbacks.friendRequestListCallbacks.end()) {
@@ -309,22 +362,35 @@ void friendRequestListCallbackWrapper(void* userdata, const AnyChatFriendRequest
             }
             callback(val::null(), arr);
         } else {
-            callback(std::string(error ? error : "Unknown error"), val::null());
+            callback(val::null(), val::array());
         }
         g_callbacks.friendRequestListCallbacks.erase(it);
     }
 }
 
-void friendCallbackWrapper(void* userdata, int success, const char* error) {
+void friendRequestListErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.friendRequestListCallbacks.find(callbackId);
+    if (it != g_callbacks.friendRequestListCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"), val::null());
+        g_callbacks.friendRequestListCallbacks.erase(it);
+    }
+}
+
+void friendSuccessCallbackWrapper(void* userdata) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.friendCallbacks.find(callbackId);
     if (it != g_callbacks.friendCallbacks.end()) {
-        val callback = it->second;
-        if (success) {
-            callback(val::null());
-        } else {
-            callback(std::string(error ? error : "Unknown error"));
-        }
+        it->second(val::null());
+        g_callbacks.friendCallbacks.erase(it);
+    }
+}
+
+void friendErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.friendCallbacks.find(callbackId);
+    if (it != g_callbacks.friendCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"));
         g_callbacks.friendCallbacks.erase(it);
     }
 }
@@ -335,13 +401,25 @@ void friendRequestCallbackWrapper(void* userdata, const AnyChatFriendRequest_C* 
     }
 }
 
-void friendListChangedCallbackWrapper(void* userdata) {
+void friendListChangedFromFriendWrapper(void* userdata, const AnyChatFriend_C* friend_info) {
     if (!g_callbacks.friendListChangedCallback.isNull()) {
         g_callbacks.friendListChangedCallback();
     }
 }
 
-void groupListCallbackWrapper(void* userdata, const AnyChatGroupList_C* list, const char* error) {
+void friendListChangedFromDeletedWrapper(void* userdata, const char* user_id) {
+    if (!g_callbacks.friendListChangedCallback.isNull()) {
+        g_callbacks.friendListChangedCallback();
+    }
+}
+
+void friendListChangedFromRequestWrapper(void* userdata, const AnyChatFriendRequest_C* request) {
+    if (!g_callbacks.friendListChangedCallback.isNull()) {
+        g_callbacks.friendListChangedCallback();
+    }
+}
+
+void groupListSuccessCallbackWrapper(void* userdata, const AnyChatGroupList_C* list) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.groupListCallbacks.find(callbackId);
     if (it != g_callbacks.groupListCallbacks.end()) {
@@ -353,27 +431,44 @@ void groupListCallbackWrapper(void* userdata, const AnyChatGroupList_C* list, co
             }
             callback(val::null(), arr);
         } else {
-            callback(std::string(error ? error : "Unknown error"), val::null());
+            callback(val::null(), val::array());
         }
         g_callbacks.groupListCallbacks.erase(it);
     }
 }
 
-void groupCallbackWrapper(void* userdata, int success, const char* error) {
+void groupListErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.groupListCallbacks.find(callbackId);
+    if (it != g_callbacks.groupListCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"), val::null());
+        g_callbacks.groupListCallbacks.erase(it);
+    }
+}
+
+void groupSuccessCallbackWrapper(void* userdata) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.groupCallbacks.find(callbackId);
     if (it != g_callbacks.groupCallbacks.end()) {
-        val callback = it->second;
-        if (success) {
-            callback(val::null());
-        } else {
-            callback(std::string(error ? error : "Unknown error"));
-        }
+        it->second(val::null());
         g_callbacks.groupCallbacks.erase(it);
     }
 }
 
-void groupMemberCallbackWrapper(void* userdata, const AnyChatGroupMemberList_C* list, const char* error) {
+void groupErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.groupCallbacks.find(callbackId);
+    if (it != g_callbacks.groupCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"));
+        g_callbacks.groupCallbacks.erase(it);
+    }
+}
+
+void groupInfoSuccessCallbackWrapper(void* userdata, const AnyChatGroup_C* group) {
+    groupSuccessCallbackWrapper(userdata);
+}
+
+void groupMemberListSuccessCallbackWrapper(void* userdata, const AnyChatGroupMemberList_C* list) {
     int callbackId = reinterpret_cast<intptr_t>(userdata);
     auto it = g_callbacks.groupMemberCallbacks.find(callbackId);
     if (it != g_callbacks.groupMemberCallbacks.end()) {
@@ -385,8 +480,17 @@ void groupMemberCallbackWrapper(void* userdata, const AnyChatGroupMemberList_C* 
             }
             callback(val::null(), arr);
         } else {
-            callback(std::string(error ? error : "Unknown error"), val::null());
+            callback(val::null(), val::array());
         }
+        g_callbacks.groupMemberCallbacks.erase(it);
+    }
+}
+
+void groupMemberListErrorCallbackWrapper(void* userdata, int code, const char* error) {
+    int callbackId = reinterpret_cast<intptr_t>(userdata);
+    auto it = g_callbacks.groupMemberCallbacks.find(callbackId);
+    if (it != g_callbacks.groupMemberCallbacks.end()) {
+        it->second(std::string(error ? error : "Unknown error"), val::null());
         g_callbacks.groupMemberCallbacks.erase(it);
     }
 }
@@ -416,6 +520,81 @@ private:
     AnyChatFriendHandle friendHandle_;
     AnyChatGroupHandle groupHandle_;
 
+    void refreshAuthListener() {
+        if (g_callbacks.authExpiredCallback.isNull()) {
+            anychat_auth_set_listener(authHandle_, nullptr);
+            return;
+        }
+
+        AnyChatAuthListener_C listener{};
+        listener.struct_size = sizeof(listener);
+        listener.on_auth_expired = authExpiredCallbackWrapper;
+        anychat_auth_set_listener(authHandle_, &listener);
+    }
+
+    void refreshMessageListener() {
+        if (g_callbacks.messageReceivedCallback.isNull()) {
+            anychat_message_set_listener(messageHandle_, nullptr);
+            return;
+        }
+
+        AnyChatMessageListener_C listener{};
+        listener.struct_size = sizeof(listener);
+        listener.on_message_received = messageReceivedCallbackWrapper;
+        anychat_message_set_listener(messageHandle_, &listener);
+    }
+
+    void refreshConversationListener() {
+        if (g_callbacks.convUpdatedCallback.isNull()) {
+            anychat_conv_set_listener(convHandle_, nullptr);
+            return;
+        }
+
+        AnyChatConvListener_C listener{};
+        listener.struct_size = sizeof(listener);
+        listener.on_conversation_updated = convUpdatedCallbackWrapper;
+        anychat_conv_set_listener(convHandle_, &listener);
+    }
+
+    void refreshFriendListener() {
+        if (g_callbacks.friendRequestCallback.isNull() && g_callbacks.friendListChangedCallback.isNull()) {
+            anychat_friend_set_listener(friendHandle_, nullptr);
+            return;
+        }
+
+        AnyChatFriendListener_C listener{};
+        listener.struct_size = sizeof(listener);
+        if (!g_callbacks.friendRequestCallback.isNull()) {
+            listener.on_friend_request_received = friendRequestCallbackWrapper;
+        }
+        if (!g_callbacks.friendListChangedCallback.isNull()) {
+            listener.on_friend_added = friendListChangedFromFriendWrapper;
+            listener.on_friend_deleted = friendListChangedFromDeletedWrapper;
+            listener.on_friend_info_changed = friendListChangedFromFriendWrapper;
+            listener.on_friend_request_deleted = friendListChangedFromRequestWrapper;
+            listener.on_friend_request_accepted = friendListChangedFromRequestWrapper;
+            listener.on_friend_request_rejected = friendListChangedFromRequestWrapper;
+        }
+        anychat_friend_set_listener(friendHandle_, &listener);
+    }
+
+    void refreshGroupListener() {
+        if (g_callbacks.groupInvitedCallback.isNull() && g_callbacks.groupUpdatedCallback.isNull()) {
+            anychat_group_set_listener(groupHandle_, nullptr);
+            return;
+        }
+
+        AnyChatGroupListener_C listener{};
+        listener.struct_size = sizeof(listener);
+        if (!g_callbacks.groupInvitedCallback.isNull()) {
+            listener.on_group_invited = groupInvitedCallbackWrapper;
+        }
+        if (!g_callbacks.groupUpdatedCallback.isNull()) {
+            listener.on_group_updated = groupUpdatedCallbackWrapper;
+        }
+        anychat_group_set_listener(groupHandle_, &listener);
+    }
+
 public:
     AnyChatClientWrapper(val config) {
         AnyChatClientConfig_C cfg;
@@ -437,7 +616,7 @@ public:
 
         handle_ = anychat_client_create(&cfg);
         if (!handle_) {
-            throw std::runtime_error(std::string("Failed to create client: ") + anychat_get_last_error());
+            throw std::runtime_error("Failed to create client");
         }
 
         authHandle_ = anychat_client_get_auth(handle_);
@@ -453,21 +632,16 @@ public:
         }
     }
 
-    // Client methods
-    void connect() {
-        anychat_client_connect(handle_);
-    }
-
-    void disconnect() {
-        anychat_client_disconnect(handle_);
-    }
-
     int getConnectionState() {
         return anychat_client_get_connection_state(handle_);
     }
 
     void setConnectionCallback(val callback) {
         g_callbacks.connectionStateCallback = callback;
+        if (callback.isNull() || callback.isUndefined()) {
+            anychat_client_set_connection_callback(handle_, nullptr, nullptr);
+            return;
+        }
         anychat_client_set_connection_callback(handle_, nullptr, connectionStateCallbackWrapper);
     }
 
@@ -476,19 +650,24 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.authCallbacks[callbackId] = callback;
 
-        int result = anychat_auth_login(
-            authHandle_,
+        AnyChatAuthTokenCallback_C authCallback{};
+        authCallback.struct_size = sizeof(authCallback);
+        authCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        authCallback.on_success = authSuccessCallbackWrapper;
+        authCallback.on_error = authErrorCallbackWrapper;
+
+        int result = anychat_client_login(
+            handle_,
             account.c_str(),
             password.c_str(),
             deviceType.c_str(),
             clientVersion.empty() ? nullptr : clientVersion.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            authCallbackWrapper
+            &authCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.authCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()), val::null());
+            callback(dispatchErrorMessage(result), val::null());
         }
     }
 
@@ -496,6 +675,12 @@ public:
                    std::string deviceType, std::string nickname, std::string clientVersion, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.authCallbacks[callbackId] = callback;
+
+        AnyChatAuthTokenCallback_C authCallback{};
+        authCallback.struct_size = sizeof(authCallback);
+        authCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        authCallback.on_success = authSuccessCallbackWrapper;
+        authCallback.on_error = authErrorCallbackWrapper;
 
         int result = anychat_auth_register(
             authHandle_,
@@ -505,13 +690,12 @@ public:
             deviceType.c_str(),
             nickname.empty() ? nullptr : nickname.c_str(),
             clientVersion.empty() ? nullptr : clientVersion.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            authCallbackWrapper
+            &authCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.authCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()), val::null());
+            callback(dispatchErrorMessage(result), val::null());
         }
     }
 
@@ -519,15 +703,17 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.resultCallbacks[callbackId] = callback;
 
-        int result = anychat_auth_logout(
-            authHandle_,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            resultCallbackWrapper
-        );
+        AnyChatAuthResultCallback_C resultCallback{};
+        resultCallback.struct_size = sizeof(resultCallback);
+        resultCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        resultCallback.on_success = resultSuccessCallbackWrapper;
+        resultCallback.on_error = resultErrorCallbackWrapper;
+
+        int result = anychat_client_logout(handle_, &resultCallback);
 
         if (result != ANYCHAT_OK) {
             g_callbacks.resultCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
@@ -535,26 +721,31 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.authCallbacks[callbackId] = callback;
 
+        AnyChatAuthTokenCallback_C authCallback{};
+        authCallback.struct_size = sizeof(authCallback);
+        authCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        authCallback.on_success = authSuccessCallbackWrapper;
+        authCallback.on_error = authErrorCallbackWrapper;
+
         int result = anychat_auth_refresh_token(
             authHandle_,
             refreshToken.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            authCallbackWrapper
+            &authCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.authCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()), val::null());
+            callback(dispatchErrorMessage(result), val::null());
         }
     }
 
     bool isLoggedIn() {
-        return anychat_auth_is_logged_in(authHandle_) != 0;
+        return anychat_client_is_logged_in(handle_) != 0;
     }
 
     void setAuthExpiredCallback(val callback) {
         g_callbacks.authExpiredCallback = callback;
-        anychat_auth_set_on_expired(authHandle_, nullptr, authExpiredCallbackWrapper);
+        refreshAuthListener();
     }
 
     // Message methods
@@ -562,17 +753,22 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.messageCallbacks[callbackId] = callback;
 
+        AnyChatMessageCallback_C messageCallback{};
+        messageCallback.struct_size = sizeof(messageCallback);
+        messageCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        messageCallback.on_success = messageSuccessCallbackWrapper;
+        messageCallback.on_error = messageErrorCallbackWrapper;
+
         int result = anychat_message_send_text(
             messageHandle_,
             sessionId.c_str(),
             content.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            messageCallbackWrapper
+            &messageCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.messageCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
@@ -580,18 +776,23 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.messageListCallbacks[callbackId] = callback;
 
+        AnyChatMessageListCallback_C listCallback{};
+        listCallback.struct_size = sizeof(listCallback);
+        listCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        listCallback.on_success = messageListSuccessCallbackWrapper;
+        listCallback.on_error = messageListErrorCallbackWrapper;
+
         int result = anychat_message_get_history(
             messageHandle_,
             sessionId.c_str(),
             static_cast<int64_t>(beforeTimestamp),
             limit,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            messageListCallbackWrapper
+            &listCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.messageListCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()), val::null());
+            callback(dispatchErrorMessage(result), val::null());
         }
     }
 
@@ -599,23 +800,28 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.messageCallbacks[callbackId] = callback;
 
+        AnyChatMessageCallback_C messageCallback{};
+        messageCallback.struct_size = sizeof(messageCallback);
+        messageCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        messageCallback.on_success = messageSuccessCallbackWrapper;
+        messageCallback.on_error = messageErrorCallbackWrapper;
+
         int result = anychat_message_mark_read(
             messageHandle_,
             sessionId.c_str(),
             messageId.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            messageCallbackWrapper
+            &messageCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.messageCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
     void setMessageReceivedCallback(val callback) {
         g_callbacks.messageReceivedCallback = callback;
-        anychat_message_set_received_callback(messageHandle_, nullptr, messageReceivedCallbackWrapper);
+        refreshMessageListener();
     }
 
     // Conversation methods
@@ -623,15 +829,34 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.convListCallbacks[callbackId] = callback;
 
-        int result = anychat_conv_get_list(
-            convHandle_,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            convListCallbackWrapper
-        );
+        AnyChatConvListCallback_C listCallback{};
+        listCallback.struct_size = sizeof(listCallback);
+        listCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        listCallback.on_success = convListSuccessCallbackWrapper;
+        listCallback.on_error = convListErrorCallbackWrapper;
+
+        int result = anychat_conv_get_list(convHandle_, &listCallback);
 
         if (result != ANYCHAT_OK) {
             g_callbacks.convListCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()), val::null());
+            callback(dispatchErrorMessage(result), val::null());
+        }
+    }
+
+    void markConversationRead(std::string convId, val callback) {
+        int callbackId = g_callbacks.nextCallbackId++;
+        g_callbacks.convCallbacks[callbackId] = callback;
+
+        AnyChatConvCallback_C convCallback{};
+        convCallback.struct_size = sizeof(convCallback);
+        convCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        convCallback.on_success = convSuccessCallbackWrapper;
+        convCallback.on_error = convErrorCallbackWrapper;
+
+        int result = anychat_conv_mark_all_read(convHandle_, convId.c_str(), &convCallback);
+        if (result != ANYCHAT_OK) {
+            g_callbacks.convCallbacks.erase(callbackId);
+            callback(dispatchErrorMessage(result));
         }
     }
 
@@ -639,17 +864,22 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.convCallbacks[callbackId] = callback;
 
+        AnyChatConvCallback_C convCallback{};
+        convCallback.struct_size = sizeof(convCallback);
+        convCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        convCallback.on_success = convSuccessCallbackWrapper;
+        convCallback.on_error = convErrorCallbackWrapper;
+
         int result = anychat_conv_set_pinned(
             convHandle_,
             convId.c_str(),
             pinned ? 1 : 0,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            convCallbackWrapper
+            &convCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.convCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
@@ -657,17 +887,22 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.convCallbacks[callbackId] = callback;
 
+        AnyChatConvCallback_C convCallback{};
+        convCallback.struct_size = sizeof(convCallback);
+        convCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        convCallback.on_success = convSuccessCallbackWrapper;
+        convCallback.on_error = convErrorCallbackWrapper;
+
         int result = anychat_conv_set_muted(
             convHandle_,
             convId.c_str(),
             muted ? 1 : 0,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            convCallbackWrapper
+            &convCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.convCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
@@ -675,22 +910,27 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.convCallbacks[callbackId] = callback;
 
+        AnyChatConvCallback_C convCallback{};
+        convCallback.struct_size = sizeof(convCallback);
+        convCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        convCallback.on_success = convSuccessCallbackWrapper;
+        convCallback.on_error = convErrorCallbackWrapper;
+
         int result = anychat_conv_delete(
             convHandle_,
             convId.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            convCallbackWrapper
+            &convCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.convCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
     void setConversationUpdatedCallback(val callback) {
         g_callbacks.convUpdatedCallback = callback;
-        anychat_conv_set_updated_callback(convHandle_, nullptr, convUpdatedCallbackWrapper);
+        refreshConversationListener();
     }
 
     // Friend methods
@@ -698,15 +938,17 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.friendListCallbacks[callbackId] = callback;
 
-        int result = anychat_friend_get_list(
-            friendHandle_,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            friendListCallbackWrapper
-        );
+        AnyChatFriendListCallback_C listCallback{};
+        listCallback.struct_size = sizeof(listCallback);
+        listCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        listCallback.on_success = friendListSuccessCallbackWrapper;
+        listCallback.on_error = friendListErrorCallbackWrapper;
+
+        int result = anychat_friend_get_list(friendHandle_, &listCallback);
 
         if (result != ANYCHAT_OK) {
             g_callbacks.friendListCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()), val::null());
+            callback(dispatchErrorMessage(result), val::null());
         }
     }
 
@@ -714,17 +956,23 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.friendCallbacks[callbackId] = callback;
 
+        AnyChatFriendCallback_C friendCallback{};
+        friendCallback.struct_size = sizeof(friendCallback);
+        friendCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        friendCallback.on_success = friendSuccessCallbackWrapper;
+        friendCallback.on_error = friendErrorCallbackWrapper;
+
         int result = anychat_friend_add(
             friendHandle_,
             toUserId.c_str(),
             message.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            friendCallbackWrapper
+            nullptr,
+            &friendCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.friendCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
@@ -732,17 +980,36 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.friendCallbacks[callbackId] = callback;
 
-        int result = anychat_friend_accept_request(
-            friendHandle_,
-            static_cast<int64_t>(requestId),
-            accept ? 1 : 0,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            friendCallbackWrapper
-        );
+        AnyChatFriendCallback_C friendCallback{};
+        friendCallback.struct_size = sizeof(friendCallback);
+        friendCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        friendCallback.on_success = friendSuccessCallbackWrapper;
+        friendCallback.on_error = friendErrorCallbackWrapper;
+
+        int result = accept
+            ? anychat_friend_accept_request(friendHandle_, static_cast<int64_t>(requestId), &friendCallback)
+            : anychat_friend_reject_request(friendHandle_, static_cast<int64_t>(requestId), &friendCallback);
 
         if (result != ANYCHAT_OK) {
             g_callbacks.friendCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
+        }
+    }
+
+    void getPendingFriendRequests(val callback) {
+        int callbackId = g_callbacks.nextCallbackId++;
+        g_callbacks.friendRequestListCallbacks[callbackId] = callback;
+
+        AnyChatFriendRequestListCallback_C requestListCallback{};
+        requestListCallback.struct_size = sizeof(requestListCallback);
+        requestListCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        requestListCallback.on_success = friendRequestListSuccessCallbackWrapper;
+        requestListCallback.on_error = friendRequestListErrorCallbackWrapper;
+
+        int result = anychat_friend_get_requests(friendHandle_, "received", &requestListCallback);
+        if (result != ANYCHAT_OK) {
+            g_callbacks.friendRequestListCallbacks.erase(callbackId);
+            callback(dispatchErrorMessage(result), val::null());
         }
     }
 
@@ -750,27 +1017,32 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.friendCallbacks[callbackId] = callback;
 
+        AnyChatFriendCallback_C friendCallback{};
+        friendCallback.struct_size = sizeof(friendCallback);
+        friendCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        friendCallback.on_success = friendSuccessCallbackWrapper;
+        friendCallback.on_error = friendErrorCallbackWrapper;
+
         int result = anychat_friend_delete(
             friendHandle_,
             friendId.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            friendCallbackWrapper
+            &friendCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.friendCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
     void setFriendRequestCallback(val callback) {
         g_callbacks.friendRequestCallback = callback;
-        anychat_friend_set_request_callback(friendHandle_, nullptr, friendRequestCallbackWrapper);
+        refreshFriendListener();
     }
 
     void setFriendListChangedCallback(val callback) {
         g_callbacks.friendListChangedCallback = callback;
-        anychat_friend_set_list_changed_callback(friendHandle_, nullptr, friendListChangedCallbackWrapper);
+        refreshFriendListener();
     }
 
     // Group methods
@@ -778,21 +1050,29 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.groupListCallbacks[callbackId] = callback;
 
-        int result = anychat_group_get_list(
-            groupHandle_,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            groupListCallbackWrapper
-        );
+        AnyChatGroupListCallback_C listCallback{};
+        listCallback.struct_size = sizeof(listCallback);
+        listCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        listCallback.on_success = groupListSuccessCallbackWrapper;
+        listCallback.on_error = groupListErrorCallbackWrapper;
+
+        int result = anychat_group_get_list(groupHandle_, &listCallback);
 
         if (result != ANYCHAT_OK) {
             g_callbacks.groupListCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()), val::null());
+            callback(dispatchErrorMessage(result), val::null());
         }
     }
 
     void createGroup(std::string name, val memberIds, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.groupCallbacks[callbackId] = callback;
+
+        AnyChatGroupInfoCallback_C groupCallback{};
+        groupCallback.struct_size = sizeof(groupCallback);
+        groupCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        groupCallback.on_success = groupInfoSuccessCallbackWrapper;
+        groupCallback.on_error = groupErrorCallbackWrapper;
 
         // Convert JavaScript array to C array
         std::vector<std::string> members;
@@ -809,13 +1089,12 @@ public:
             name.c_str(),
             memberPtrs.data(),
             length,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            groupCallbackWrapper
+            &groupCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.groupCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
@@ -823,23 +1102,34 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.groupCallbacks[callbackId] = callback;
 
+        AnyChatGroupCallback_C groupCallback{};
+        groupCallback.struct_size = sizeof(groupCallback);
+        groupCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        groupCallback.on_success = groupSuccessCallbackWrapper;
+        groupCallback.on_error = groupErrorCallbackWrapper;
+
         int result = anychat_group_join(
             groupHandle_,
             groupId.c_str(),
             message.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            groupCallbackWrapper
+            &groupCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.groupCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
     void inviteToGroup(std::string groupId, val userIds, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.groupCallbacks[callbackId] = callback;
+
+        AnyChatGroupCallback_C groupCallback{};
+        groupCallback.struct_size = sizeof(groupCallback);
+        groupCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        groupCallback.on_success = groupSuccessCallbackWrapper;
+        groupCallback.on_error = groupErrorCallbackWrapper;
 
         std::vector<std::string> users;
         std::vector<const char*> userPtrs;
@@ -855,13 +1145,12 @@ public:
             groupId.c_str(),
             userPtrs.data(),
             length,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            groupCallbackWrapper
+            &groupCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.groupCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
@@ -869,16 +1158,21 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.groupCallbacks[callbackId] = callback;
 
+        AnyChatGroupCallback_C groupCallback{};
+        groupCallback.struct_size = sizeof(groupCallback);
+        groupCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        groupCallback.on_success = groupSuccessCallbackWrapper;
+        groupCallback.on_error = groupErrorCallbackWrapper;
+
         int result = anychat_group_quit(
             groupHandle_,
             groupId.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            groupCallbackWrapper
+            &groupCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.groupCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
+            callback(dispatchErrorMessage(result));
         }
     }
 
@@ -886,29 +1180,34 @@ public:
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.groupMemberCallbacks[callbackId] = callback;
 
+        AnyChatGroupMemberListCallback_C memberListCallback{};
+        memberListCallback.struct_size = sizeof(memberListCallback);
+        memberListCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
+        memberListCallback.on_success = groupMemberListSuccessCallbackWrapper;
+        memberListCallback.on_error = groupMemberListErrorCallbackWrapper;
+
         int result = anychat_group_get_members(
             groupHandle_,
             groupId.c_str(),
             page,
             pageSize,
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            groupMemberCallbackWrapper
+            &memberListCallback
         );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.groupMemberCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()), val::null());
+            callback(dispatchErrorMessage(result), val::null());
         }
     }
 
     void setGroupInvitedCallback(val callback) {
         g_callbacks.groupInvitedCallback = callback;
-        anychat_group_set_invited_callback(groupHandle_, nullptr, groupInvitedCallbackWrapper);
+        refreshGroupListener();
     }
 
     void setGroupUpdatedCallback(val callback) {
         g_callbacks.groupUpdatedCallback = callback;
-        anychat_group_set_updated_callback(groupHandle_, nullptr, groupUpdatedCallbackWrapper);
+        refreshGroupListener();
     }
 };
 
@@ -919,8 +1218,6 @@ public:
 EMSCRIPTEN_BINDINGS(anychat) {
     class_<AnyChatClientWrapper>("AnyChatClientWrapper")
         .constructor<val>()
-        .function("connect", &AnyChatClientWrapper::connect)
-        .function("disconnect", &AnyChatClientWrapper::disconnect)
         .function("getConnectionState", &AnyChatClientWrapper::getConnectionState)
         .function("setConnectionCallback", &AnyChatClientWrapper::setConnectionCallback)
         .function("login", &AnyChatClientWrapper::login)

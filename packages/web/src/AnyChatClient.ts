@@ -42,8 +42,6 @@ interface WasmModule {
 }
 
 interface AnyChatClientWrapperInstance {
-  connect(): void;
-  disconnect(): void;
   getConnectionState(): number;
   setConnectionCallback(callback: (state: number) => void): void;
   login(account: string, password: string, deviceType: string, clientVersion: string, callback: (error: string | null, token: any) => void): void;
@@ -142,16 +140,6 @@ export class AnyChatClient extends EventEmitter<ClientEvents> {
     instance.setAuthExpiredCallback(() => {
       this.emit('authExpired', undefined);
     });
-  }
-
-  // ===== Connection Management =====
-
-  connect(): void {
-    this.ensureInitialized().connect();
-  }
-
-  disconnect(): void {
-    this.ensureInitialized().disconnect();
   }
 
   getConnectionState(): ConnectionState {

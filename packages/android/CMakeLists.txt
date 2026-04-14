@@ -5,18 +5,18 @@ project(anychat_android)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Path to the core SDK
-set(ANYCHAT_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../core")
+# Path to the SDK root
+set(ANYCHAT_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 
 # Include directories
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main/cpp
-    ${ANYCHAT_CORE_DIR}/include
-    ${ANYCHAT_CORE_DIR}/include/anychat_c
+    ${ANYCHAT_SDK_ROOT}/core/include
 )
 
-# Add the core library (assumes it's already built or will be built)
-add_subdirectory(${ANYCHAT_CORE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/core)
+# Build the full SDK so the anychat target gets its thirdparty deps.
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+add_subdirectory(${ANYCHAT_SDK_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/sdk)
 
 # JNI bridge sources
 set(JNI_SOURCES
@@ -34,7 +34,7 @@ add_library(anychat_jni SHARED ${JNI_SOURCES})
 
 # Link against the core library and Android log
 target_link_libraries(anychat_jni
-    anychat_core
+    anychat
     android
     log
 )

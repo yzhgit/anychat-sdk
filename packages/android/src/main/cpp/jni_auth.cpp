@@ -1,12 +1,10 @@
 #include "jni_helpers.h"
-#include "anychat_c.h"
 
 using namespace anychat::jni;
 
 extern JavaVM* g_jvm;
 
-// Auth callback wrapper
-static void authCallback(void* userdata, int success, const AnyChatAuthToken_C* token, const char* error) {
+static void authTokenSuccess(void* userdata, const AnyChatAuthToken_C* token) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
     if (!ctx || !ctx->callback) return;
 
@@ -19,27 +17,40 @@ static void authCallback(void* userdata, int success, const AnyChatAuthToken_C* 
 
     if (mid) {
         jobject tokenObj = nullptr;
-        if (success && token) {
+        if (token) {
             tokenObj = convertAuthToken(env, *token);
         }
-        jstring errorStr = toJString(env, error);
-        env->CallVoidMethod(ctx->callback, mid, (jboolean)success, tokenObj, errorStr);
+        env->CallVoidMethod(ctx->callback, mid, JNI_TRUE, tokenObj, nullptr);
 
         if (tokenObj) env->DeleteLocalRef(tokenObj);
-        if (errorStr) env->DeleteLocalRef(errorStr);
     }
 
     env->DeleteLocalRef(cls);
     delete ctx; // Clean up callback context
 }
 
-// Verification code callback wrapper
-static void verificationCodeCallback(
-    void* userdata,
-    int success,
-    const AnyChatVerificationCodeResult_C* result,
-    const char* error
-) {
+static void authTokenError(void* userdata, int code, const char* error) {
+    auto* ctx = static_cast<CallbackContext*>(userdata);
+    if (!ctx || !ctx->callback) return;
+
+    JNIEnv* env = getEnvForCallback(ctx->jvm);
+    if (!env) return;
+
+    jclass cls = env->GetObjectClass(ctx->callback);
+    jmethodID mid = env->GetMethodID(cls, "onAuthResult",
+        "(ZLcom/anychat/sdk/models/AuthToken;Ljava/lang/String;)V");
+
+    if (mid) {
+        jstring errorStr = toJString(env, error);
+        env->CallVoidMethod(ctx->callback, mid, JNI_FALSE, nullptr, errorStr);
+        if (errorStr) env->DeleteLocalRef(errorStr);
+    }
+
+    env->DeleteLocalRef(cls);
+    delete ctx;
+}
+
+static void verificationCodeSuccess(void* userdata, const AnyChatVerificationCodeResult_C* result) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
     if (!ctx || !ctx->callback) return;
 
@@ -55,13 +66,35 @@ static void verificationCodeCallback(
 
     if (mid) {
         jobject resultObj = nullptr;
-        if (success && result) {
+        if (result) {
             resultObj = convertVerificationCodeResult(env, *result);
         }
-        jstring errorStr = toJString(env, error);
-        env->CallVoidMethod(ctx->callback, mid, (jboolean)success, resultObj, errorStr);
+        env->CallVoidMethod(ctx->callback, mid, JNI_TRUE, resultObj, nullptr);
 
         if (resultObj) env->DeleteLocalRef(resultObj);
+    }
+
+    env->DeleteLocalRef(cls);
+    delete ctx;
+}
+
+static void verificationCodeError(void* userdata, int code, const char* error) {
+    auto* ctx = static_cast<CallbackContext*>(userdata);
+    if (!ctx || !ctx->callback) return;
+
+    JNIEnv* env = getEnvForCallback(ctx->jvm);
+    if (!env) return;
+
+    jclass cls = env->GetObjectClass(ctx->callback);
+    jmethodID mid = env->GetMethodID(
+        cls,
+        "onVerificationCodeResult",
+        "(ZLcom/anychat/sdk/models/VerificationCodeResult;Ljava/lang/String;)V"
+    );
+
+    if (mid) {
+        jstring errorStr = toJString(env, error);
+        env->CallVoidMethod(ctx->callback, mid, JNI_FALSE, nullptr, errorStr);
         if (errorStr) env->DeleteLocalRef(errorStr);
     }
 
@@ -69,8 +102,25 @@ static void verificationCodeCallback(
     delete ctx;
 }
 
-// Result callback wrapper
-static void resultCallback(void* userdata, int success, const char* error) {
+static void resultSuccess(void* userdata) {
+    auto* ctx = static_cast<CallbackContext*>(userdata);
+    if (!ctx || !ctx->callback) return;
+
+    JNIEnv* env = getEnvForCallback(ctx->jvm);
+    if (!env) return;
+
+    jclass cls = env->GetObjectClass(ctx->callback);
+    jmethodID mid = env->GetMethodID(cls, "onResult", "(ZLjava/lang/String;)V");
+
+    if (mid) {
+        env->CallVoidMethod(ctx->callback, mid, JNI_TRUE, nullptr);
+    }
+
+    env->DeleteLocalRef(cls);
+    delete ctx;
+}
+
+static void resultError(void* userdata, int code, const char* error) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
     if (!ctx || !ctx->callback) return;
 
@@ -82,7 +132,7 @@ static void resultCallback(void* userdata, int success, const char* error) {
 
     if (mid) {
         jstring errorStr = toJString(env, error);
-        env->CallVoidMethod(ctx->callback, mid, (jboolean)success, errorStr);
+        env->CallVoidMethod(ctx->callback, mid, JNI_FALSE, errorStr);
         if (errorStr) env->DeleteLocalRef(errorStr);
     }
 
@@ -90,8 +140,7 @@ static void resultCallback(void* userdata, int success, const char* error) {
     delete ctx;
 }
 
-// Auth device list callback wrapper
-static void authDeviceListCallback(void* userdata, const AnyChatAuthDeviceList_C* list, const char* error) {
+static void authDeviceListSuccess(void* userdata, const AnyChatAuthDeviceList_C* list) {
     auto* ctx = static_cast<CallbackContext*>(userdata);
     if (!ctx || !ctx->callback) return;
 
@@ -103,18 +152,72 @@ static void authDeviceListCallback(void* userdata, const AnyChatAuthDeviceList_C
 
     if (mid) {
         jobject devicesObj = nullptr;
-        if (!error && list) {
+        if (list) {
             devicesObj = convertAuthDeviceList(env, list);
         }
-        jstring errorStr = toJString(env, error);
-        env->CallVoidMethod(ctx->callback, mid, devicesObj, errorStr);
+        env->CallVoidMethod(ctx->callback, mid, devicesObj, nullptr);
 
         if (devicesObj) env->DeleteLocalRef(devicesObj);
+    }
+
+    env->DeleteLocalRef(cls);
+    delete ctx;
+}
+
+static void authDeviceListError(void* userdata, int code, const char* error) {
+    auto* ctx = static_cast<CallbackContext*>(userdata);
+    if (!ctx || !ctx->callback) return;
+
+    JNIEnv* env = getEnvForCallback(ctx->jvm);
+    if (!env) return;
+
+    jclass cls = env->GetObjectClass(ctx->callback);
+    jmethodID mid = env->GetMethodID(cls, "onAuthDeviceList", "(Ljava/util/List;Ljava/lang/String;)V");
+
+    if (mid) {
+        jstring errorStr = toJString(env, error);
+        env->CallVoidMethod(ctx->callback, mid, nullptr, errorStr);
         if (errorStr) env->DeleteLocalRef(errorStr);
     }
 
     env->DeleteLocalRef(cls);
     delete ctx;
+}
+
+static AnyChatAuthTokenCallback_C makeAuthTokenCallback(CallbackContext* ctx) {
+    AnyChatAuthTokenCallback_C callback{};
+    callback.struct_size = sizeof(callback);
+    callback.userdata = ctx;
+    callback.on_success = authTokenSuccess;
+    callback.on_error = authTokenError;
+    return callback;
+}
+
+static AnyChatVerificationCodeCallback_C makeVerificationCodeCallback(CallbackContext* ctx) {
+    AnyChatVerificationCodeCallback_C callback{};
+    callback.struct_size = sizeof(callback);
+    callback.userdata = ctx;
+    callback.on_success = verificationCodeSuccess;
+    callback.on_error = verificationCodeError;
+    return callback;
+}
+
+static AnyChatAuthResultCallback_C makeResultCallback(CallbackContext* ctx) {
+    AnyChatAuthResultCallback_C callback{};
+    callback.struct_size = sizeof(callback);
+    callback.userdata = ctx;
+    callback.on_success = resultSuccess;
+    callback.on_error = resultError;
+    return callback;
+}
+
+static AnyChatAuthDeviceListCallback_C makeAuthDeviceListCallback(CallbackContext* ctx) {
+    AnyChatAuthDeviceListCallback_C callback{};
+    callback.struct_size = sizeof(callback);
+    callback.userdata = ctx;
+    callback.on_success = authDeviceListSuccess;
+    callback.on_error = authDeviceListError;
+    return callback;
 }
 
 // Login
@@ -140,6 +243,7 @@ Java_com_anychat_sdk_Auth_nativeLogin(
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatAuthTokenCallback_C authCb = makeAuthTokenCallback(ctx);
 
     int result = anychat_auth_login(
         authHandle,
@@ -147,13 +251,11 @@ Java_com_anychat_sdk_Auth_nativeLogin(
         passwordStr.c_str(),
         deviceTypeStr.c_str(),
         clientVersionStr.c_str(),
-        ctx,
-        authCallback
+        &authCb
     );
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Login failed with error code: %d", result);
     }
 
@@ -187,6 +289,7 @@ Java_com_anychat_sdk_Auth_nativeRegister(
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatAuthTokenCallback_C authCb = makeAuthTokenCallback(ctx);
 
     int result = anychat_auth_register(
         authHandle,
@@ -196,13 +299,11 @@ Java_com_anychat_sdk_Auth_nativeRegister(
         deviceTypeStr.c_str(),
         nicknameStr.c_str(),
         clientVersionStr.c_str(),
-        ctx,
-        authCallback
+        &authCb
     );
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Register failed with error code: %d", result);
     }
 
@@ -230,19 +331,18 @@ Java_com_anychat_sdk_Auth_nativeSendCode(
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatVerificationCodeCallback_C codeCb = makeVerificationCodeCallback(ctx);
 
     int result = anychat_auth_send_code(
         authHandle,
         targetStr.c_str(),
         targetTypeStr.c_str(),
         purposeStr.c_str(),
-        ctx,
-        verificationCodeCallback
+        &codeCb
     );
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Send code failed with error code: %d", result);
     }
 
@@ -264,12 +364,12 @@ Java_com_anychat_sdk_Auth_nativeLogout(
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatAuthResultCallback_C resultCb = makeResultCallback(ctx);
 
-    int result = anychat_auth_logout(authHandle, ctx, resultCallback);
+    int result = anychat_auth_logout(authHandle, &resultCb);
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Logout failed with error code: %d", result);
     }
 
@@ -293,17 +393,16 @@ Java_com_anychat_sdk_Auth_nativeRefreshToken(
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatAuthTokenCallback_C authCb = makeAuthTokenCallback(ctx);
 
     int result = anychat_auth_refresh_token(
         authHandle,
         refreshTokenStr.c_str(),
-        ctx,
-        authCallback
+        &authCb
     );
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Refresh token failed with error code: %d", result);
     }
 
@@ -329,18 +428,17 @@ Java_com_anychat_sdk_Auth_nativeChangePassword(
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatAuthResultCallback_C resultCb = makeResultCallback(ctx);
 
     int result = anychat_auth_change_password(
         authHandle,
         oldPasswordStr.c_str(),
         newPasswordStr.c_str(),
-        ctx,
-        resultCallback
+        &resultCb
     );
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Change password failed with error code: %d", result);
     }
 
@@ -368,19 +466,18 @@ Java_com_anychat_sdk_Auth_nativeResetPassword(
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatAuthResultCallback_C resultCb = makeResultCallback(ctx);
 
     int result = anychat_auth_reset_password(
         authHandle,
         accountStr.c_str(),
         verifyCodeStr.c_str(),
         newPasswordStr.c_str(),
-        ctx,
-        resultCallback
+        &resultCb
     );
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Reset password failed with error code: %d", result);
     }
 
@@ -402,12 +499,12 @@ Java_com_anychat_sdk_Auth_nativeGetDeviceList(
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatAuthDeviceListCallback_C deviceListCb = makeAuthDeviceListCallback(ctx);
 
-    int result = anychat_auth_get_device_list(authHandle, ctx, authDeviceListCallback);
+    int result = anychat_auth_get_device_list(authHandle, &deviceListCb);
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Get device list failed with error code: %d", result);
     }
 
@@ -431,12 +528,12 @@ Java_com_anychat_sdk_Auth_nativeLogoutDevice(
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
+    AnyChatAuthResultCallback_C resultCb = makeResultCallback(ctx);
 
-    int result = anychat_auth_logout_device(authHandle, deviceIdStr.c_str(), ctx, resultCallback);
+    int result = anychat_auth_logout_device(authHandle, deviceIdStr.c_str(), &resultCb);
 
     if (result != ANYCHAT_OK) {
         delete ctx;
-        env->DeleteGlobalRef(globalCallback);
         LOGE("Logout device failed with error code: %d", result);
     }
 

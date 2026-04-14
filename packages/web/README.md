@@ -43,9 +43,6 @@ client.on('messageReceived', (message) => {
   console.log('New message:', message);
 });
 
-// Connect to the server
-client.connect();
-
 // Login
 try {
   const token = await client.login('user@example.com', 'password');
@@ -187,13 +184,7 @@ client.isLoggedIn(): boolean
 ### Connection Management
 
 ```typescript
-// Connect to server
-client.connect(): void
-
-// Disconnect from server
-client.disconnect(): void
-
-// Get connection state
+// Get current connection state
 client.getConnectionState(): ConnectionState
 ```
 

@@ -1,15 +1,16 @@
 #include "jni_helpers.h"
-#include "anychat_c.h"
 #include <map>
+#include <memory>
 #include <mutex>
 
 using namespace anychat::jni;
 
 // Global JavaVM pointer
-static JavaVM* g_jvm = nullptr;
+JavaVM* g_jvm = nullptr;
 
 // Client handle map (native pointer -> handle)
 static std::map<jlong, AnyChatClientHandle> g_clientHandles;
+static std::map<jlong, std::unique_ptr<CallbackContext>> g_connectionCallbacks;
 static std::mutex g_clientMutex;
 
 // JNI_OnLoad - called when library is loaded
@@ -73,8 +74,8 @@ Java_com_anychat_sdk_AnyChatClient_nativeCreate(
 
     AnyChatClientHandle handle = anychat_client_create(&config);
     if (!handle) {
-        const char* error = anychat_get_last_error();
-        LOGE("Failed to create client: %s", error);
+        const char* error = "Failed to create client";
+        LOGE("%s", error);
         jclass exClass = env->FindClass("java/lang/RuntimeException");
         env->ThrowNew(exClass, error);
         return 0;
@@ -101,6 +102,7 @@ Java_com_anychat_sdk_AnyChatClient_nativeDestroy(JNIEnv* env, jobject thiz, jlon
     JNI_TRY(env)
 
     AnyChatClientHandle clientHandle = nullptr;
+    std::unique_ptr<CallbackContext> connectionCtx;
     {
         std::lock_guard<std::mutex> lock(g_clientMutex);
         auto it = g_clientHandles.find(handle);
@@ -108,38 +110,19 @@ Java_com_anychat_sdk_AnyChatClient_nativeDestroy(JNIEnv* env, jobject thiz, jlon
             clientHandle = it->second;
             g_clientHandles.erase(it);
         }
+
+        auto callbackIt = g_connectionCallbacks.find(handle);
+        if (callbackIt != g_connectionCallbacks.end()) {
+            connectionCtx = std::move(callbackIt->second);
+            g_connectionCallbacks.erase(callbackIt);
+        }
     }
 
     if (clientHandle) {
+        anychat_client_set_connection_callback(clientHandle, nullptr, nullptr);
         anychat_client_destroy(clientHandle);
         LOGI("Client destroyed: %p", clientHandle);
     }
-
-    JNI_CATCH(env)
-}
-
-// Connect
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_anychat_sdk_AnyChatClient_nativeConnect(JNIEnv* env, jobject thiz, jlong handle) {
-    JNI_TRY(env)
-
-    auto clientHandle = reinterpret_cast<AnyChatClientHandle>(handle);
-    anychat_client_connect(clientHandle);
-    LOGI("Client connect called");
-
-    JNI_CATCH(env)
-}
-
-// Disconnect
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_anychat_sdk_AnyChatClient_nativeDisconnect(JNIEnv* env, jobject thiz, jlong handle) {
-    JNI_TRY(env)
-
-    auto clientHandle = reinterpret_cast<AnyChatClientHandle>(handle);
-    anychat_client_disconnect(clientHandle);
-    LOGI("Client disconnect called");
 
     JNI_CATCH(env)
 }
@@ -170,13 +153,24 @@ Java_com_anychat_sdk_AnyChatClient_nativeSetConnectionCallback(
     JNI_TRY(env)
 
     auto clientHandle = reinterpret_cast<AnyChatClientHandle>(handle);
+    std::unique_ptr<CallbackContext> oldCtx;
 
-    if (callback) {
-        jobject globalCallback = env->NewGlobalRef(callback);
-        auto* ctx = new CallbackContext(g_jvm, globalCallback);
-        anychat_client_set_connection_callback(clientHandle, ctx, connectionStateCallback);
-    } else {
-        anychat_client_set_connection_callback(clientHandle, nullptr, nullptr);
+    {
+        std::lock_guard<std::mutex> lock(g_clientMutex);
+        auto existing = g_connectionCallbacks.find(handle);
+        if (existing != g_connectionCallbacks.end()) {
+            oldCtx = std::move(existing->second);
+            g_connectionCallbacks.erase(existing);
+        }
+
+        if (callback) {
+            jobject globalCallback = env->NewGlobalRef(callback);
+            auto ctx = std::make_unique<CallbackContext>(g_jvm, globalCallback);
+            anychat_client_set_connection_callback(clientHandle, ctx.get(), connectionStateCallback);
+            g_connectionCallbacks[handle] = std::move(ctx);
+        } else {
+            anychat_client_set_connection_callback(clientHandle, nullptr, nullptr);
+        }
     }
 
     JNI_CATCH(env)

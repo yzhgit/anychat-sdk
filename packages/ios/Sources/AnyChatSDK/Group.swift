@@ -7,213 +7,244 @@
 
 import Foundation
 
+private final class GroupListenerContext: @unchecked Sendable {
+    var invitedContinuation: AsyncStream<(Group, String)>.Continuation?
+    var updatedContinuation: AsyncStream<Group>.Continuation?
+}
+
 public actor GroupManager {
     private let handle: AnyChatGroupHandle
-    private var invitedContinuation: AsyncStream<(Group, String)>.Continuation?
-    private var updatedContinuation: AsyncStream<Group>.Continuation?
+    private let listenerContext = GroupListenerContext()
+    private var listenerUserdata: UnsafeMutableRawPointer?
 
     init(handle: AnyChatGroupHandle) {
         self.handle = handle
-        setupCallbacks()
+    }
+
+    deinit {
+        anychat_group_set_listener(handle, nil)
+        if let userdata = listenerUserdata {
+            Unmanaged<GroupListenerContext>.fromOpaque(userdata).release()
+            listenerUserdata = nil
+        }
     }
 
     // MARK: - Group Operations
 
     public func getGroupList() async throws -> [Group] {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Group], Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatGroupListCallback = { userdata, list, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<[Group]>>.fromOpaque(userdata).takeRetainedValue()
-
-                if let list = list {
-                    let groups = convertGroupList(list)
-                    context.continuation.resume(returning: groups)
-                    var mutableList = list.pointee
-                    mutableList.free()
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to fetch groups"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatGroupListCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupListCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, list in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<[Group]>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let list else {
+                    ctx.continuation.resume(returning: [])
+                    return
                 }
+                let groups = convertGroupList(list)
+                ctx.continuation.resume(returning: groups)
+                var mutableList = list.pointee
+                mutableList.free()
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<[Group]>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            let result = anychat_group_get_list(handle, userdata, callback)
+            let result = anychat_group_get_list(handle, &callback)
             if result != ANYCHAT_OK {
                 let ctx = Unmanaged<CallbackContext<[Group]>>.fromOpaque(userdata).takeRetainedValue()
-                ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func create(name: String, memberIds: [String]) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatGroupCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Create group failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
+            var callback = AnyChatGroupInfoCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupInfoCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, _ in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                ctx.continuation.resume(returning: ())
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(name) { namePtr in
+            let result = withCString(name) { namePtr in
                 withCStringArray(memberIds) { memberPtrs in
-                    let result = anychat_group_create(
+                    anychat_group_create(
                         handle,
                         namePtr,
                         memberPtrs,
                         Int32(memberIds.count),
-                        userdata,
-                        callback
+                        &callback
                     )
-
-                    if result != ANYCHAT_OK {
-                        let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                        ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                    }
                 }
+            }
+
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func join(groupId: String, message: String) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatGroupCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+            var callback = AnyChatGroupCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                ctx.continuation.resume(returning: ())
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
+            }
 
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Join group failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            let result = withCString(groupId) { groupPtr in
+                withCString(message) { messagePtr in
+                    anychat_group_join(handle, groupPtr, messagePtr, &callback)
                 }
             }
 
-            withCString(groupId) { groupPtr in
-                withCString(message) { msgPtr in
-                    let result = anychat_group_join(handle, groupPtr, msgPtr, userdata, callback)
-
-                    if result != ANYCHAT_OK {
-                        let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                        ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                    }
-                }
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func invite(groupId: String, userIds: [String]) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatGroupCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Invite failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
+            var callback = AnyChatGroupCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                ctx.continuation.resume(returning: ())
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(groupId) { groupPtr in
+            let result = withCString(groupId) { groupPtr in
                 withCStringArray(userIds) { userPtrs in
-                    let result = anychat_group_invite(
+                    anychat_group_invite(
                         handle,
                         groupPtr,
                         userPtrs,
                         Int32(userIds.count),
-                        userdata,
-                        callback
+                        &callback
                     )
-
-                    if result != ANYCHAT_OK {
-                        let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                        ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                    }
                 }
+            }
+
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func quit(groupId: String) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatGroupCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Quit group failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
+            var callback = AnyChatGroupCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                ctx.continuation.resume(returning: ())
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(groupId) { groupPtr in
-                let result = anychat_group_quit(handle, groupPtr, userdata, callback)
+            let result = withCString(groupId) { groupPtr in
+                anychat_group_quit(handle, groupPtr, &callback)
+            }
 
-                if result != ANYCHAT_OK {
-                    let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                }
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
 
     public func update(groupId: String, name: String, avatarURL: String) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatGroupCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Update group failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
+            var callback = AnyChatGroupCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                ctx.continuation.resume(returning: ())
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(groupId) { groupPtr in
+            let result = withCString(groupId) { groupPtr in
                 withCString(name) { namePtr in
                     withCString(avatarURL) { avatarPtr in
-                        let result = anychat_group_update(
+                        anychat_group_update(
                             handle,
                             groupPtr,
                             namePtr,
                             avatarPtr,
-                            userdata,
-                            callback
+                            &callback
                         )
-
-                        if result != ANYCHAT_OK {
-                            let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                            ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                        }
                     }
                 }
+            }
+
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
@@ -223,39 +254,45 @@ public actor GroupManager {
         page: Int = 1,
         pageSize: Int = 20
     ) async throws -> [GroupMember] {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[GroupMember], Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatGroupMemberCallback = { userdata, list, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<[GroupMember]>>.fromOpaque(userdata).takeRetainedValue()
-
-                if let list = list {
-                    let members = convertGroupMemberList(list)
-                    context.continuation.resume(returning: members)
-                    var mutableList = list.pointee
-                    mutableList.free()
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Failed to get members"
-                    context.continuation.resume(throwing: AnyChatError.network)
+            var callback = AnyChatGroupMemberListCallback_C()
+            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupMemberListCallback_C>.size)
+            callback.userdata = userdata
+            callback.on_success = { cbUserdata, list in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<[GroupMember]>>.fromOpaque(cbUserdata).takeRetainedValue()
+                guard let list else {
+                    ctx.continuation.resume(returning: [])
+                    return
                 }
+                let members = convertGroupMemberList(list)
+                ctx.continuation.resume(returning: members)
+                var mutableList = list.pointee
+                mutableList.free()
+            }
+            callback.on_error = { cbUserdata, code, error in
+                guard let cbUserdata else { return }
+                let ctx = Unmanaged<CallbackContext<[GroupMember]>>.fromOpaque(cbUserdata).takeRetainedValue()
+                let message = error != nil ? String(cString: error!) : ""
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            withCString(groupId) { groupPtr in
-                let result = anychat_group_get_members(
+            let result = withCString(groupId) { groupPtr in
+                anychat_group_get_members(
                     handle,
                     groupPtr,
                     Int32(page),
                     Int32(pageSize),
-                    userdata,
-                    callback
+                    &callback
                 )
+            }
 
-                if result != ANYCHAT_OK {
-                    let ctx = Unmanaged<CallbackContext<[GroupMember]>>.fromOpaque(userdata).takeRetainedValue()
-                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                }
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<[GroupMember]>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result), message: getLastError()))
             }
         }
     }
@@ -264,45 +301,65 @@ public actor GroupManager {
 
     public var invited: AsyncStream<(Group, String)> {
         AsyncStream { continuation in
-            self.invitedContinuation = continuation
+            Task { await self.setInvitedContinuation(continuation) }
         }
     }
 
     public var updated: AsyncStream<Group> {
         AsyncStream { continuation in
-            self.updatedContinuation = continuation
+            Task { await self.setUpdatedContinuation(continuation) }
         }
     }
 
-    // MARK: - Private
+    // MARK: - Listener
 
-    private func setupCallbacks() {
-        let invitedCallback: AnyChatGroupInvitedCallback = { userdata, group, inviterId in
-            guard let userdata = userdata, let group = group, let inviterId = inviterId else { return }
-            let context = Unmanaged<StreamContext<(Group, String)>>.fromOpaque(userdata).takeUnretainedValue()
-            let grp = Group(from: group.pointee)
-            let inviter = String(cString: inviterId)
-            context.continuation.yield((grp, inviter))
-        }
+    private func setInvitedContinuation(_ continuation: AsyncStream<(Group, String)>.Continuation) {
+        listenerContext.invitedContinuation = continuation
+        refreshListener()
+    }
 
-        let updatedCallback: AnyChatGroupUpdatedCallback = { userdata, group in
-            guard let userdata = userdata, let group = group else { return }
-            let context = Unmanaged<StreamContext<Group>>.fromOpaque(userdata).takeUnretainedValue()
-            context.continuation.yield(Group(from: group.pointee))
-        }
+    private func setUpdatedContinuation(_ continuation: AsyncStream<Group>.Continuation) {
+        listenerContext.updatedContinuation = continuation
+        refreshListener()
+    }
 
-        Task {
-            if let cont = invitedContinuation {
-                let context = StreamContext(continuation: cont)
-                let userdata = Unmanaged.passRetained(context).toOpaque()
-                anychat_group_set_invited_callback(handle, userdata, invitedCallback)
+    private func refreshListener() {
+        let hasInvited = listenerContext.invitedContinuation != nil
+        let hasUpdated = listenerContext.updatedContinuation != nil
+
+        guard hasInvited || hasUpdated else {
+            anychat_group_set_listener(handle, nil)
+            if let userdata = listenerUserdata {
+                Unmanaged<GroupListenerContext>.fromOpaque(userdata).release()
+                listenerUserdata = nil
             }
+            return
+        }
 
-            if let cont = updatedContinuation {
-                let context = StreamContext(continuation: cont)
-                let userdata = Unmanaged.passRetained(context).toOpaque()
-                anychat_group_set_updated_callback(handle, userdata, updatedCallback)
+        if listenerUserdata == nil {
+            listenerUserdata = Unmanaged.passRetained(listenerContext).toOpaque()
+        }
+
+        var listener = AnyChatGroupListener_C()
+        listener.struct_size = UInt32(MemoryLayout<AnyChatGroupListener_C>.size)
+        listener.userdata = listenerUserdata
+
+        if hasInvited {
+            listener.on_group_invited = { userdata, group, inviterId in
+                guard let userdata, let group, let inviterId else { return }
+                let context = Unmanaged<GroupListenerContext>.fromOpaque(userdata).takeUnretainedValue()
+                context.invitedContinuation?.yield((Group(from: group.pointee), String(cString: inviterId)))
             }
         }
+
+        if hasUpdated {
+            listener.on_group_updated = { userdata, group in
+                guard let userdata, let group else { return }
+                let context = Unmanaged<GroupListenerContext>.fromOpaque(userdata).takeUnretainedValue()
+                context.updatedContinuation?.yield(Group(from: group.pointee))
+            }
+        }
+
+        anychat_group_set_listener(handle, &listener)
     }
 }

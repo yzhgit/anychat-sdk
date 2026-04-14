@@ -33,6 +33,7 @@ func withOptionalCString<R>(_ str: String?, _ body: (UnsafePointer<CChar>?) -> R
 
 func withCStringArray<R>(_ strings: [String], _ body: (UnsafeMutablePointer<UnsafePointer<CChar>?>) -> R) -> R {
     var cStrings: [UnsafePointer<CChar>?] = strings.map { strdup($0) }
+    cStrings.append(nil)
     defer {
         cStrings.forEach { if let ptr = $0 { free(UnsafeMutableRawPointer(mutating: ptr)) } }
     }
@@ -166,10 +167,7 @@ func convertAuthDeviceList(_ cList: UnsafePointer<AnyChatAuthDeviceList_C>) -> [
 // MARK: - Error Handling
 
 func getLastError() -> String {
-    guard let cStr = anychat_get_last_error() else {
-        return ""
-    }
-    return String(cString: cStr)
+    return "request dispatch failed"
 }
 
 func checkResult(_ code: Int32) throws {
