@@ -35,7 +35,7 @@ set(ANYCHAT_C_API_SOURCES
     src/c_api/version_c.cpp
 )
 
-option(BUILD_ANYCHAT_SHARED "Build the public AnyChat C SDK as a shared library" OFF)
+option(BUILD_ANYCHAT_SHARED "Build the public AnyChat C SDK as a shared library" ON)
 set(_anychat_library_type STATIC)
 if(BUILD_ANYCHAT_SHARED)
     set(_anychat_library_type SHARED)
@@ -94,3 +94,4 @@ install(TARGETS anychat
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/anychat"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
+
