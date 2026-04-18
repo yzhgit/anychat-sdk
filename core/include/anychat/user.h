@@ -123,11 +123,11 @@ ANYCHAT_C_API int anychat_user_update_settings(
 );
 
 /* Update the push notification token for this device.
- * platform: "ios" | "android" | "web" */
+ * platform: ANYCHAT_PUSH_PLATFORM_* */
 ANYCHAT_C_API int anychat_user_update_push_token(
     AnyChatUserHandle handle,
     const char* push_token,
-    const char* platform,
+    int32_t platform,
     const AnyChatUserCallback_C* callback
 );
 
@@ -135,7 +135,7 @@ ANYCHAT_C_API int anychat_user_update_push_token(
 ANYCHAT_C_API int anychat_user_update_push_token_with_device(
     AnyChatUserHandle handle,
     const char* push_token,
-    const char* platform,
+    int32_t platform,
     const char* device_id,
     const AnyChatUserCallback_C* callback
 );

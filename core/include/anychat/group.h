@@ -135,7 +135,7 @@ ANYCHAT_C_API int anychat_group_update_member_role(
     AnyChatGroupHandle handle,
     const char* group_id,
     const char* user_id,
-    const char* role,
+    int32_t role,
     const AnyChatGroupCallback_C* callback
 );
 
@@ -156,7 +156,7 @@ ANYCHAT_C_API int anychat_group_transfer_ownership(
 ANYCHAT_C_API int anychat_group_get_join_requests(
     AnyChatGroupHandle handle,
     const char* group_id,
-    const char* status,
+    int32_t status,
     const AnyChatGroupJoinRequestListCallback_C* callback
 );
 

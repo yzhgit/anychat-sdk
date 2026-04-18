@@ -68,8 +68,12 @@ public:
         }
     }
 
-    virtual void
-    updateMemberRole(const std::string& group_id, const std::string& user_id, GroupRole role, AnyChatCallback cb) {
+    virtual void updateMemberRole(
+        const std::string& group_id,
+        const std::string& user_id,
+        int32_t role,
+        AnyChatCallback cb
+    ) {
         (void) group_id;
         (void) user_id;
         (void) role;
@@ -96,7 +100,7 @@ public:
 
     virtual void getJoinRequests(
         const std::string& group_id,
-        const std::string& status,
+        int32_t status,
         AnyChatValueCallback<std::vector<GroupJoinRequest>> cb
     ) {
         (void) group_id;

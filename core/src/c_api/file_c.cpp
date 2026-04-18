@@ -13,7 +13,7 @@ namespace {
 void fileInfoToC(const anychat::FileInfo& src, AnyChatFileInfo_C* dst) {
     anychat_strlcpy(dst->file_id, src.file_id.c_str(), sizeof(dst->file_id));
     anychat_strlcpy(dst->file_name, src.file_name.c_str(), sizeof(dst->file_name));
-    anychat_strlcpy(dst->file_type, src.file_type.c_str(), sizeof(dst->file_type));
+    dst->file_type = src.file_type;
     anychat_strlcpy(dst->mime_type, src.mime_type.c_str(), sizeof(dst->mime_type));
     anychat_strlcpy(dst->download_url, src.download_url.c_str(), sizeof(dst->download_url));
     dst->file_size_bytes = src.file_size_bytes;
@@ -65,11 +65,11 @@ extern "C" {
 int anychat_file_upload(
     AnyChatFileHandle handle,
     const char* local_path,
-    const char* file_type,
+    int32_t file_type,
     AnyChatUploadProgressCallback on_progress,
     const AnyChatFileInfoCallback_C* on_done
 ) {
-    if (!handle || !handle->impl || !local_path || !file_type) {
+    if (!handle || !handle->impl || !local_path) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(on_done)) {
@@ -172,7 +172,7 @@ int anychat_file_get_info(
 
 int anychat_file_list(
     AnyChatFileHandle handle,
-    const char* file_type,
+    int32_t file_type,
     int page,
     int page_size,
     const AnyChatFileListCallback_C* callback
@@ -188,7 +188,7 @@ int anychat_file_list(
     const int safe_page_size = page_size > 0 ? page_size : 20;
     const AnyChatFileListCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->listFiles(
-        file_type ? file_type : "",
+        file_type,
         safe_page,
         safe_page_size,
         anychat::AnyChatValueCallback<anychat::FileListResult>{

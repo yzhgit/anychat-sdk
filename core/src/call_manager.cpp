@@ -24,12 +24,12 @@ using BooleanValue = std::variant<bool, int64_t, double, std::string>;
 using OptionalBooleanValue = std::optional<BooleanValue>;
 using StatusValue = std::variant<int64_t, double, std::string>;
 using OptionalStatusValue = std::optional<StatusValue>;
-using CallTypeValue = std::variant<int64_t, double, std::string>;
+using CallTypeValue = std::variant<int64_t, double>;
 using OptionalCallTypeValue = std::optional<CallTypeValue>;
 
 struct InitiateCallRequest {
     std::string callee_id{};
-    std::string call_type{};
+    int32_t call_type = 0;
 };
 
 struct CreateMeetingRequest {
@@ -90,18 +90,7 @@ struct CallStatusNotificationPayload {
 };
 
 CallType parseCallTypeValue(const OptionalCallTypeValue& value) {
-    if (!value.has_value()) {
-        return CallType::Audio;
-    }
-
-    if (const auto* int_value = std::get_if<int64_t>(&*value); int_value != nullptr) {
-        return *int_value == 1 ? CallType::Video : CallType::Audio;
-    }
-    if (const auto* dbl_value = std::get_if<double>(&*value); dbl_value != nullptr) {
-        return static_cast<int64_t>(*dbl_value) == 1 ? CallType::Video : CallType::Audio;
-    }
-
-    return toLower(std::get<std::string>(*value)) == "video" ? CallType::Video : CallType::Audio;
+    return parseInt64Value(value, 0) == 1 ? CallType::Video : CallType::Audio;
 }
 
 CallStatus parseCallStatusValue(const OptionalStatusValue& value, CallStatus def = CallStatus::Ringing) {
@@ -235,7 +224,7 @@ void CallManagerImpl::initiateCall(
 ) {
     InitiateCallRequest body{};
     body.callee_id = callee_id;
-    body.call_type = (type == CallType::Video) ? "video" : "audio";
+    body.call_type = (type == CallType::Video) ? 1 : 0;
 
     std::string body_json;
     std::string err;

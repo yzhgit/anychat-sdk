@@ -14,28 +14,28 @@ public:
     explicit VersionManagerImpl(std::shared_ptr<network::HttpClient> http);
 
     void checkVersion(
-        const std::string& platform,
+        int32_t platform,
         const std::string& version,
         int32_t build_number,
         AnyChatValueCallback<VersionCheckResult> callback
     ) override;
 
     void getLatestVersion(
-        const std::string& platform,
-        const std::string& release_type,
+        int32_t platform,
+        int32_t release_type,
         AnyChatValueCallback<AppVersionInfo> callback
     ) override;
 
     void listVersions(
-        const std::string& platform,
-        const std::string& release_type,
+        int32_t platform,
+        int32_t release_type,
         int page,
         int page_size,
         AnyChatValueCallback<VersionListResult> callback
     ) override;
 
     void reportVersion(
-        const std::string& platform,
+        int32_t platform,
         const std::string& version,
         int32_t build_number,
         const std::string& device_id,

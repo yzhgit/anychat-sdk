@@ -13,6 +13,11 @@ private final class FriendListenerContext: @unchecked Sendable {
 }
 
 public actor FriendManager {
+    public static let friendRequestActionAccept: Int32 = 1
+    public static let friendRequestActionReject: Int32 = 2
+    public static let friendRequestQueryTypeReceived: Int32 = 1
+    public static let friendRequestQueryTypeSent: Int32 = 2
+
     private let handle: AnyChatFriendHandle
     private let listenerContext = FriendListenerContext()
     private var listenerUserdata: UnsafeMutableRawPointer?
@@ -69,7 +74,7 @@ public actor FriendManager {
     public func addFriend(
         toUserId: String,
         message: String,
-        source: String = "ios"
+        source: Int32 = 1
     ) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
@@ -92,15 +97,13 @@ public actor FriendManager {
 
             let result = withCString(toUserId) { userIdPtr in
                 withCString(message) { messagePtr in
-                    withCString(source) { sourcePtr in
-                        anychat_friend_add(
-                            handle,
-                            userIdPtr,
-                            messagePtr,
-                            sourcePtr,
-                            &callback
-                        )
-                    }
+                    anychat_friend_add(
+                        handle,
+                        userIdPtr,
+                        messagePtr,
+                        source,
+                        &callback
+                    )
                 }
             }
 
@@ -111,7 +114,7 @@ public actor FriendManager {
         }
     }
 
-    public func handleFriendRequest(requestId: Int64, accept: Bool) async throws {
+    public func handleFriendRequest(requestId: Int64, action: Int32) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
@@ -131,9 +134,7 @@ public actor FriendManager {
                 ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            let result = accept
-                ? anychat_friend_accept_request(handle, requestId, &callback)
-                : anychat_friend_reject_request(handle, requestId, &callback)
+            let result = anychat_friend_handle_request(handle, requestId, action, &callback)
 
             if result != ANYCHAT_OK {
                 let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
@@ -142,7 +143,7 @@ public actor FriendManager {
         }
     }
 
-    public func getPendingRequests(type: String = "received") async throws -> [FriendRequest] {
+    public func getPendingRequests(requestType: Int32 = FriendManager.friendRequestQueryTypeReceived) async throws -> [FriendRequest] {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[FriendRequest], Error>) in
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
@@ -169,9 +170,7 @@ public actor FriendManager {
                 ctx.continuation.resume(throwing: AnyChatError(code: Int(code), message: message))
             }
 
-            let result = withCString(type) { typePtr in
-                anychat_friend_get_requests(handle, typePtr, &callback)
-            }
+            let result = anychat_friend_get_requests(handle, requestType, &callback)
 
             if result != ANYCHAT_OK {
                 let ctx = Unmanaged<CallbackContext<[FriendRequest]>>.fromOpaque(userdata).takeRetainedValue()

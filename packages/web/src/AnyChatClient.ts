@@ -21,6 +21,10 @@ import {
   GroupInvitedListener,
   GroupUpdatedListener,
   AuthExpiredListener,
+  DeviceType,
+  FriendSource,
+  FriendRequestAction,
+  FriendRequestQueryType,
   AnyChatError,
 } from './types';
 
@@ -44,8 +48,8 @@ interface WasmModule {
 interface AnyChatClientWrapperInstance {
   getConnectionState(): number;
   setConnectionCallback(callback: (state: number) => void): void;
-  login(account: string, password: string, deviceType: string, clientVersion: string, callback: (error: string | null, token: any) => void): void;
-  register(phoneOrEmail: string, password: string, verifyCode: string, deviceType: string, nickname: string, clientVersion: string, callback: (error: string | null, token: any) => void): void;
+  login(account: string, password: string, deviceType: number, clientVersion: string, callback: (error: string | null, token: any) => void): void;
+  register(phoneOrEmail: string, password: string, verifyCode: string, deviceType: number, nickname: string, clientVersion: string, callback: (error: string | null, token: any) => void): void;
   logout(callback: (error: string | null) => void): void;
   refreshToken(refreshToken: string, callback: (error: string | null, token: any) => void): void;
   isLoggedIn(): boolean;
@@ -61,9 +65,9 @@ interface AnyChatClientWrapperInstance {
   deleteConversation(convId: string, callback: (error: string | null) => void): void;
   setConversationUpdatedCallback(callback: (conversation: any) => void): void;
   getFriendList(callback: (error: string | null, friends: any[]) => void): void;
-  sendFriendRequest(toUserId: string, message: string, callback: (error: string | null) => void): void;
-  handleFriendRequest(requestId: number, accept: boolean, callback: (error: string | null) => void): void;
-  getPendingFriendRequests(callback: (error: string | null, requests: any[]) => void): void;
+  sendFriendRequest(toUserId: string, message: string, source: number, callback: (error: string | null) => void): void;
+  handleFriendRequest(requestId: number, action: number, callback: (error: string | null) => void): void;
+  getPendingFriendRequests(requestType: number, callback: (error: string | null, requests: any[]) => void): void;
   deleteFriend(friendId: string, callback: (error: string | null) => void): void;
   setFriendRequestCallback(callback: (request: any) => void): void;
   setFriendListChangedCallback(callback: () => void): void;
@@ -148,7 +152,7 @@ export class AnyChatClient extends EventEmitter<ClientEvents> {
 
   // ===== Authentication =====
 
-  login(account: string, password: string, deviceType: string = 'web', clientVersion: string = ''): Promise<AuthToken> {
+  login(account: string, password: string, deviceType: number = DeviceType.Web, clientVersion: string = ''): Promise<AuthToken> {
     const instance = this.ensureInitialized();
     return new Promise((resolve, reject) => {
       instance.login(account, password, deviceType, clientVersion, (error, token) => {
@@ -165,7 +169,7 @@ export class AnyChatClient extends EventEmitter<ClientEvents> {
     phoneOrEmail: string,
     password: string,
     verifyCode: string,
-    deviceType: string = 'web',
+    deviceType: number = DeviceType.Web,
     nickname: string = '',
     clientVersion: string = ''
   ): Promise<AuthToken> {
@@ -334,10 +338,10 @@ export class AnyChatClient extends EventEmitter<ClientEvents> {
     });
   }
 
-  sendFriendRequest(toUserId: string, message: string = ''): Promise<void> {
+  sendFriendRequest(toUserId: string, message: string = '', source: number = FriendSource.Search): Promise<void> {
     const instance = this.ensureInitialized();
     return new Promise((resolve, reject) => {
-      instance.sendFriendRequest(toUserId, message, (error) => {
+      instance.sendFriendRequest(toUserId, message, source, (error) => {
         if (error) {
           reject(new AnyChatError(error));
         } else {
@@ -347,10 +351,10 @@ export class AnyChatClient extends EventEmitter<ClientEvents> {
     });
   }
 
-  handleFriendRequest(requestId: number, accept: boolean): Promise<void> {
+  handleFriendRequest(requestId: number, action: number = FriendRequestAction.Accept): Promise<void> {
     const instance = this.ensureInitialized();
     return new Promise((resolve, reject) => {
-      instance.handleFriendRequest(requestId, accept, (error) => {
+      instance.handleFriendRequest(requestId, action, (error) => {
         if (error) {
           reject(new AnyChatError(error));
         } else {
@@ -360,10 +364,10 @@ export class AnyChatClient extends EventEmitter<ClientEvents> {
     });
   }
 
-  getPendingFriendRequests(): Promise<FriendRequest[]> {
+  getPendingFriendRequests(requestType: number = FriendRequestQueryType.Received): Promise<FriendRequest[]> {
     const instance = this.ensureInitialized();
     return new Promise((resolve, reject) => {
-      instance.getPendingFriendRequests((error, requests) => {
+      instance.getPendingFriendRequests(requestType, (error, requests) => {
         if (error) {
           reject(new AnyChatError(error));
         } else {

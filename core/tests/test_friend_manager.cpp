@@ -219,14 +219,14 @@ TEST_F(FriendManagerTest, SendRequestWithSourceDoesNotCrash) {
     anychat::AnyChatCallback callback{};
     callback.on_success = []() {};
     callback.on_error = [](int, const std::string&) {};
-    EXPECT_NO_THROW(mgr_->addFriend("user-target-001", "hi", "search", std::move(callback)));
+    EXPECT_NO_THROW(mgr_->addFriend("user-target-001", "hi", 1, std::move(callback)));
 }
 
 TEST_F(FriendManagerTest, GetRequestsDoesNotCrash) {
     anychat::AnyChatValueCallback<std::vector<anychat::FriendRequest>> callback{};
     callback.on_success = [](const std::vector<anychat::FriendRequest>&) {};
     callback.on_error = [](int, const std::string&) {};
-    EXPECT_NO_THROW(mgr_->getFriendRequests("received", std::move(callback)));
+    EXPECT_NO_THROW(mgr_->getFriendRequests(1, std::move(callback)));
 }
 
 TEST_F(FriendManagerTest, GetBlacklistDoesNotCrash) {

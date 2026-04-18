@@ -229,7 +229,7 @@ Java_com_anychat_sdk_Auth_nativeLogin(
     jlong handle,
     jstring account,
     jstring password,
-    jstring deviceType,
+    jint deviceType,
     jstring clientVersion,
     jobject callback
 ) {
@@ -238,7 +238,6 @@ Java_com_anychat_sdk_Auth_nativeLogin(
     auto authHandle = reinterpret_cast<AnyChatAuthHandle>(handle);
     JStringWrapper accountStr(env, account);
     JStringWrapper passwordStr(env, password);
-    JStringWrapper deviceTypeStr(env, deviceType);
     JStringWrapper clientVersionStr(env, clientVersion);
 
     jobject globalCallback = env->NewGlobalRef(callback);
@@ -249,7 +248,7 @@ Java_com_anychat_sdk_Auth_nativeLogin(
         authHandle,
         accountStr.c_str(),
         passwordStr.c_str(),
-        deviceTypeStr.c_str(),
+        static_cast<int32_t>(deviceType),
         clientVersionStr.c_str(),
         &authCb
     );
@@ -272,7 +271,7 @@ Java_com_anychat_sdk_Auth_nativeRegister(
     jstring phoneOrEmail,
     jstring password,
     jstring verifyCode,
-    jstring deviceType,
+    jint deviceType,
     jstring nickname,
     jstring clientVersion,
     jobject callback
@@ -283,7 +282,6 @@ Java_com_anychat_sdk_Auth_nativeRegister(
     JStringWrapper phoneOrEmailStr(env, phoneOrEmail);
     JStringWrapper passwordStr(env, password);
     JStringWrapper verifyCodeStr(env, verifyCode);
-    JStringWrapper deviceTypeStr(env, deviceType);
     JStringWrapper nicknameStr(env, nickname);
     JStringWrapper clientVersionStr(env, clientVersion);
 
@@ -296,7 +294,7 @@ Java_com_anychat_sdk_Auth_nativeRegister(
         phoneOrEmailStr.c_str(),
         passwordStr.c_str(),
         verifyCodeStr.c_str(),
-        deviceTypeStr.c_str(),
+        static_cast<int32_t>(deviceType),
         nicknameStr.c_str(),
         clientVersionStr.c_str(),
         &authCb
@@ -318,16 +316,14 @@ Java_com_anychat_sdk_Auth_nativeSendCode(
     jobject thiz,
     jlong handle,
     jstring target,
-    jstring targetType,
-    jstring purpose,
+    jint targetType,
+    jint purpose,
     jobject callback
 ) {
     JNI_TRY(env)
 
     auto authHandle = reinterpret_cast<AnyChatAuthHandle>(handle);
     JStringWrapper targetStr(env, target);
-    JStringWrapper targetTypeStr(env, targetType);
-    JStringWrapper purposeStr(env, purpose);
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
@@ -336,8 +332,8 @@ Java_com_anychat_sdk_Auth_nativeSendCode(
     int result = anychat_auth_send_code(
         authHandle,
         targetStr.c_str(),
-        targetTypeStr.c_str(),
-        purposeStr.c_str(),
+        static_cast<int32_t>(targetType),
+        static_cast<int32_t>(purpose),
         &codeCb
     );
 

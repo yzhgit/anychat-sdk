@@ -33,6 +33,16 @@ typedef struct AnyChatVersion_T* AnyChatVersionHandle;
 #define ANYCHAT_MSG_AUDIO 3
 #define ANYCHAT_MSG_VIDEO 4
 
+/* ---- Message content types ---- */
+#define ANYCHAT_MESSAGE_CONTENT_TYPE_UNSPECIFIED 0
+#define ANYCHAT_MESSAGE_CONTENT_TYPE_TEXT 1
+#define ANYCHAT_MESSAGE_CONTENT_TYPE_IMAGE 2
+#define ANYCHAT_MESSAGE_CONTENT_TYPE_VIDEO 3
+#define ANYCHAT_MESSAGE_CONTENT_TYPE_AUDIO 4
+#define ANYCHAT_MESSAGE_CONTENT_TYPE_FILE 5
+#define ANYCHAT_MESSAGE_CONTENT_TYPE_LOCATION 6
+#define ANYCHAT_MESSAGE_CONTENT_TYPE_CARD 7
+
 /* ---- Conversation types ---- */
 #define ANYCHAT_CONV_PRIVATE 0
 #define ANYCHAT_CONV_GROUP 1
@@ -55,9 +65,89 @@ typedef struct AnyChatVersion_T* AnyChatVersionHandle;
 #define ANYCHAT_CALL_STATUS_CANCELLED 5
 
 /* ---- Group roles ---- */
-#define ANYCHAT_GROUP_ROLE_OWNER 0
-#define ANYCHAT_GROUP_ROLE_ADMIN 1
-#define ANYCHAT_GROUP_ROLE_MEMBER 2
+#define ANYCHAT_GROUP_ROLE_UNSPECIFIED 0
+#define ANYCHAT_GROUP_ROLE_OWNER 1
+#define ANYCHAT_GROUP_ROLE_ADMIN 2
+#define ANYCHAT_GROUP_ROLE_MEMBER 3
+
+/* ---- Group join request status ---- */
+#define ANYCHAT_GROUP_JOIN_REQUEST_STATUS_UNSPECIFIED 0
+#define ANYCHAT_GROUP_JOIN_REQUEST_STATUS_PENDING 1
+#define ANYCHAT_GROUP_JOIN_REQUEST_STATUS_ACCEPTED 2
+#define ANYCHAT_GROUP_JOIN_REQUEST_STATUS_REJECTED 3
+
+/* ---- Auth enums ---- */
+#define ANYCHAT_DEVICE_TYPE_UNSPECIFIED 0
+#define ANYCHAT_DEVICE_TYPE_IOS 1
+#define ANYCHAT_DEVICE_TYPE_ANDROID 2
+#define ANYCHAT_DEVICE_TYPE_WEB 3
+#define ANYCHAT_DEVICE_TYPE_PC 4
+#define ANYCHAT_DEVICE_TYPE_H5 5
+
+#define ANYCHAT_VERIFY_TARGET_UNSPECIFIED 0
+#define ANYCHAT_VERIFY_TARGET_SMS 1
+#define ANYCHAT_VERIFY_TARGET_EMAIL 2
+
+#define ANYCHAT_VERIFY_PURPOSE_UNSPECIFIED 0
+#define ANYCHAT_VERIFY_PURPOSE_REGISTER 1
+#define ANYCHAT_VERIFY_PURPOSE_LOGIN 2
+#define ANYCHAT_VERIFY_PURPOSE_RESET_PASSWORD 3
+#define ANYCHAT_VERIFY_PURPOSE_BIND_PHONE 4
+#define ANYCHAT_VERIFY_PURPOSE_CHANGE_PHONE 5
+#define ANYCHAT_VERIFY_PURPOSE_BIND_EMAIL 6
+#define ANYCHAT_VERIFY_PURPOSE_CHANGE_EMAIL 7
+
+/* ---- Friend request enums ---- */
+#define ANYCHAT_FRIEND_SOURCE_UNSPECIFIED 0
+#define ANYCHAT_FRIEND_SOURCE_SEARCH 1
+#define ANYCHAT_FRIEND_SOURCE_QRCODE 2
+#define ANYCHAT_FRIEND_SOURCE_GROUP 3
+#define ANYCHAT_FRIEND_SOURCE_CONTACTS 4
+
+#define ANYCHAT_FRIEND_REQUEST_STATUS_UNSPECIFIED 0
+#define ANYCHAT_FRIEND_REQUEST_STATUS_PENDING 1
+#define ANYCHAT_FRIEND_REQUEST_STATUS_ACCEPTED 2
+#define ANYCHAT_FRIEND_REQUEST_STATUS_REJECTED 3
+#define ANYCHAT_FRIEND_REQUEST_STATUS_EXPIRED 4
+
+#define ANYCHAT_FRIEND_REQUEST_ACTION_UNSPECIFIED 0
+#define ANYCHAT_FRIEND_REQUEST_ACTION_ACCEPT 1
+#define ANYCHAT_FRIEND_REQUEST_ACTION_REJECT 2
+
+#define ANYCHAT_FRIEND_REQUEST_QUERY_TYPE_UNSPECIFIED 0
+#define ANYCHAT_FRIEND_REQUEST_QUERY_TYPE_RECEIVED 1
+#define ANYCHAT_FRIEND_REQUEST_QUERY_TYPE_SENT 2
+
+/* ---- User push platform ---- */
+#define ANYCHAT_PUSH_PLATFORM_UNSPECIFIED 0
+#define ANYCHAT_PUSH_PLATFORM_IOS 1
+#define ANYCHAT_PUSH_PLATFORM_ANDROID 2
+
+/* ---- File types ---- */
+#define ANYCHAT_FILE_TYPE_UNSPECIFIED 0
+#define ANYCHAT_FILE_TYPE_IMAGE 1
+#define ANYCHAT_FILE_TYPE_VIDEO 2
+#define ANYCHAT_FILE_TYPE_AUDIO 3
+#define ANYCHAT_FILE_TYPE_FILE 4
+#define ANYCHAT_FILE_TYPE_LOG 5
+
+/* ---- User status ---- */
+#define ANYCHAT_USER_STATUS_OFFLINE 0
+#define ANYCHAT_USER_STATUS_ONLINE 1
+#define ANYCHAT_USER_STATUS_AWAY 2
+
+/* ---- Version enums ---- */
+#define ANYCHAT_VERSION_PLATFORM_UNSPECIFIED 0
+#define ANYCHAT_VERSION_PLATFORM_IOS 1
+#define ANYCHAT_VERSION_PLATFORM_ANDROID 2
+#define ANYCHAT_VERSION_PLATFORM_PC 3
+#define ANYCHAT_VERSION_PLATFORM_WEB 4
+#define ANYCHAT_VERSION_PLATFORM_H5 5
+
+#define ANYCHAT_VERSION_RELEASE_TYPE_UNSPECIFIED 0
+#define ANYCHAT_VERSION_RELEASE_TYPE_STABLE 1
+#define ANYCHAT_VERSION_RELEASE_TYPE_BETA 2
+#define ANYCHAT_VERSION_RELEASE_TYPE_ALPHA 3
 
 /* ---- Plain-old-data structs ---- */
 
@@ -74,7 +164,7 @@ typedef struct {
 
 typedef struct {
     char device_id[128];
-    char device_type[32];
+    int32_t device_type; /* ANYCHAT_DEVICE_TYPE_* */
     char client_version[64];
     char last_login_ip[64];
     int64_t last_login_at_ms;
@@ -102,7 +192,7 @@ typedef struct {
     char local_id[64];
     char conv_id[64];
     char sender_id[64];
-    char content_type[32];
+    int32_t content_type; /* ANYCHAT_MESSAGE_CONTENT_TYPE_* */
     int type; /* ANYCHAT_MSG_* */
     char* content; /* heap-allocated; free via anychat_free_message() */
     int64_t seq;
@@ -224,8 +314,8 @@ typedef struct {
     char from_user_id[64];
     char to_user_id[64];
     char message[256];
-    char source[32]; /* "search"|"qrcode"|"group"|"contacts" */
-    char status[32]; /* "pending"|"accepted"|"rejected" */
+    int32_t source; /* ANYCHAT_FRIEND_SOURCE_* */
+    int32_t status; /* ANYCHAT_FRIEND_REQUEST_STATUS_* */
     int64_t created_at_ms;
     AnyChatUserInfo_C from_user_info;
 } AnyChatFriendRequest_C;
@@ -292,7 +382,7 @@ typedef struct {
     char user_id[64];
     char inviter_id[64];
     char message[256];
-    char status[32]; /* "pending"|"accepted"|"rejected" */
+    int32_t status; /* ANYCHAT_GROUP_JOIN_REQUEST_STATUS_* */
     int64_t created_at_ms;
     AnyChatUserInfo_C user_info;
 } AnyChatGroupJoinRequest_C;
@@ -312,7 +402,7 @@ typedef struct {
 typedef struct {
     char file_id[64];
     char file_name[256];
-    char file_type[32];
+    int32_t file_type; /* ANYCHAT_FILE_TYPE_* */
     int64_t file_size_bytes;
     char mime_type[128];
     char download_url[1024];
@@ -386,9 +476,9 @@ typedef struct {
 
 typedef struct {
     char user_id[64];
-    char status[32];
+    int32_t status; /* ANYCHAT_USER_STATUS_* */
     int64_t last_active_at_ms;
-    char platform[32];
+    int32_t platform; /* ANYCHAT_PUSH_PLATFORM_* */
 } AnyChatUserStatusEvent_C;
 
 typedef struct {
@@ -450,14 +540,14 @@ typedef struct {
 
 typedef struct {
     int64_t id;
-    char platform[32];
+    int32_t platform; /* ANYCHAT_VERSION_PLATFORM_* */
     char version[64];
     int32_t build_number;
     int32_t version_code;
     char min_version[64];
     int32_t min_build_number;
     int force_update;
-    char release_type[32];
+    int32_t release_type; /* ANYCHAT_VERSION_RELEASE_TYPE_* */
     char title[128];
     char content[2048];
     char download_url[1024];

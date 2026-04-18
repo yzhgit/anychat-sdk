@@ -2,7 +2,6 @@
 
 #include "json_common.h"
 
-#include <cctype>
 #include <fstream>
 #include <iterator>
 #include <optional>
@@ -16,6 +15,7 @@ namespace anychat::file_manager_detail {
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
 using json_common::parseBoolValue;
+using json_common::parseInt32Value;
 using json_common::parseInt64Value;
 using json_common::parseTimestampMs;
 using json_common::writeJson;
@@ -27,7 +27,7 @@ using OptionalBooleanValue = std::optional<BooleanValue>;
 
 struct UploadTokenRequest {
     std::string file_name{};
-    std::string file_type{};
+    int32_t file_type = 0;
     int64_t file_size = 0;
     std::string mime_type{};
 };
@@ -54,7 +54,7 @@ struct DownloadUrlPayload {
 struct FileInfoPayload {
     std::string file_id{};
     std::string file_name{};
-    std::string file_type{};
+    OptionalIntegerValue file_type{};
     OptionalIntegerValue file_size{};
     std::string mime_type{};
     std::string download_url{};
@@ -71,6 +71,26 @@ struct FileListDataPayload {
 struct DeleteFilePayload {
     OptionalBooleanValue success{};
 };
+
+constexpr int32_t kFileTypeUnspecified = 0;
+constexpr int32_t kFileTypeImage = 1;
+constexpr int32_t kFileTypeVideo = 2;
+constexpr int32_t kFileTypeAudio = 3;
+constexpr int32_t kFileTypeFile = 4;
+constexpr int32_t kFileTypeLog = 5;
+
+int32_t normalizeFileType(int32_t file_type, int32_t fallback = kFileTypeUnspecified) {
+    switch (file_type) {
+    case kFileTypeImage:
+    case kFileTypeVideo:
+    case kFileTypeAudio:
+    case kFileTypeFile:
+    case kFileTypeLog:
+        return file_type;
+    default:
+        return fallback;
+    }
+}
 
 std::string extractFileName(const std::string& local_path) {
     std::string file_name = local_path;
@@ -123,7 +143,7 @@ FileInfo parseFileInfoPayload(const FileInfoPayload& payload) {
     FileInfo info;
     info.file_id = payload.file_id;
     info.file_name = payload.file_name;
-    info.file_type = payload.file_type;
+    info.file_type = normalizeFileType(parseInt32Value(payload.file_type, kFileTypeUnspecified), kFileTypeUnspecified);
     info.file_size_bytes = parseInt64Value(payload.file_size, 0);
     info.mime_type = payload.mime_type;
     info.download_url = payload.download_url;
@@ -142,24 +162,6 @@ const std::vector<FileInfoPayload>* toFileInfoPayloadList(const FileListDataPayl
     return data.files.has_value() ? &(*data.files) : nullptr;
 }
 
-std::string urlEncode(const std::string& input) {
-    static const char* hex = "0123456789ABCDEF";
-    std::string out;
-    out.reserve(input.size() * 3);
-
-    for (unsigned char ch : input) {
-        if (std::isalnum(ch) != 0 || ch == '-' || ch == '_' || ch == '.' || ch == '~') {
-            out.push_back(static_cast<char>(ch));
-            continue;
-        }
-
-        out.push_back('%');
-        out.push_back(hex[(ch >> 4) & 0x0F]);
-        out.push_back(hex[ch & 0x0F]);
-    }
-    return out;
-}
-
 } // namespace anychat::file_manager_detail
 
 namespace anychat {
@@ -170,7 +172,7 @@ FileManagerImpl::FileManagerImpl(std::shared_ptr<network::HttpClient> http)
 
 void FileManagerImpl::upload(
     const std::string& local_path,
-    const std::string& file_type,
+    int32_t file_type,
     UploadProgressCallback on_progress,
     AnyChatValueCallback<FileInfo> on_done
 ) {
@@ -186,7 +188,7 @@ void FileManagerImpl::upload(
 
     UploadTokenRequest req_body{
         .file_name = file_name,
-        .file_type = file_type,
+        .file_type = normalizeFileType(file_type),
         .file_size = static_cast<int64_t>(file_bytes->size()),
         .mime_type = "application/octet-stream",
     };
@@ -320,7 +322,7 @@ void FileManagerImpl::getFileInfo(const std::string& file_id, AnyChatValueCallba
 }
 
 void FileManagerImpl::listFiles(
-    const std::string& file_type,
+    int32_t file_type,
     int page,
     int page_size,
     AnyChatValueCallback<FileListResult> cb
@@ -330,8 +332,9 @@ void FileManagerImpl::listFiles(
 
     std::string path =
         "/files?page=" + std::to_string(safe_page) + "&page_size=" + std::to_string(safe_page_size);
-    if (!file_type.empty()) {
-        path += "&file_type=" + urlEncode(file_type);
+    const int32_t normalized_file_type = normalizeFileType(file_type, kFileTypeUnspecified);
+    if (normalized_file_type != kFileTypeUnspecified) {
+        path += "&file_type=" + std::to_string(normalized_file_type);
     }
 
     http_->get(path, [cb, safe_page, safe_page_size](network::HttpResponse resp) {
@@ -466,8 +469,8 @@ void FileManagerImpl::uploadClientLog(
                         if (info.file_id.empty()) {
                             info.file_id = file_id;
                         }
-                        if (info.file_type.empty()) {
-                            info.file_type = "log";
+                        if (info.file_type == kFileTypeUnspecified) {
+                            info.file_type = kFileTypeLog;
                         }
 
                         if (on_done.on_success) {

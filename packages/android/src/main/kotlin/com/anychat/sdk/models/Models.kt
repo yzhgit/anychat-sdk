@@ -22,7 +22,7 @@ data class VerificationCodeResult(
  */
 data class AuthDevice(
     val deviceId: String,
-    val deviceType: String,
+    val deviceType: Int,
     val clientVersion: String,
     val lastLoginIp: String,
     val lastLoginAtMs: Long,
@@ -66,7 +66,7 @@ data class Message(
     val localId: String,
     val convId: String,
     val senderId: String,
-    val contentType: String,
+    val contentType: Int,
     val type: Int,
     val content: String,
     val seq: Long,
@@ -129,7 +129,8 @@ data class FriendRequest(
     val fromUserId: String,
     val toUserId: String,
     val message: String,
-    val status: String,
+    val source: Int,
+    val status: Int,
     val createdAtMs: Long,
     val fromUserInfo: UserInfo
 )
@@ -138,9 +139,9 @@ data class FriendRequest(
  * Group roles
  */
 enum class GroupRole(val value: Int) {
-    OWNER(0),
-    ADMIN(1),
-    MEMBER(2)
+    OWNER(1),
+    ADMIN(2),
+    MEMBER(3)
 }
 
 /**

@@ -180,7 +180,7 @@ TEST(AuthManagerTest, RegisterDoesNotCrash) {
         "13800138000",
         "password123",
         "654321",
-        "ios",
+        1,
         "tester",
         "1.0.0",
         makeNoopValueCallback<anychat::AuthToken>()
@@ -194,8 +194,8 @@ TEST(AuthManagerTest, SendVerificationCodeDoesNotCrash) {
 
     EXPECT_NO_THROW(auth->sendVerificationCode(
         "13800138000",
-        "sms",
-        "register",
+        1,
+        1,
         makeNoopValueCallback<anychat::VerificationCodeResult>()
     ));
 }
@@ -208,7 +208,7 @@ TEST(AuthManagerTest, LoginDoesNotCrash) {
     EXPECT_NO_THROW(auth->login(
         "13800138000",
         "password123",
-        "ios",
+        1,
         "1.0.0",
         makeNoopValueCallback<anychat::AuthToken>()
     ));

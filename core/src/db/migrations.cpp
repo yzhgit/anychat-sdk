@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS messages (
     local_id     TEXT UNIQUE,
     conv_id      TEXT NOT NULL,
     sender_id    TEXT,
-    content_type TEXT,
+    content_type INTEGER,
     content      TEXT,
     seq          INTEGER,
     reply_to     TEXT,
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS outbound_queue (
     local_id      TEXT PRIMARY KEY,
     conv_id       TEXT,
     conv_type     TEXT,
-    content_type  TEXT,
+    content_type  INTEGER,
     content       TEXT,
     retry_count   INTEGER DEFAULT 0,
     created_at    INTEGER

@@ -48,13 +48,13 @@ typedef struct {
 /* ---- File operations ---- */
 
 /* Upload a local file.
- * file_type: "image" | "video" | "audio" | "file"
+ * file_type: ANYCHAT_FILE_TYPE_*
  * on_progress: may be NULL.
  * on_done: fired when the upload completes (success or failure). */
 ANYCHAT_C_API int anychat_file_upload(
     AnyChatFileHandle handle,
     const char* local_path,
-    const char* file_type,
+    int32_t file_type,
     AnyChatUploadProgressCallback on_progress,
     const AnyChatFileInfoCallback_C* on_done
 );
@@ -73,10 +73,10 @@ ANYCHAT_C_API int anychat_file_get_info(
     const AnyChatFileInfoCallback_C* callback
 );
 
-/* List user files; file_type may be NULL/empty for all types. */
+/* List user files; file_type=ANYCHAT_FILE_TYPE_UNSPECIFIED means all types. */
 ANYCHAT_C_API int anychat_file_list(
     AnyChatFileHandle handle,
-    const char* file_type,
+    int32_t file_type,
     int page,
     int page_size,
     const AnyChatFileListCallback_C* callback

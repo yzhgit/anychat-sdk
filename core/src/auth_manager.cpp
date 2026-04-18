@@ -2,6 +2,7 @@
 
 #include "json_common.h"
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
@@ -14,6 +15,7 @@ using json_common::ApiEnvelope;
 using json_common::nowMs;
 using json_common::parseApiEnvelopeResponse;
 using json_common::parseBoolValue;
+using json_common::parseInt32Value;
 using json_common::parseJsonObject;
 using json_common::parseTimestampMs;
 using json_common::pickList;
@@ -28,7 +30,7 @@ struct RegisterUserRequest {
     std::string password{};
     std::string verify_code{};
     std::string device_id{};
-    std::string device_type{};
+    int32_t device_type = 0;
     std::string client_version{};
     std::optional<std::string> email{};
     std::optional<std::string> phone_number{};
@@ -37,8 +39,8 @@ struct RegisterUserRequest {
 
 struct SendVerificationCodeRequest {
     std::string target{};
-    std::string target_type{};
-    std::string purpose{};
+    int32_t target_type = 0;
+    int32_t purpose = 0;
     std::string device_id{};
 };
 
@@ -46,7 +48,7 @@ struct LoginRequest {
     std::string account{};
     std::string password{};
     std::string device_id{};
-    std::string device_type{};
+    int32_t device_type = 0;
     std::string client_version{};
 };
 
@@ -85,9 +87,12 @@ struct VerificationCodePayload {
     int64_t expires_in = 0;
 };
 
+using DeviceTypeValue = std::variant<int64_t, double, bool, std::string>;
+using OptionalDeviceTypeValue = std::optional<DeviceTypeValue>;
+
 struct AuthDevicePayload {
     std::string device_id{};
-    std::string device_type{};
+    OptionalDeviceTypeValue device_type{};
     std::string client_version{};
     std::string last_login_ip{};
     json_common::OptionalTimestampValue last_login_at{};
@@ -144,7 +149,7 @@ void AuthManagerImpl::registerUser(
     const std::string& phone_or_email,
     const std::string& password,
     const std::string& verify_code,
-    const std::string& device_type,
+    int32_t device_type,
     const std::string& nickname,
     const std::string& client_version,
     AnyChatValueCallback<AuthToken> callback
@@ -182,8 +187,8 @@ void AuthManagerImpl::registerUser(
 
 void AuthManagerImpl::sendVerificationCode(
     const std::string& target,
-    const std::string& target_type,
-    const std::string& purpose,
+    int32_t target_type,
+    int32_t purpose,
     AnyChatValueCallback<VerificationCodeResult> callback
 ) {
     SendVerificationCodeRequest body{
@@ -223,7 +228,7 @@ void AuthManagerImpl::sendVerificationCode(
 void AuthManagerImpl::login(
     const std::string& account,
     const std::string& password,
-    const std::string& device_type,
+    int32_t device_type,
     const std::string& client_version,
     AnyChatValueCallback<AuthToken> callback
 ) {
@@ -305,7 +310,7 @@ void AuthManagerImpl::getDeviceList(AnyChatValueCallback<std::vector<AuthDevice>
             for (const auto& payload : *payloads) {
                 AuthDevice device;
                 device.device_id = payload.device_id;
-                device.device_type = payload.device_type;
+                device.device_type = parseInt32Value(payload.device_type, 0);
                 device.client_version = payload.client_version;
                 device.last_login_ip = payload.last_login_ip;
                 device.last_login_at_ms = parseTimestampMs(payload.last_login_at);

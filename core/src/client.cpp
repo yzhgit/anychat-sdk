@@ -87,7 +87,7 @@ AnyChatClient::~AnyChatClient() {
 void AnyChatClient::login(
     const std::string& account,
     const std::string& password,
-    const std::string& device_type,
+    int32_t device_type,
     const std::string& client_version,
     AnyChatValueCallback<AuthToken> callback
 ) {

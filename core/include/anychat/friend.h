@@ -77,26 +77,22 @@ ANYCHAT_C_API int anychat_friend_add(
     AnyChatFriendHandle handle,
     const char* to_user_id,
     const char* message,
-    const char* source,
+    int32_t source,
     const AnyChatFriendCallback_C* callback
 );
 
-ANYCHAT_C_API int anychat_friend_accept_request(
+/* action: ANYCHAT_FRIEND_REQUEST_ACTION_* */
+ANYCHAT_C_API int anychat_friend_handle_request(
     AnyChatFriendHandle handle,
     int64_t request_id,
+    int32_t action,
     const AnyChatFriendCallback_C* callback
 );
 
-ANYCHAT_C_API int anychat_friend_reject_request(
-    AnyChatFriendHandle handle,
-    int64_t request_id,
-    const AnyChatFriendCallback_C* callback
-);
-
-/* request_type: "received" | "sent", NULL defaults to "received" */
+/* request_type: ANYCHAT_FRIEND_REQUEST_QUERY_TYPE_* */
 ANYCHAT_C_API int anychat_friend_get_requests(
     AnyChatFriendHandle handle,
-    const char* request_type,
+    int32_t request_type,
     const AnyChatFriendRequestListCallback_C* callback
 );
 

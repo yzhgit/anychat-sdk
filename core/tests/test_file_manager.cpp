@@ -1,5 +1,6 @@
 #include "file_manager.h"
 
+#include "anychat/types.h"
 #include "network/http_client.h"
 
 #include <memory>
@@ -57,7 +58,7 @@ TEST_F(FileManagerTest, UploadNonExistentFileReportsError) {
 
     mgr_->upload(
         "/nonexistent/path/file.bin",
-        "file",
+        ANYCHAT_FILE_TYPE_FILE,
         nullptr, // no progress callback
         anychat::AnyChatValueCallback<anychat::FileInfo>{
             .on_success = [](const anychat::FileInfo&) {},
@@ -95,7 +96,7 @@ TEST_F(FileManagerTest, GetFileInfoDoesNotCrash) {
 // 4. ListFilesDoesNotCrash
 // ---------------------------------------------------------------------------
 TEST_F(FileManagerTest, ListFilesDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->listFiles("", 1, 20, makeNoopValueCallback<anychat::FileListResult>()));
+    EXPECT_NO_THROW(mgr_->listFiles(ANYCHAT_FILE_TYPE_UNSPECIFIED, 1, 20, makeNoopValueCallback<anychat::FileListResult>()));
 }
 
 // ---------------------------------------------------------------------------

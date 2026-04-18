@@ -51,7 +51,7 @@ jobject convertAuthDevice(JNIEnv* env, const AnyChatAuthDevice_C& device) {
     jmethodID constructor = env->GetMethodID(
         cls,
         "<init>",
-        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JZ)V"
+        "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;JZ)V"
     );
     if (!constructor) {
         env->DeleteLocalRef(cls);
@@ -59,7 +59,6 @@ jobject convertAuthDevice(JNIEnv* env, const AnyChatAuthDevice_C& device) {
     }
 
     jstring deviceId = toJString(env, device.device_id);
-    jstring deviceType = toJString(env, device.device_type);
     jstring clientVersion = toJString(env, device.client_version);
     jstring lastLoginIp = toJString(env, device.last_login_ip);
 
@@ -67,7 +66,7 @@ jobject convertAuthDevice(JNIEnv* env, const AnyChatAuthDevice_C& device) {
         cls,
         constructor,
         deviceId,
-        deviceType,
+        (jint)device.device_type,
         clientVersion,
         lastLoginIp,
         (jlong)device.last_login_at_ms,
@@ -75,7 +74,6 @@ jobject convertAuthDevice(JNIEnv* env, const AnyChatAuthDevice_C& device) {
     );
 
     env->DeleteLocalRef(deviceId);
-    env->DeleteLocalRef(deviceType);
     env->DeleteLocalRef(clientVersion);
     env->DeleteLocalRef(lastLoginIp);
     env->DeleteLocalRef(cls);
@@ -111,7 +109,8 @@ jobject convertMessage(JNIEnv* env, const AnyChatMessage_C& msg) {
     if (!cls) return nullptr;
 
     jmethodID constructor = env->GetMethodID(cls, "<init>",
-        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;JLjava/lang/String;JIIZ)V");
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II"
+        "Ljava/lang/String;JLjava/lang/String;JIIZ)V");
     if (!constructor) {
         env->DeleteLocalRef(cls);
         return nullptr;
@@ -121,12 +120,11 @@ jobject convertMessage(JNIEnv* env, const AnyChatMessage_C& msg) {
     jstring localId = toJString(env, msg.local_id);
     jstring convId = toJString(env, msg.conv_id);
     jstring senderId = toJString(env, msg.sender_id);
-    jstring contentType = toJString(env, msg.content_type);
     jstring content = toJString(env, msg.content);
     jstring replyTo = toJString(env, msg.reply_to);
 
     jobject obj = env->NewObject(cls, constructor,
-        messageId, localId, convId, senderId, contentType,
+        messageId, localId, convId, senderId, (jint)msg.content_type,
         (jint)msg.type, content, (jlong)msg.seq, replyTo,
         (jlong)msg.timestamp_ms, (jint)msg.status, (jint)msg.send_state,
         (jboolean)msg.is_read);
@@ -135,7 +133,6 @@ jobject convertMessage(JNIEnv* env, const AnyChatMessage_C& msg) {
     env->DeleteLocalRef(localId);
     env->DeleteLocalRef(convId);
     env->DeleteLocalRef(senderId);
-    env->DeleteLocalRef(contentType);
     env->DeleteLocalRef(content);
     env->DeleteLocalRef(replyTo);
     env->DeleteLocalRef(cls);
@@ -206,7 +203,7 @@ jobject convertFriendRequest(JNIEnv* env, const AnyChatFriendRequest_C& request)
     if (!cls) return nullptr;
 
     jmethodID constructor = env->GetMethodID(cls, "<init>",
-        "(JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JLcom/anychat/sdk/models/UserInfo;)V");
+        "(JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;IIJLcom/anychat/sdk/models/UserInfo;)V");
     if (!constructor) {
         env->DeleteLocalRef(cls);
         return nullptr;
@@ -215,17 +212,15 @@ jobject convertFriendRequest(JNIEnv* env, const AnyChatFriendRequest_C& request)
     jstring fromUserId = toJString(env, request.from_user_id);
     jstring toUserId = toJString(env, request.to_user_id);
     jstring message = toJString(env, request.message);
-    jstring status = toJString(env, request.status);
     jobject fromUserInfo = convertUserInfo(env, request.from_user_info);
 
     jobject obj = env->NewObject(cls, constructor,
-        (jlong)request.request_id, fromUserId, toUserId, message, status,
+        (jlong)request.request_id, fromUserId, toUserId, message, (jint)request.source, (jint)request.status,
         (jlong)request.created_at_ms, fromUserInfo);
 
     env->DeleteLocalRef(fromUserId);
     env->DeleteLocalRef(toUserId);
     env->DeleteLocalRef(message);
-    env->DeleteLocalRef(status);
     env->DeleteLocalRef(fromUserInfo);
     env->DeleteLocalRef(cls);
 

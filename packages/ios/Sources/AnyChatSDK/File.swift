@@ -31,7 +31,7 @@ public actor FileManager {
 
     public func upload(
         localPath: String,
-        fileType: String,
+        fileType: Int32,
         onProgress: ((Int64, Int64) -> Void)? = nil
     ) async throws -> FileInfo {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<FileInfo, Error>) in
@@ -67,15 +67,13 @@ public actor FileManager {
             }
 
             let result = withCString(localPath) { pathPtr in
-                withCString(fileType) { typePtr in
-                    anychat_file_upload(
-                        handle,
-                        pathPtr,
-                        typePtr,
-                        progressCallback,
-                        &doneCallback
-                    )
-                }
+                anychat_file_upload(
+                    handle,
+                    pathPtr,
+                    fileType,
+                    progressCallback,
+                    &doneCallback
+                )
             }
 
             if result != ANYCHAT_OK {

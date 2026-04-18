@@ -160,14 +160,14 @@ The client extends `EventEmitter` and emits the following events:
 
 ```typescript
 // Login
-client.login(account: string, password: string, deviceType?: string): Promise<AuthToken>
+client.login(account: string, password: string, deviceType?: number): Promise<AuthToken>
 
 // Register
 client.register(
   phoneOrEmail: string,
   password: string,
   verifyCode: string,
-  deviceType?: string,
+  deviceType?: number,
   nickname?: string
 ): Promise<AuthToken>
 
@@ -231,13 +231,13 @@ client.deleteConversation(convId: string): Promise<void>
 client.getFriendList(): Promise<Friend[]>
 
 // Send friend request
-client.sendFriendRequest(toUserId: string, message?: string): Promise<void>
+client.sendFriendRequest(toUserId: string, message?: string, source?: number): Promise<void>
 
 // Handle friend request
-client.handleFriendRequest(requestId: number, accept: boolean): Promise<void>
+client.handleFriendRequest(requestId: number, action?: number): Promise<void>
 
 // Get pending friend requests
-client.getPendingFriendRequests(): Promise<FriendRequest[]>
+client.getPendingFriendRequests(requestType?: number): Promise<FriendRequest[]>
 
 // Delete friend
 client.deleteFriend(friendId: string): Promise<void>

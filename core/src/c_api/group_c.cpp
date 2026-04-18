@@ -3,7 +3,6 @@
 #include "handles_c.h"
 #include "utils_c.h"
 
-#include <cctype>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -11,6 +10,23 @@
 #include <vector>
 
 namespace {
+
+constexpr int32_t kGroupRoleOwner = 1;
+constexpr int32_t kGroupRoleAdmin = 2;
+constexpr int32_t kGroupRoleMember = 3;
+constexpr int32_t kJoinRequestStatusUnspecified = 0;
+constexpr int32_t kJoinRequestStatusPending = 1;
+constexpr int32_t kJoinRequestStatusAccepted = 2;
+constexpr int32_t kJoinRequestStatusRejected = 3;
+
+bool isValidGroupRoleCode(int32_t role) {
+    return role == kGroupRoleOwner || role == kGroupRoleAdmin || role == kGroupRoleMember;
+}
+
+bool isValidJoinRequestStatusCode(int32_t status) {
+    return status == kJoinRequestStatusUnspecified || status == kJoinRequestStatusPending
+        || status == kJoinRequestStatusAccepted || status == kJoinRequestStatusRejected;
+}
 
 void userInfoToC(const anychat::UserInfo& src, AnyChatUserInfo_C* dst) {
     anychat_strlcpy(dst->user_id, src.user_id.c_str(), sizeof(dst->user_id));
@@ -58,7 +74,7 @@ void joinRequestToC(const anychat::GroupJoinRequest& src, AnyChatGroupJoinReques
     anychat_strlcpy(dst->user_id, src.user_id.c_str(), sizeof(dst->user_id));
     anychat_strlcpy(dst->inviter_id, src.inviter_id.c_str(), sizeof(dst->inviter_id));
     anychat_strlcpy(dst->message, src.message.c_str(), sizeof(dst->message));
-    anychat_strlcpy(dst->status, src.status.c_str(), sizeof(dst->status));
+    dst->status = src.status;
     dst->created_at_ms = src.created_at_ms;
     userInfoToC(src.user_info, &dst->user_info);
 }
@@ -68,25 +84,6 @@ void qrcodeToC(const anychat::GroupQRCode& src, AnyChatGroupQRCode_C* dst) {
     anychat_strlcpy(dst->token, src.token.c_str(), sizeof(dst->token));
     anychat_strlcpy(dst->deep_link, src.deep_link.c_str(), sizeof(dst->deep_link));
     dst->expire_at_ms = src.expire_at_ms;
-}
-
-anychat::GroupRole parseRoleArg(const char* role) {
-    if (!role) {
-        return anychat::GroupRole::Member;
-    }
-
-    std::string role_str(role);
-    for (char& ch : role_str) {
-        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    }
-
-    if (role_str == "owner") {
-        return anychat::GroupRole::Owner;
-    }
-    if (role_str == "admin") {
-        return anychat::GroupRole::Admin;
-    }
-    return anychat::GroupRole::Member;
 }
 
 template <typename CallbackStruct>
@@ -443,18 +440,21 @@ int anychat_group_update_member_role(
     AnyChatGroupHandle handle,
     const char* group_id,
     const char* user_id,
-    const char* role,
+    int32_t role,
     const AnyChatGroupCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id || !user_id || !role) {
+    if (!handle || !handle->impl || !group_id || !user_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!isValidGroupRoleCode(role)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->updateMemberRole(group_id, user_id, parseRoleArg(role), makeGroupCallback(callback_copy));
+    handle->impl->updateMemberRole(group_id, user_id, role, makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -497,7 +497,7 @@ int anychat_group_transfer_ownership(
 int anychat_group_get_join_requests(
     AnyChatGroupHandle handle,
     const char* group_id,
-    const char* status,
+    int32_t status,
     const AnyChatGroupJoinRequestListCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
@@ -506,12 +506,14 @@ int anychat_group_get_join_requests(
     if (!validateCallbackStruct(callback)) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!isValidJoinRequestStatusCode(status)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-    const std::string status_arg = (status && status[0] != '\0') ? status : "";
     const AnyChatGroupJoinRequestListCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->getJoinRequests(
         group_id,
-        status_arg,
+        status,
         anychat::AnyChatValueCallback<std::vector<anychat::GroupJoinRequest>>{
             .on_success =
                 [callback_copy](const std::vector<anychat::GroupJoinRequest>& list) {

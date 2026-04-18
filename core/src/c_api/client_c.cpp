@@ -128,11 +128,11 @@ int anychat_client_login(
     AnyChatClientHandle handle,
     const char* account,
     const char* password,
-    const char* device_type,
+    int32_t device_type,
     const char* client_version,
     const AnyChatAuthTokenCallback_C* callback
 ) {
-    if (!handle || !account || !password || !device_type) {
+    if (!handle || !account || !password) {
         return -1;
     }
     if (!validateCallbackStruct(callback)) {

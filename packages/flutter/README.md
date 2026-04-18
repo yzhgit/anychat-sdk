@@ -79,6 +79,7 @@ void main() async {
     final token = await client.login(
       account: 'user@example.com',
       password: 'password',
+      deviceType: 3,
     );
     print('Logged in successfully');
   } catch (e) {
@@ -116,6 +117,7 @@ void main() async {
 final token = await client.login(
   account: 'user@example.com',
   password: 'password',
+  deviceType: 3,
 );
 
 // Check if logged in

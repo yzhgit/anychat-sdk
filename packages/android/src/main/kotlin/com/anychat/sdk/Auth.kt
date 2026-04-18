@@ -19,14 +19,14 @@ class Auth internal constructor(private val handle: Long) {
      *
      * @param account Phone number or email
      * @param password User password
-     * @param deviceType Device type: "android", "ios", "web"
+     * @param deviceType Device type enum code (ANYCHAT_DEVICE_TYPE_*)
      * @param clientVersion Client version string (e.g. "1.0.0")
      * @return AuthToken on success
      */
     suspend fun login(
         account: String,
         password: String,
-        deviceType: String = "android",
+        deviceType: Int = 2,
         clientVersion: String = ""
     ): AuthToken = suspendCoroutine { continuation ->
         nativeLogin(handle, account, password, deviceType, clientVersion, object : AuthCallback {
@@ -48,7 +48,7 @@ class Auth internal constructor(private val handle: Long) {
      * @param phoneOrEmail Phone number or email
      * @param password User password
      * @param verifyCode SMS/email verification code
-     * @param deviceType Device type: "android", "ios", "web"
+     * @param deviceType Device type enum code (ANYCHAT_DEVICE_TYPE_*)
      * @param nickname Optional nickname
      * @param clientVersion Client version string (e.g. "1.0.0")
      * @return AuthToken on success
@@ -57,7 +57,7 @@ class Auth internal constructor(private val handle: Long) {
         phoneOrEmail: String,
         password: String,
         verifyCode: String,
-        deviceType: String = "android",
+        deviceType: Int = 2,
         nickname: String? = null,
         clientVersion: String = ""
     ): AuthToken = suspendCoroutine { continuation ->
@@ -86,14 +86,14 @@ class Auth internal constructor(private val handle: Long) {
      * Send verification code for registration / password reset flows
      *
      * @param target Phone number or email
-     * @param targetType "sms" or "email"
-     * @param purpose e.g. "register", "reset_password"
+     * @param targetType Verification target enum code (ANYCHAT_VERIFY_TARGET_*)
+     * @param purpose Verification purpose enum code (ANYCHAT_VERIFY_PURPOSE_*)
      * @return VerificationCodeResult on success
      */
     suspend fun sendCode(
         target: String,
-        targetType: String,
-        purpose: String
+        targetType: Int,
+        purpose: Int
     ): VerificationCodeResult = suspendCoroutine { continuation ->
         nativeSendCode(handle, target, targetType, purpose, object : VerificationCodeCallback {
             override fun onVerificationCodeResult(
@@ -250,7 +250,7 @@ class Auth internal constructor(private val handle: Long) {
         handle: Long,
         account: String,
         password: String,
-        deviceType: String,
+        deviceType: Int,
         clientVersion: String,
         callback: AuthCallback
     )
@@ -260,7 +260,7 @@ class Auth internal constructor(private val handle: Long) {
         phoneOrEmail: String,
         password: String,
         verifyCode: String,
-        deviceType: String,
+        deviceType: Int,
         nickname: String,
         clientVersion: String,
         callback: AuthCallback
@@ -277,8 +277,8 @@ class Auth internal constructor(private val handle: Long) {
     private external fun nativeSendCode(
         handle: Long,
         target: String,
-        targetType: String,
-        purpose: String,
+        targetType: Int,
+        purpose: Int,
         callback: VerificationCodeCallback
     )
 

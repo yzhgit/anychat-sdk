@@ -39,7 +39,7 @@ struct Message {
     std::string local_id; // client-generated local ID for dedup
     std::string conv_id; // conversation ID
     std::string sender_id;
-    std::string content_type; // "text"|"image"|"audio"|"video"|"file"|"location"|"custom"
+    int32_t content_type = 0; // ANYCHAT_MESSAGE_CONTENT_TYPE_*
     MessageType type = MessageType::Text;
     std::string content; // text or file URL / JSON payload
     int64_t seq = 0; // conversation-scoped sequence number
@@ -104,7 +104,7 @@ struct VerificationCodeResult {
 
 struct AuthDevice {
     std::string device_id;
-    std::string device_type;
+    int32_t device_type = 0;
     std::string client_version;
     std::string last_login_ip;
     int64_t last_login_at_ms = 0;
@@ -170,8 +170,8 @@ struct FriendRequest {
     std::string from_user_id;
     std::string to_user_id;
     std::string message;
-    std::string source; // "search" | "qrcode" | "group" | "contacts"
-    std::string status; // "pending" | "accepted" | "rejected"
+    int32_t source = 0;
+    int32_t status = 0;
     int64_t created_at_ms = 0;
     UserInfo from_user_info;
 };
@@ -187,9 +187,18 @@ struct BlacklistItem {
 // ---- Group ---------------------------------------------------------------
 enum class GroupRole
 {
-    Owner,
-    Admin,
-    Member
+    Unspecified = 0,
+    Owner = 1,
+    Admin = 2,
+    Member = 3
+};
+
+enum class GroupJoinRequestStatus
+{
+    Unspecified = 0,
+    Pending = 1,
+    Accepted = 2,
+    Rejected = 3
 };
 
 struct Group {
@@ -226,7 +235,7 @@ struct GroupJoinRequest {
     std::string user_id;
     std::string inviter_id;
     std::string message;
-    std::string status; // "pending" | "accepted" | "rejected"
+    int32_t status = 0;
     int64_t created_at_ms = 0;
     UserInfo user_info;
 };
@@ -242,7 +251,7 @@ struct GroupQRCode {
 struct FileInfo {
     std::string file_id;
     std::string file_name;
-    std::string file_type; // "image" | "video" | "audio" | "file"
+    int32_t file_type = 0; // ANYCHAT_FILE_TYPE_*
     int64_t file_size_bytes = 0;
     std::string mime_type;
     std::string download_url;
@@ -318,9 +327,34 @@ struct ChangeEmailResult {
 
 struct UserStatusEvent {
     std::string user_id;
-    std::string status; // "online" | "offline" | "away"
+    int32_t status = 0; // ANYCHAT_USER_STATUS_*
     int64_t last_active_at_ms = 0;
-    std::string platform;
+    int32_t platform = 0;
+};
+
+enum class PushPlatform
+{
+    Unspecified = 0,
+    IOS = 1,
+    Android = 2
+};
+
+enum class VersionPlatform
+{
+    Unspecified = 0,
+    IOS = 1,
+    Android = 2,
+    PC = 3,
+    Web = 4,
+    H5 = 5
+};
+
+enum class VersionReleaseType
+{
+    Unspecified = 0,
+    Stable = 1,
+    Beta = 2,
+    Alpha = 3
 };
 
 struct UserSearchResult {
@@ -349,14 +383,14 @@ struct VersionCheckResult {
 
 struct AppVersionInfo {
     int64_t id = 0;
-    std::string platform;
+    int32_t platform = 0;
     std::string version;
     int32_t build_number = 0;
     int32_t version_code = 0;
     std::string min_version;
     int32_t min_build_number = 0;
     bool force_update = false;
-    std::string release_type;
+    int32_t release_type = 0;
     std::string title;
     std::string content;
     std::string download_url;

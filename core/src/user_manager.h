@@ -25,10 +25,10 @@ public:
     void updateProfile(const UserProfile& profile, AnyChatValueCallback<UserProfile> callback) override;
     void getSettings(AnyChatValueCallback<UserSettings> callback) override;
     void updateSettings(const UserSettings& settings, AnyChatValueCallback<UserSettings> callback) override;
-    void updatePushToken(const std::string& push_token, const std::string& platform, AnyChatCallback callback) override;
+    void updatePushToken(const std::string& push_token, int32_t platform, AnyChatCallback callback) override;
     void updatePushToken(
         const std::string& push_token,
-        const std::string& platform,
+        int32_t platform,
         const std::string& device_id,
         AnyChatCallback callback
     ) override;

@@ -35,17 +35,17 @@ public:
     virtual void addFriend(
         const std::string& to_user_id,
         const std::string& message,
-        const std::string& source,
+        int32_t source,
         AnyChatCallback cb
     ) = 0;
     virtual void deleteFriend(const std::string& friend_id, AnyChatCallback cb) = 0;
     virtual void updateRemark(const std::string& friend_id, const std::string& remark, AnyChatCallback cb) = 0;
 
     // Friend requests
-    virtual void getFriendRequests(const std::string& request_type, AnyChatValueCallback<std::vector<FriendRequest>> cb)
+    virtual void
+    getFriendRequests(int32_t request_type, AnyChatValueCallback<std::vector<FriendRequest>> cb)
         = 0;
-    virtual void acceptFriendRequest(int64_t request_id, AnyChatCallback cb) = 0;
-    virtual void rejectFriendRequest(int64_t request_id, AnyChatCallback cb) = 0;
+    virtual void handleFriendRequest(int64_t request_id, int32_t action, AnyChatCallback cb) = 0;
 
     // Blacklist
     virtual void getBlacklist(AnyChatValueCallback<std::vector<BlacklistItem>> cb) = 0;

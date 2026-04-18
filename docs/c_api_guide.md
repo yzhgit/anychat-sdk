@@ -151,7 +151,7 @@ int main(void) {
         client,
         "user@example.com",
         "password",
-        "web",
+        ANYCHAT_DEVICE_TYPE_WEB,
         "1.0.0",
         &login_cb
     );
@@ -328,7 +328,10 @@ int anychat_auth_set_listener(handle, listener);
 
 Notes:
 
-- `device_type` currently follows string values such as `ios`, `android`, `web`
+- `device_type` uses `ANYCHAT_DEVICE_TYPE_*` integer constants.
+- `target_type` uses `ANYCHAT_VERIFY_TARGET_*` integer constants.
+- `purpose` uses `ANYCHAT_VERIFY_PURPOSE_*` integer constants.
+
 - `anychat_auth_set_listener(NULL)` clears the auth listener
 
 ### Message
@@ -347,6 +350,10 @@ int anychat_message_edit(handle, message_id, content, callback);
 int anychat_message_send_typing(handle, conversation_id, typing, ttl_seconds, callback);
 int anychat_message_set_listener(handle, listener);
 ```
+
+Notes:
+
+- `content_type` uses `ANYCHAT_MESSAGE_CONTENT_TYPE_*` integer constants.
 
 ### Conversation
 
@@ -372,8 +379,7 @@ int anychat_conv_set_listener(handle, listener);
 ```c
 int anychat_friend_get_list(handle, callback);
 int anychat_friend_add(handle, to_user_id, message, source, callback);
-int anychat_friend_accept_request(handle, request_id, callback);
-int anychat_friend_reject_request(handle, request_id, callback);
+int anychat_friend_handle_request(handle, request_id, action, callback);
 int anychat_friend_get_requests(handle, request_type, callback);
 int anychat_friend_delete(handle, friend_id, callback);
 int anychat_friend_update_remark(handle, friend_id, remark, callback);
@@ -385,7 +391,9 @@ int anychat_friend_set_listener(handle, listener);
 
 Notes:
 
-- `request_type` currently accepts `received` or `sent`
+- `source` uses `ANYCHAT_FRIEND_SOURCE_*` integer constants.
+- `action` uses `ANYCHAT_FRIEND_REQUEST_ACTION_*` integer constants.
+- `request_type` uses `ANYCHAT_FRIEND_REQUEST_QUERY_TYPE_*` integer constants.
 
 ### Group
 
@@ -412,7 +420,8 @@ int anychat_group_set_listener(handle, listener);
 
 Notes:
 
-- `role` is currently parsed from strings such as `owner`, `admin`, `member`
+- `role` uses `ANYCHAT_GROUP_ROLE_*` integer constants.
+- `status` uses `ANYCHAT_GROUP_JOIN_REQUEST_STATUS_*` integer constants.
 
 ### File
 
@@ -427,8 +436,12 @@ int anychat_file_delete(handle, file_id, callback);
 
 Notes:
 
-- `file_type` currently accepts `image`, `video`, `audio`, `file`
+- `file_type` uses `ANYCHAT_FILE_TYPE_*` integer constants.
 - `on_progress` may be `NULL`
+
+User status callback:
+
+- `AnyChatUserStatusEvent_C.status` uses `ANYCHAT_USER_STATUS_*` integer constants.
 
 ### User
 
@@ -452,7 +465,7 @@ int anychat_user_set_listener(handle, listener);
 
 Notes:
 
-- Push-token `platform` currently uses strings such as `ios`, `android`, `web`
+- Push-token `platform` uses `ANYCHAT_PUSH_PLATFORM_*` integer constants.
 
 ### Call
 
@@ -483,6 +496,11 @@ int anychat_version_get_latest(handle, platform, release_type, callback);
 int anychat_version_list(handle, platform, release_type, page, page_size, callback);
 int anychat_version_report(handle, platform, version, build_number, device_id, os_version, sdk_version, callback);
 ```
+
+Notes:
+
+- `platform` uses `ANYCHAT_VERSION_PLATFORM_*` integer constants.
+- `release_type` uses `ANYCHAT_VERSION_RELEASE_TYPE_*` integer constants.
 
 ---
 

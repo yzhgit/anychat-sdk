@@ -137,7 +137,7 @@ void _messageListSuccessNative(
             localId: _copyFixedStringStatic(item.local_id, 64),
             convId: _copyFixedStringStatic(item.conv_id, 64),
             senderId: _copyFixedStringStatic(item.sender_id, 64),
-            contentType: _copyFixedStringStatic(item.content_type, 32),
+            contentType: item.content_type,
             type: MessageType.fromInt(item.type),
             content: item.content == nullptr
                 ? ''
@@ -464,7 +464,7 @@ class AnyChatClient {
   Future<AuthToken> login({
     required String account,
     required String password,
-    String deviceType = 'web',
+    int deviceType = 3,
     String clientVersion = '',
   }) {
     final completer = Completer<AuthToken>();
@@ -478,7 +478,6 @@ class AnyChatClient {
 
     final accountPtr = account.toNativeUtf8();
     final passwordPtr = password.toNativeUtf8();
-    final deviceTypePtr = deviceType.toNativeUtf8();
     final clientVersionPtr = clientVersion.isEmpty
         ? nullptr
         : clientVersion.toNativeUtf8().cast<Char>();
@@ -487,14 +486,13 @@ class AnyChatClient {
       _clientHandle,
       accountPtr.cast(),
       passwordPtr.cast(),
-      deviceTypePtr.cast(),
+      deviceType,
       clientVersionPtr,
       callback,
     );
 
     calloc.free(accountPtr);
     calloc.free(passwordPtr);
-    calloc.free(deviceTypePtr);
     if (clientVersionPtr != nullptr) {
       calloc.free(clientVersionPtr);
     }
@@ -512,7 +510,7 @@ class AnyChatClient {
     required String phoneOrEmail,
     required String password,
     required String verifyCode,
-    String deviceType = 'web',
+    int deviceType = 3,
     String nickname = '',
     String clientVersion = '',
   }) {
@@ -528,7 +526,6 @@ class AnyChatClient {
     final phonePtr = phoneOrEmail.toNativeUtf8();
     final passwordPtr = password.toNativeUtf8();
     final verifyCodePtr = verifyCode.toNativeUtf8();
-    final deviceTypePtr = deviceType.toNativeUtf8();
     final nicknamePtr =
         nickname.isEmpty ? nullptr : nickname.toNativeUtf8().cast<Char>();
     final clientVersionPtr = clientVersion.isEmpty
@@ -540,7 +537,7 @@ class AnyChatClient {
       phonePtr.cast(),
       passwordPtr.cast(),
       verifyCodePtr.cast(),
-      deviceTypePtr.cast(),
+      deviceType,
       nicknamePtr,
       clientVersionPtr,
       callback,
@@ -549,7 +546,6 @@ class AnyChatClient {
     calloc.free(phonePtr);
     calloc.free(passwordPtr);
     calloc.free(verifyCodePtr);
-    calloc.free(deviceTypePtr);
     if (nicknamePtr != nullptr) {
       calloc.free(nicknamePtr);
     }

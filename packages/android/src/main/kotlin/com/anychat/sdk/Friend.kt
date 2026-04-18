@@ -12,6 +12,12 @@ import kotlin.coroutines.suspendCoroutine
  * Provides friend-related operations including friend list, requests, and management.
  */
 class Friend internal constructor(private val handle: Long) {
+    companion object {
+        const val FRIEND_REQUEST_ACTION_ACCEPT = 1
+        const val FRIEND_REQUEST_ACTION_REJECT = 2
+        const val FRIEND_REQUEST_QUERY_TYPE_RECEIVED = 1
+        const val FRIEND_REQUEST_QUERY_TYPE_SENT = 2
+    }
 
     /**
      * Get friend list
@@ -40,9 +46,10 @@ class Friend internal constructor(private val handle: Long) {
      */
     suspend fun addFriend(
         toUserId: String,
-        message: String = ""
+        message: String = "",
+        source: Int = 1
     ): Unit = suspendCoroutine { continuation ->
-        nativeSendRequest(handle, toUserId, message, object : ResultCallback {
+        nativeSendRequest(handle, toUserId, message, source, object : ResultCallback {
             override fun onResult(success: Boolean, error: String?) {
                 if (success) {
                     continuation.resume(Unit)
@@ -56,16 +63,16 @@ class Friend internal constructor(private val handle: Long) {
     }
 
     /**
-     * Handle a friend request (accept or reject)
+     * Handle a friend request
      *
      * @param requestId Friend request ID
-     * @param accept True to accept, false to reject
+     * @param action Action enum code (1=accept, 2=reject)
      */
     suspend fun handleFriendRequest(
         requestId: Long,
-        accept: Boolean
+        action: Int
     ): Unit = suspendCoroutine { continuation ->
-        nativeHandleRequest(handle, requestId, accept, object : ResultCallback {
+        nativeHandleRequest(handle, requestId, action, object : ResultCallback {
             override fun onResult(success: Boolean, error: String?) {
                 if (success) {
                     continuation.resume(Unit)
@@ -79,12 +86,15 @@ class Friend internal constructor(private val handle: Long) {
     }
 
     /**
-     * Get pending friend requests
+     * Get friend requests
      *
-     * @return List of pending friend requests
+     * @param requestType Query type enum code (1=received, 2=sent)
+     * @return List of friend requests
      */
-    suspend fun getPendingRequests(): List<FriendRequest> = suspendCoroutine { continuation ->
-        nativeGetPendingRequests(handle, object : FriendRequestListCallback {
+    suspend fun getPendingRequests(
+        requestType: Int = FRIEND_REQUEST_QUERY_TYPE_RECEIVED
+    ): List<FriendRequest> = suspendCoroutine { continuation ->
+        nativeGetPendingRequests(handle, requestType, object : FriendRequestListCallback {
             override fun onFriendRequestList(requests: List<FriendRequest>?, error: String?) {
                 if (requests != null) {
                     continuation.resume(requests)
@@ -146,18 +156,20 @@ class Friend internal constructor(private val handle: Long) {
         handle: Long,
         toUserId: String,
         message: String,
+        source: Int,
         callback: ResultCallback
     )
 
     private external fun nativeHandleRequest(
         handle: Long,
         requestId: Long,
-        accept: Boolean,
+        action: Int,
         callback: ResultCallback
     )
 
     private external fun nativeGetPendingRequests(
         handle: Long,
+        requestType: Int,
         callback: FriendRequestListCallback
     )
 

@@ -35,8 +35,8 @@ void friendRequestToC(const anychat::FriendRequest& src, AnyChatFriendRequest_C*
     anychat_strlcpy(dst->from_user_id, src.from_user_id.c_str(), sizeof(dst->from_user_id));
     anychat_strlcpy(dst->to_user_id, src.to_user_id.c_str(), sizeof(dst->to_user_id));
     anychat_strlcpy(dst->message, src.message.c_str(), sizeof(dst->message));
-    anychat_strlcpy(dst->source, src.source.c_str(), sizeof(dst->source));
-    anychat_strlcpy(dst->status, src.status.c_str(), sizeof(dst->status));
+    dst->source = src.source;
+    dst->status = src.status;
     dst->created_at_ms = src.created_at_ms;
     userInfoToC(src.from_user_info, &dst->from_user_info);
 }
@@ -198,7 +198,7 @@ int anychat_friend_add(
     AnyChatFriendHandle handle,
     const char* to_user_id,
     const char* message,
-    const char* source,
+    int32_t source,
     const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !to_user_id) {
@@ -213,7 +213,7 @@ int anychat_friend_add(
         callback_copy = *callback;
     }
 
-    handle->impl->addFriend(to_user_id, message ? message : "", source ? source : "", makeFriendCallback(callback_copy));
+    handle->impl->addFriend(to_user_id, message ? message : "", source, makeFriendCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -263,7 +263,7 @@ int anychat_friend_update_remark(
 
 int anychat_friend_get_requests(
     AnyChatFriendHandle handle,
-    const char* request_type,
+    int32_t request_type,
     const AnyChatFriendRequestListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
@@ -278,7 +278,6 @@ int anychat_friend_get_requests(
         callback_copy = *callback;
     }
 
-    const std::string type = (request_type && request_type[0] != '\0') ? request_type : "received";
     anychat::AnyChatValueCallback<std::vector<anychat::FriendRequest>> cb{};
     cb.on_success = [callback_copy](const std::vector<anychat::FriendRequest>& list) {
         if (!callback_copy.on_success) {
@@ -302,13 +301,14 @@ int anychat_friend_get_requests(
         }
         callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
     };
-    handle->impl->getFriendRequests(type, std::move(cb));
+    handle->impl->getFriendRequests(request_type, std::move(cb));
     return ANYCHAT_OK;
 }
 
-int anychat_friend_accept_request(
+int anychat_friend_handle_request(
     AnyChatFriendHandle handle,
     int64_t request_id,
+    int32_t action,
     const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
@@ -323,28 +323,7 @@ int anychat_friend_accept_request(
         callback_copy = *callback;
     }
 
-    handle->impl->acceptFriendRequest(request_id, makeFriendCallback(callback_copy));
-    return ANYCHAT_OK;
-}
-
-int anychat_friend_reject_request(
-    AnyChatFriendHandle handle,
-    int64_t request_id,
-    const AnyChatFriendCallback_C* callback
-) {
-    if (!handle || !handle->impl) {
-        return ANYCHAT_ERROR_INVALID_PARAM;
-    }
-    if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
-        return ANYCHAT_ERROR_INVALID_PARAM;
-    }
-
-    AnyChatFriendCallback_C callback_copy{};
-    if (callback) {
-        callback_copy = *callback;
-    }
-
-    handle->impl->rejectFriendRequest(request_id, makeFriendCallback(callback_copy));
+    handle->impl->handleFriendRequest(request_id, action, makeFriendCallback(callback_copy));
     return ANYCHAT_OK;
 }
 

@@ -34,9 +34,64 @@ export enum MessageSendState {
 
 // Group Roles
 export enum GroupRole {
-  Owner = 0,
-  Admin = 1,
-  Member = 2,
+  Owner = 1,
+  Admin = 2,
+  Member = 3,
+}
+
+// Auth-related enums
+export enum DeviceType {
+  Unspecified = 0,
+  IOS = 1,
+  Android = 2,
+  Web = 3,
+  PC = 4,
+  H5 = 5,
+}
+
+export enum VerificationTargetType {
+  Unspecified = 0,
+  SMS = 1,
+  Email = 2,
+}
+
+export enum VerificationPurpose {
+  Unspecified = 0,
+  Register = 1,
+  Login = 2,
+  ResetPassword = 3,
+  BindPhone = 4,
+  ChangePhone = 5,
+  BindEmail = 6,
+  ChangeEmail = 7,
+}
+
+export enum FriendSource {
+  Unspecified = 0,
+  Search = 1,
+  QRCode = 2,
+  Group = 3,
+  Contacts = 4,
+}
+
+export enum FriendRequestStatus {
+  Unspecified = 0,
+  Pending = 1,
+  Accepted = 2,
+  Rejected = 3,
+  Expired = 4,
+}
+
+export enum FriendRequestAction {
+  Unspecified = 0,
+  Accept = 1,
+  Reject = 2,
+}
+
+export enum FriendRequestQueryType {
+  Unspecified = 0,
+  Received = 1,
+  Sent = 2,
 }
 
 // Client Configuration
@@ -70,7 +125,7 @@ export interface Message {
   localId: string;
   convId: string;
   senderId: string;
-  contentType: string;
+  contentType: number;
   type: MessageType;
   content: string;
   seq: number;
@@ -110,7 +165,8 @@ export interface FriendRequest {
   fromUserId: string;
   toUserId: string;
   message: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  source: FriendSource;
+  status: FriendRequestStatus;
   createdAt: number;
   fromUserInfo: UserInfo;
 }

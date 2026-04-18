@@ -100,7 +100,7 @@ public struct VerificationCodeResult: Sendable {
 
 public struct AuthDevice: Sendable {
     public let deviceId: String
-    public let deviceType: String
+    public let deviceType: Int32
     public let clientVersion: String
     public let lastLoginIp: String
     public let lastLoginAt: Date?
@@ -108,7 +108,7 @@ public struct AuthDevice: Sendable {
 
     public init(
         deviceId: String,
-        deviceType: String,
+        deviceType: Int32,
         clientVersion: String,
         lastLoginIp: String,
         lastLoginAt: Date?,
@@ -124,7 +124,7 @@ public struct AuthDevice: Sendable {
 
     init(from cDevice: AnyChatAuthDevice_C) {
         self.deviceId = String(cString: &cDevice.device_id.0)
-        self.deviceType = String(cString: &cDevice.device_type.0)
+        self.deviceType = cDevice.device_type
         self.clientVersion = String(cString: &cDevice.client_version.0)
         self.lastLoginIp = String(cString: &cDevice.last_login_ip.0)
         self.lastLoginAt = cDevice.last_login_at_ms > 0
@@ -175,7 +175,7 @@ public struct Message: Sendable {
     public let localId: String
     public let conversationId: String
     public let senderId: String
-    public let contentType: String
+    public let contentType: Int32
     public let type: MessageType
     public let content: String
     public let seq: Int64
@@ -190,7 +190,7 @@ public struct Message: Sendable {
         self.localId = String(cString: &cMsg.local_id.0)
         self.conversationId = String(cString: &cMsg.conv_id.0)
         self.senderId = String(cString: &cMsg.sender_id.0)
-        self.contentType = String(cString: &cMsg.content_type.0)
+        self.contentType = cMsg.content_type
         self.type = MessageType(rawValue: Int(cMsg.type)) ?? .text
         self.content = cMsg.content != nil ? String(cString: cMsg.content) : ""
         self.seq = cMsg.seq
@@ -258,7 +258,8 @@ public struct FriendRequest: Sendable {
     public let fromUserId: String
     public let toUserId: String
     public let message: String
-    public let status: String
+    public let source: Int32
+    public let status: Int32
     public let createdAt: Date
     public let fromUserInfo: UserInfo
 
@@ -267,7 +268,8 @@ public struct FriendRequest: Sendable {
         self.fromUserId = String(cString: &cReq.from_user_id.0)
         self.toUserId = String(cString: &cReq.to_user_id.0)
         self.message = String(cString: &cReq.message.0)
-        self.status = String(cString: &cReq.status.0)
+        self.source = cReq.source
+        self.status = cReq.status
         self.createdAt = Date(timeIntervalSince1970: Double(cReq.created_at_ms) / 1000.0)
         self.fromUserInfo = UserInfo(from: cReq.from_user_info)
     }
@@ -276,9 +278,9 @@ public struct FriendRequest: Sendable {
 // MARK: - Group
 
 public enum GroupRole: Int, Sendable {
-    case owner = 0
-    case admin = 1
-    case member = 2
+    case owner = 1
+    case admin = 2
+    case member = 3
 }
 
 public struct Group: Sendable {
@@ -326,7 +328,7 @@ public struct GroupMember: Sendable {
 public struct FileInfo: Sendable {
     public let fileId: String
     public let fileName: String
-    public let fileType: String
+    public let fileType: Int32
     public let fileSize: Int64
     public let mimeType: String
     public let downloadURL: String
@@ -335,7 +337,7 @@ public struct FileInfo: Sendable {
     init(from cFile: AnyChatFileInfo_C) {
         self.fileId = String(cString: &cFile.file_id.0)
         self.fileName = String(cString: &cFile.file_name.0)
-        self.fileType = String(cString: &cFile.file_type.0)
+        self.fileType = cFile.file_type
         self.fileSize = cFile.file_size_bytes
         self.mimeType = String(cString: &cFile.mime_type.0)
         self.downloadURL = String(cString: &cFile.download_url.0)

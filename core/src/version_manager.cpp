@@ -13,6 +13,24 @@
 
 namespace anychat {
 namespace version_detail {
+static constexpr int32_t kVersionPlatformIOS = 1;
+static constexpr int32_t kVersionPlatformH5 = 5;
+static constexpr int32_t kVersionReleaseTypeUnspecified = 0;
+static constexpr int32_t kVersionReleaseTypeStable = 1;
+static constexpr int32_t kVersionReleaseTypeAlpha = 3;
+
+bool isValidRequiredPlatform(int32_t platform) {
+    return platform >= kVersionPlatformIOS && platform <= kVersionPlatformH5;
+}
+
+bool isValidLatestReleaseType(int32_t release_type) {
+    return release_type >= kVersionReleaseTypeStable && release_type <= kVersionReleaseTypeAlpha;
+}
+
+bool isValidListReleaseType(int32_t release_type) {
+    return release_type >= kVersionReleaseTypeUnspecified && release_type <= kVersionReleaseTypeAlpha;
+}
+
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
 using json_common::parseTimestampMs;
@@ -38,14 +56,14 @@ struct VersionCheckPayload {
 
 struct VersionInfoPayload {
     int64_t id = 0;
-    std::string platform{};
+    int32_t platform = 0;
     std::string version{};
     int32_t build_number = 0;
     int32_t version_code = 0;
     std::string min_version{};
     int32_t min_build_number = 0;
     bool force_update = false;
-    std::string release_type{};
+    int32_t release_type = 0;
     std::string title{};
     std::string content{};
     std::string download_url{};
@@ -64,7 +82,7 @@ struct VersionListDataPayload {
 };
 
 struct ReportVersionRequestPayload {
-    std::string platform{};
+    int32_t platform = 0;
     std::string version{};
     std::optional<int32_t> build_number{};
     std::optional<std::string> device_id{};
@@ -142,19 +160,19 @@ VersionManagerImpl::VersionManagerImpl(std::shared_ptr<network::HttpClient> http
 }
 
 void VersionManagerImpl::checkVersion(
-    const std::string& platform,
+    int32_t platform,
     const std::string& version,
     int32_t build_number,
     AnyChatValueCallback<VersionCheckResult> callback
 ) {
-    if (platform.empty() || version.empty()) {
+    if (!isValidRequiredPlatform(platform) || version.empty()) {
         if (callback.on_error) {
             callback.on_error(-1, "platform and version are required");
         }
         return;
     }
 
-    std::string path = "/versions/check?platform=" + urlEncode(platform) + "&version=" + urlEncode(version);
+    std::string path = "/versions/check?platform=" + std::to_string(platform) + "&version=" + urlEncode(version);
     if (build_number > 0) {
         path += "&build_number=" + std::to_string(build_number);
     }
@@ -175,21 +193,19 @@ void VersionManagerImpl::checkVersion(
 }
 
 void VersionManagerImpl::getLatestVersion(
-    const std::string& platform,
-    const std::string& release_type,
+    int32_t platform,
+    int32_t release_type,
     AnyChatValueCallback<AppVersionInfo> callback
 ) {
-    if (platform.empty()) {
+    if (!isValidRequiredPlatform(platform) || !isValidLatestReleaseType(release_type)) {
         if (callback.on_error) {
-            callback.on_error(-1, "platform is required");
+            callback.on_error(-1, "invalid platform or release_type");
         }
         return;
     }
 
-    std::string path = "/versions/latest?platform=" + urlEncode(platform);
-    if (!release_type.empty()) {
-        path += "&release_type=" + urlEncode(release_type);
-    }
+    const std::string path = "/versions/latest?platform=" + std::to_string(platform)
+        + "&release_type=" + std::to_string(release_type);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<LatestVersionWrappedPayload> wrapped{};
@@ -214,12 +230,19 @@ void VersionManagerImpl::getLatestVersion(
 }
 
 void VersionManagerImpl::listVersions(
-    const std::string& platform,
-    const std::string& release_type,
+    int32_t platform,
+    int32_t release_type,
     int page,
     int page_size,
     AnyChatValueCallback<VersionListResult> callback
 ) {
+    if (!isValidRequiredPlatform(platform) || !isValidListReleaseType(release_type)) {
+        if (callback.on_error) {
+            callback.on_error(-1, "invalid platform or release_type");
+        }
+        return;
+    }
+
     if (page < 1) {
         page = 1;
     }
@@ -227,13 +250,8 @@ void VersionManagerImpl::listVersions(
         page_size = 20;
     }
 
-    std::string path = "/versions/list?page=" + std::to_string(page) + "&page_size=" + std::to_string(page_size);
-    if (!platform.empty()) {
-        path += "&platform=" + urlEncode(platform);
-    }
-    if (!release_type.empty()) {
-        path += "&release_type=" + urlEncode(release_type);
-    }
+    const std::string path = "/versions/list?page=" + std::to_string(page) + "&page_size=" + std::to_string(page_size)
+        + "&platform=" + std::to_string(platform) + "&release_type=" + std::to_string(release_type);
 
     http_->get(path, [cb = std::move(callback), page, page_size](network::HttpResponse resp) {
         ApiEnvelope<VersionListDataPayload> root{};
@@ -264,7 +282,7 @@ void VersionManagerImpl::listVersions(
 }
 
 void VersionManagerImpl::reportVersion(
-    const std::string& platform,
+    int32_t platform,
     const std::string& version,
     int32_t build_number,
     const std::string& device_id,
@@ -272,7 +290,7 @@ void VersionManagerImpl::reportVersion(
     const std::string& sdk_version,
     AnyChatCallback callback
 ) {
-    if (platform.empty() || version.empty()) {
+    if (!isValidRequiredPlatform(platform) || version.empty()) {
         if (callback.on_error) {
             callback.on_error(-1, "platform and version are required");
         }

@@ -152,7 +152,7 @@ public actor UserManager {
 
     public func updatePushToken(
         token: String,
-        platform: String = "ios"
+        platform: Int32 = Int32(ANYCHAT_PUSH_PLATFORM_IOS)
     ) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let context = CallbackContext(continuation: continuation)
@@ -174,14 +174,12 @@ public actor UserManager {
             }
 
             let result = withCString(token) { tokenPtr in
-                withCString(platform) { platformPtr in
-                    anychat_user_update_push_token(
-                        handle,
-                        tokenPtr,
-                        platformPtr,
-                        &callback
-                    )
-                }
+                anychat_user_update_push_token(
+                    handle,
+                    tokenPtr,
+                    platform,
+                    &callback
+                )
             }
 
             if result != ANYCHAT_OK {

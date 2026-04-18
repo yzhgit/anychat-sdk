@@ -47,7 +47,7 @@ typedef struct {
 /* GET /versions/check?platform=&version=&buildNumber= */
 ANYCHAT_C_API int anychat_version_check(
     AnyChatVersionHandle handle,
-    const char* platform,
+    int32_t platform,
     const char* version,
     int32_t build_number,
     const AnyChatVersionCheckCallback_C* callback
@@ -56,16 +56,16 @@ ANYCHAT_C_API int anychat_version_check(
 /* GET /versions/latest?platform=&releaseType= */
 ANYCHAT_C_API int anychat_version_get_latest(
     AnyChatVersionHandle handle,
-    const char* platform,
-    const char* release_type,
+    int32_t platform,
+    int32_t release_type,
     const AnyChatVersionInfoCallback_C* callback
 );
 
 /* GET /versions/list?platform=&releaseType=&page=&pageSize= */
 ANYCHAT_C_API int anychat_version_list(
     AnyChatVersionHandle handle,
-    const char* platform,
-    const char* release_type,
+    int32_t platform,
+    int32_t release_type,
     int page,
     int page_size,
     const AnyChatVersionListCallback_C* callback
@@ -74,7 +74,7 @@ ANYCHAT_C_API int anychat_version_list(
 /* POST /versions/report */
 ANYCHAT_C_API int anychat_version_report(
     AnyChatVersionHandle handle,
-    const char* platform,
+    int32_t platform,
     const char* version,
     int32_t build_number,
     const char* device_id,

@@ -47,7 +47,7 @@ public:
     void searchMessages(
         const std::string& keyword,
         const std::string& conversation_id,
-        const std::string& content_type,
+        int32_t content_type,
         int limit,
         int offset,
         AnyChatValueCallback<MessageSearchResult> callback

@@ -15,6 +15,7 @@ namespace anychat::message_manager_detail {
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
 using json_common::parseBoolValue;
+using json_common::parseInt32Value;
 using json_common::parseInt64Value;
 using json_common::parseJsonObject;
 using json_common::parseTimestampMs;
@@ -26,6 +27,10 @@ using OptionalIntegerValue = std::optional<IntegerValue>;
 using BooleanValue = std::variant<bool, int64_t, double, std::string>;
 using OptionalBooleanValue = std::optional<BooleanValue>;
 using MessageContentValue = std::variant<std::string, glz::raw_json>;
+
+static constexpr int32_t kMessageContentTypeUnspecified = 0;
+static constexpr int32_t kMessageContentTypeText = 1;
+static constexpr int32_t kMessageContentTypeCard = 7;
 
 int parseIntValue(const OptionalIntegerValue& value, int def = 0) {
     return static_cast<int>(parseInt64Value(value, def));
@@ -82,7 +87,7 @@ struct MessagePayload {
     std::string local_id{};
     std::string conversation_id{};
     std::string sender_id{};
-    std::string content_type{};
+    OptionalIntegerValue content_type{};
     std::optional<MessageContentValue> content{};
     OptionalIntegerValue sequence{};
     std::string reply_to{};
@@ -123,7 +128,7 @@ struct NotificationMessagePayload {
     std::string local_id{};
     std::string conversation_id{};
     std::string from_user_id{};
-    std::string content_type{};
+    OptionalIntegerValue content_type{};
     std::string content{};
     std::optional<int64_t> seq{};
     std::string reply_to{};
@@ -151,34 +156,12 @@ struct NotificationTypingPayload {
     json_common::OptionalTimestampValue expire_at{};
 };
 
-int parseStatusValue(const std::optional<json_common::TimestampValue>& value, int def = 0) {
-    if (!value.has_value()) {
-        return def;
+int32_t normalizeMessageContentType(const OptionalIntegerValue& value) {
+    int32_t content_type = parseInt32Value(value, kMessageContentTypeText);
+    if (content_type < kMessageContentTypeText || content_type > kMessageContentTypeCard) {
+        return kMessageContentTypeText;
     }
-
-    if (const auto* int_value = std::get_if<int64_t>(&*value); int_value != nullptr) {
-        return static_cast<int>(*int_value);
-    }
-    if (const auto* double_value = std::get_if<double>(&*value); double_value != nullptr) {
-        return static_cast<int>(*double_value);
-    }
-
-    const std::string status = toLower(std::get<std::string>(*value));
-    if (status == "recalled" || status == "recall" || status == "revoked") {
-        return 1;
-    }
-    if (status == "deleted" || status == "delete") {
-        return 2;
-    }
-    try {
-        size_t idx = 0;
-        const int64_t parsed = std::stoll(status, &idx);
-        if (idx == status.size()) {
-            return static_cast<int>(parsed);
-        }
-    } catch (...) {
-    }
-    return def;
+    return content_type;
 }
 
 Message parseMessagePayload(const MessagePayload& payload, const std::string& default_conv_id = "") {
@@ -190,10 +173,7 @@ Message parseMessagePayload(const MessagePayload& payload, const std::string& de
         msg.conv_id = default_conv_id;
     }
     msg.sender_id = payload.sender_id;
-    msg.content_type = payload.content_type;
-    if (msg.content_type.empty()) {
-        msg.content_type = "text";
-    }
+    msg.content_type = normalizeMessageContentType(payload.content_type);
     msg.content = parseMessageContent(payload.content);
     msg.seq = parseInt64Value(payload.sequence, 0);
     msg.reply_to = payload.reply_to;
@@ -279,7 +259,7 @@ Message parseMessageFromNotification(const NotificationMessagePayload& payload, 
         msg.conv_id = default_conv_id;
     }
     msg.sender_id = payload.from_user_id;
-    msg.content_type = payload.content_type.empty() ? "text" : payload.content_type;
+    msg.content_type = normalizeMessageContentType(payload.content_type);
     msg.content = payload.content;
     msg.seq = payload.seq.value_or(0);
     msg.reply_to = payload.reply_to;
@@ -371,7 +351,7 @@ void MessageManagerImpl::sendTextMessage(
     AnyChatCallback callback
 ) {
     const std::string local_id = generateLocalId();
-    outbound_q_->enqueue(conv_id, "private", "text", content, local_id, std::move(callback));
+    outbound_q_->enqueue(conv_id, "private", kMessageContentTypeText, content, local_id, std::move(callback));
 }
 
 void MessageManagerImpl::getHistory(
@@ -621,7 +601,7 @@ void MessageManagerImpl::getGroupMessageReadState(
 void MessageManagerImpl::searchMessages(
     const std::string& keyword,
     const std::string& conversation_id,
-    const std::string& content_type,
+    int32_t content_type,
     int limit,
     int offset,
     AnyChatValueCallback<MessageSearchResult> callback
@@ -637,8 +617,14 @@ void MessageManagerImpl::searchMessages(
     if (!conversation_id.empty()) {
         path += "&conversation_id=" + urlEncode(conversation_id);
     }
-    if (!content_type.empty()) {
-        path += "&content_type=" + urlEncode(content_type);
+    if (content_type != 0) {
+        if (content_type < 1 || content_type > 7) {
+            if (callback.on_error) {
+                callback.on_error(-1, "content_type must be in [1,7]");
+            }
+            return;
+        }
+        path += "&content_type=" + std::to_string(content_type);
     }
     if (limit > 0) {
         path += "&limit=" + std::to_string(limit);
@@ -1100,7 +1086,7 @@ void MessageManagerImpl::handleMessageEdited(const NotificationEvent& event) {
         if (!msg.content.empty()) {
             cached.content = msg.content;
         }
-        if (!msg.content_type.empty()) {
+        if (msg.content_type != kMessageContentTypeUnspecified) {
             cached.content_type = msg.content_type;
         }
         if (msg.status != 0) {
@@ -1221,7 +1207,7 @@ void MessageManagerImpl::upsertMessageDb(const Message& msg) {
           msg.local_id,
           msg.conv_id,
           msg.sender_id,
-          msg.content_type,
+          static_cast<int64_t>(msg.content_type),
           msg.content,
           msg.seq,
           msg.reply_to,

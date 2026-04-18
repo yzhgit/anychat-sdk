@@ -28,14 +28,14 @@ void checkResultToC(const anychat::VersionCheckResult& src, AnyChatVersionCheckR
 
 void versionInfoToC(const anychat::AppVersionInfo& src, AnyChatVersionInfo_C* dst) {
     dst->id = src.id;
-    anychat_strlcpy(dst->platform, src.platform.c_str(), sizeof(dst->platform));
+    dst->platform = src.platform;
     anychat_strlcpy(dst->version, src.version.c_str(), sizeof(dst->version));
     dst->build_number = src.build_number;
     dst->version_code = src.version_code;
     anychat_strlcpy(dst->min_version, src.min_version.c_str(), sizeof(dst->min_version));
     dst->min_build_number = src.min_build_number;
     dst->force_update = src.force_update ? 1 : 0;
-    anychat_strlcpy(dst->release_type, src.release_type.c_str(), sizeof(dst->release_type));
+    dst->release_type = src.release_type;
     anychat_strlcpy(dst->title, src.title.c_str(), sizeof(dst->title));
     anychat_strlcpy(dst->content, src.content.c_str(), sizeof(dst->content));
     anychat_strlcpy(dst->download_url, src.download_url.c_str(), sizeof(dst->download_url));
@@ -50,12 +50,15 @@ extern "C" {
 
 int anychat_version_check(
     AnyChatVersionHandle handle,
-    const char* platform,
+    int32_t platform,
     const char* version,
     int32_t build_number,
     const AnyChatVersionCheckCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !platform || !version) {
+    if (!handle || !handle->impl || !version) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatVersionCheckCallback_C)) {
@@ -95,11 +98,17 @@ int anychat_version_check(
 
 int anychat_version_get_latest(
     AnyChatVersionHandle handle,
-    const char* platform,
-    const char* release_type,
+    int32_t platform,
+    int32_t release_type,
     const AnyChatVersionInfoCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !platform) {
+    if (!handle || !handle->impl) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (release_type < ANYCHAT_VERSION_RELEASE_TYPE_STABLE || release_type > ANYCHAT_VERSION_RELEASE_TYPE_ALPHA) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatVersionInfoCallback_C)) {
@@ -113,7 +122,7 @@ int anychat_version_get_latest(
 
     handle->impl->getLatestVersion(
         platform,
-        release_type ? release_type : "",
+        release_type,
         anychat::AnyChatValueCallback<anychat::AppVersionInfo>{
             .on_success =
                 [callback_copy](const anychat::AppVersionInfo& version) {
@@ -138,13 +147,19 @@ int anychat_version_get_latest(
 
 int anychat_version_list(
     AnyChatVersionHandle handle,
-    const char* platform,
-    const char* release_type,
+    int32_t platform,
+    int32_t release_type,
     int page,
     int page_size,
     const AnyChatVersionListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (release_type < ANYCHAT_VERSION_RELEASE_TYPE_UNSPECIFIED || release_type > ANYCHAT_VERSION_RELEASE_TYPE_ALPHA) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatVersionListCallback_C)) {
@@ -157,8 +172,8 @@ int anychat_version_list(
     }
 
     handle->impl->listVersions(
-        platform ? platform : "",
-        release_type ? release_type : "",
+        platform,
+        release_type,
         page,
         page_size,
         anychat::AnyChatValueCallback<anychat::VersionListResult>{
@@ -200,7 +215,7 @@ int anychat_version_list(
 
 int anychat_version_report(
     AnyChatVersionHandle handle,
-    const char* platform,
+    int32_t platform,
     const char* version,
     int32_t build_number,
     const char* device_id,
@@ -208,7 +223,10 @@ int anychat_version_report(
     const char* sdk_version,
     const AnyChatVersionCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !platform || !version) {
+    if (!handle || !handle->impl || !version) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatVersionCallback_C)) {

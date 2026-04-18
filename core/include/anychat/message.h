@@ -128,7 +128,7 @@ ANYCHAT_C_API int anychat_message_search(
     AnyChatMessageHandle handle,
     const char* keyword,
     const char* conversation_id,
-    const char* content_type,
+    int32_t content_type,
     int limit,
     int offset,
     const AnyChatMessageSearchCallback_C* callback

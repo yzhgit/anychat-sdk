@@ -158,7 +158,7 @@ TEST_F(MessageManagerTest, IncomingMessageFiresHandler) {
                 "message_id": "msg-incoming-001",
                 "conversation_id": "conv-1",
                 "from_user_id": "user-sender-999",
-                "content_type": "text",
+                "content_type": 1,
                 "content": "你好吗？",
                 "sent_at": 1708329500,
                 "seq": 7
@@ -188,7 +188,7 @@ TEST_F(MessageManagerTest, IncomingMessageCacheDedup) {
                 "message_id": "msg-dup-001",
                 "conversation_id": "conv-dedup",
                 "from_user_id": "user-A",
-                "content_type": "text",
+                "content_type": 1,
                 "content": "duplicate",
                 "sent_at": 1708329501,
                 "seq": 1
@@ -260,7 +260,7 @@ TEST_F(MessageManagerTest, SetCurrentUserId) {
                 "message_id": "msg-after-uid-change",
                 "conversation_id": "conv-x",
                 "from_user_id": "other-user",
-                "content_type": "text",
+                "content_type": 1,
                 "content": "hello",
                 "sent_at": 1708329650,
                 "seq": 1
@@ -454,7 +454,7 @@ TEST_F(MessageManagerTest, GetGroupMessageReadStateDoesNotCrash) {
 }
 
 TEST_F(MessageManagerTest, SearchMessagesDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->searchMessages("hello", "conv-1", "text", 20, 0, makeNoopValueCallback<anychat::MessageSearchResult>()));
+    EXPECT_NO_THROW(mgr_->searchMessages("hello", "conv-1", 1, 20, 0, makeNoopValueCallback<anychat::MessageSearchResult>()));
 }
 
 TEST_F(MessageManagerTest, RecallMessageDoesNotCrash) {

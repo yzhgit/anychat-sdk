@@ -3,6 +3,7 @@
 #include "json_common.h"
 
 #include <chrono>
+#include <cstdint>
 #include <utility>
 
 namespace anychat::outbound_queue_detail {
@@ -12,7 +13,7 @@ using json_common::writeJson;
 struct SendMessagePayload {
     std::string conversation_id{};
     std::string conversation_type{};
-    std::string content_type{};
+    int32_t content_type = 0;
     std::string content{};
     std::string local_id{};
 };
@@ -42,7 +43,7 @@ OutboundQueue::OutboundQueue(db::Database* db)
 void OutboundQueue::enqueue(
     const std::string& conv_id,
     const std::string& conv_type,
-    const std::string& content_type,
+    int32_t content_type,
     const std::string& content,
     const std::string& local_id,
     AnyChatCallback cb
@@ -58,7 +59,7 @@ void OutboundQueue::enqueue(
         "INSERT OR IGNORE INTO outbound_queue "
         "(local_id, conv_id, conv_type, content_type, content, retry_count, created_at) "
         "VALUES (?, ?, ?, ?, ?, 0, ?)",
-        { local_id, conv_id, conv_type, content_type, content, now_s }
+        { local_id, conv_id, conv_type, static_cast<int64_t>(content_type), content, now_s }
     );
 
     // Store the callback in memory and, if connected, send immediately.
@@ -100,7 +101,14 @@ void OutboundQueue::onConnected(SendFn send_fn) {
             continue;
         }
 
-        sendRow(it_cid->second, it_ct->second, it_ctype->second, it_body->second, it_lid->second);
+        int32_t content_type = 0;
+        try {
+            content_type = static_cast<int32_t>(std::stoll(it_ctype->second));
+        } catch (...) {
+            continue;
+        }
+
+        sendRow(it_cid->second, it_ct->second, content_type, it_body->second, it_lid->second);
     }
 }
 
@@ -154,7 +162,7 @@ void OutboundQueue::onMessageSentAck(const MsgSentAck& ack) {
 std::string OutboundQueue::buildSendFrame(
     const std::string& conv_id,
     const std::string& conv_type,
-    const std::string& content_type,
+    int32_t content_type,
     const std::string& content,
     const std::string& local_id
 ) {
@@ -181,7 +189,7 @@ std::string OutboundQueue::buildSendFrame(
 void OutboundQueue::sendRow(
     const std::string& conv_id,
     const std::string& conv_type,
-    const std::string& content_type,
+    int32_t content_type,
     const std::string& content,
     const std::string& local_id
 ) {

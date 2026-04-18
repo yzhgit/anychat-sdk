@@ -16,7 +16,7 @@ void messageToCStruct(const anychat::Message& src, AnyChatMessage_C* dst) {
     anychat_strlcpy(dst->local_id, src.local_id.c_str(), sizeof(dst->local_id));
     anychat_strlcpy(dst->conv_id, src.conv_id.c_str(), sizeof(dst->conv_id));
     anychat_strlcpy(dst->sender_id, src.sender_id.c_str(), sizeof(dst->sender_id));
-    anychat_strlcpy(dst->content_type, src.content_type.c_str(), sizeof(dst->content_type));
+    dst->content_type = src.content_type;
     anychat_strlcpy(dst->reply_to, src.reply_to.c_str(), sizeof(dst->reply_to));
 
     dst->type = static_cast<int>(src.type);
@@ -413,7 +413,7 @@ int anychat_message_search(
     AnyChatMessageHandle handle,
     const char* keyword,
     const char* conversation_id,
-    const char* content_type,
+    int32_t content_type,
     int limit,
     int offset,
     const AnyChatMessageSearchCallback_C* callback
@@ -427,13 +427,17 @@ int anychat_message_search(
     if (!validateCallbackStruct(callback)) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (content_type < ANYCHAT_MESSAGE_CONTENT_TYPE_UNSPECIFIED
+        || content_type > ANYCHAT_MESSAGE_CONTENT_TYPE_CARD) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
     const AnyChatMessageSearchCallback_C callback_copy = copyCallbackStruct(callback);
 
     handle->impl->searchMessages(
         keyword,
         conversation_id ? conversation_id : "",
-        content_type ? content_type : "",
+        content_type,
         limit,
         offset,
         anychat::AnyChatValueCallback<anychat::MessageSearchResult>{

@@ -79,7 +79,8 @@ let client = try AnyChatClient(config: config)
 do {
     let token = try await client.auth.login(
         account: "user@example.com",
-        password: "password123"
+        password: "password123",
+        deviceType: 1
     )
     print("Logged in with token: \(token.accessToken)")
 } catch {
@@ -159,13 +160,14 @@ let friends = try await client.friend.getFriendList()
 // Send friend request
 try await client.friend.addFriend(
     toUserId: "user_456",
-    message: "Let's be friends!"
+    message: "Let's be friends!",
+    source: 1
 )
 
 // Handle friend request
 try await client.friend.handleFriendRequest(
     requestId: 123,
-    accept: true
+    action: FriendManager.friendRequestActionAccept
 )
 ```
 
@@ -194,7 +196,7 @@ try await client.group.invite(
 // Upload a file with progress
 let fileInfo = try await client.file.upload(
     localPath: "/path/to/image.jpg",
-    fileType: "image"
+    fileType: 1 // ANYCHAT_FILE_TYPE_IMAGE
 ) { uploaded, total in
     let progress = Double(uploaded) / Double(total) * 100
     print("Upload progress: \(progress)%")

@@ -51,6 +51,8 @@ set(CURL_DISABLE_TESTS     ON  CACHE BOOL "" FORCE)
 set(CURL_USE_OPENSSL       ON  CACHE BOOL "" FORCE)
 set(CURL_USE_LIBPSL        OFF CACHE BOOL "" FORCE)
 set(HTTP_ONLY              ON  CACHE BOOL "" FORCE)
+# Build static libcurl from PIC objects so it can be linked into shared libraries on Linux.
+set(SHARE_LIB_OBJECT       ON  CACHE BOOL "" FORCE)
 add_subdirectory(thirdparty/curl EXCLUDE_FROM_ALL)
 
 if(WIN32 AND CURL_USE_OPENSSL)
@@ -80,6 +82,7 @@ set(LWS_WITHOUT_DAEMONIZE         ON  CACHE BOOL "" FORCE)
 set(LWS_WITH_MINIMAL_EXAMPLES     OFF CACHE BOOL "" FORCE)
 set(LWS_WITH_SSL                  ON  CACHE BOOL "" FORCE)
 set(LWS_WITHOUT_EXTENSIONS        ON  CACHE BOOL "" FORCE)
+set(LWS_STATIC_PIC                ON  CACHE BOOL "" FORCE)
 add_subdirectory(thirdparty/libwebsockets EXCLUDE_FROM_ALL)
 
 add_subdirectory(thirdparty/sqlite3 EXCLUDE_FROM_ALL)

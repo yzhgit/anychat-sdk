@@ -30,7 +30,7 @@ TEST_F(VersionManagerTest, CheckVersionRequiresPlatformAndVersion) {
     std::string error;
 
     mgr_->checkVersion(
-        "",
+        0,
         "1.2.3",
         0,
         anychat::AnyChatValueCallback<anychat::VersionCheckResult>{
@@ -51,7 +51,7 @@ TEST_F(VersionManagerTest, CheckVersionRequiresPlatformAndVersion) {
     error_code = 0;
     error.clear();
     mgr_->checkVersion(
-        "android",
+        2,
         "",
         0,
         anychat::AnyChatValueCallback<anychat::VersionCheckResult>{
@@ -75,8 +75,8 @@ TEST_F(VersionManagerTest, GetLatestVersionRequiresPlatform) {
     std::string error;
 
     mgr_->getLatestVersion(
-        "",
-        "stable",
+        0,
+        1,
         anychat::AnyChatValueCallback<anychat::AppVersionInfo>{
             .on_error =
                 [&](int code, const std::string& err) {
@@ -93,7 +93,7 @@ TEST_F(VersionManagerTest, GetLatestVersionRequiresPlatform) {
 }
 
 TEST_F(VersionManagerTest, ListVersionsDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->listVersions("android", "stable", 1, 20, {}));
+    EXPECT_NO_THROW(mgr_->listVersions(2, 1, 1, 20, {}));
 }
 
 TEST_F(VersionManagerTest, ReportVersionRequiresPlatformAndVersion) {
@@ -102,7 +102,7 @@ TEST_F(VersionManagerTest, ReportVersionRequiresPlatformAndVersion) {
     std::string error;
 
     mgr_->reportVersion(
-        "",
+        0,
         "1.0.0",
         100,
         "device-1",

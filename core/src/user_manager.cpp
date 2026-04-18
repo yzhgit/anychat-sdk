@@ -11,13 +11,25 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace anychat::user_manager_detail {
+static constexpr int32_t kPushPlatformIOS = 1;
+static constexpr int32_t kPushPlatformAndroid = 2;
+static constexpr int32_t kUserStatusOffline = 0;
+static constexpr int32_t kUserStatusOnline = 1;
+static constexpr int32_t kUserStatusAway = 2;
+
+bool isValidPushPlatform(int32_t platform) {
+    return platform == kPushPlatformIOS || platform == kPushPlatformAndroid;
+}
+
 using json_common::ApiEnvelope;
 using json_common::formatIso8601Utc;
 using json_common::normalizeUnixEpochMs;
 using json_common::parseApiEnvelopeResponse;
+using json_common::parseInt32Value;
 using json_common::parseJsonObject;
 using json_common::parseTimestampMs;
 using json_common::writeJson;
@@ -111,7 +123,7 @@ struct UpdateSettingsRequestPayload {
 
 struct UpdatePushTokenRequestPayload {
     std::string push_token{};
-    std::string platform{};
+    int32_t platform = 0;
     std::optional<std::string> device_id{};
 };
 
@@ -154,10 +166,37 @@ struct NotificationUserInfoPayload {
 
 struct NotificationUserStatusPayload {
     std::string user_id{};
-    std::string status{};
+    std::optional<std::variant<int64_t, double, bool, std::string>> status{};
     json_common::OptionalTimestampValue last_active_at{};
-    std::string platform{};
+    int32_t platform = 0;
 };
+
+int32_t normalizeUserStatus(const std::optional<std::variant<int64_t, double, bool, std::string>>& status) {
+    if (status.has_value()) {
+        if (const auto* text = std::get_if<std::string>(&(*status)); text != nullptr) {
+            const std::string lowered = json_common::toLowerCopy(*text);
+            if (lowered == "online") {
+                return kUserStatusOnline;
+            }
+            if (lowered == "away") {
+                return kUserStatusAway;
+            }
+            if (lowered == "offline") {
+                return kUserStatusOffline;
+            }
+        }
+    }
+
+    const int32_t value = parseInt32Value(status, kUserStatusOffline);
+    switch (value) {
+    case kUserStatusOffline:
+    case kUserStatusOnline:
+    case kUserStatusAway:
+        return value;
+    default:
+        return kUserStatusOffline;
+    }
+}
 
 UserInfo parseNotificationUserInfo(const std::string& data) {
     UserInfo info;
@@ -187,7 +226,7 @@ UserStatusEvent parseNotificationStatusEvent(const std::string& data) {
     }
 
     event.user_id = payload.user_id;
-    event.status = payload.status;
+    event.status = normalizeUserStatus(payload.status);
     event.last_active_at_ms = parseTimestampMs(payload.last_active_at);
     event.platform = payload.platform;
     return event;
@@ -429,7 +468,7 @@ void UserManagerImpl::updateSettings(const UserSettings& settings, AnyChatValueC
 
 void UserManagerImpl::updatePushToken(
     const std::string& push_token,
-    const std::string& platform,
+    int32_t platform,
     AnyChatCallback callback
 ) {
     updatePushToken(push_token, platform, device_id_, std::move(callback));
@@ -437,10 +476,17 @@ void UserManagerImpl::updatePushToken(
 
 void UserManagerImpl::updatePushToken(
     const std::string& push_token,
-    const std::string& platform,
+    int32_t platform,
     const std::string& device_id,
     AnyChatCallback callback
 ) {
+    if (!isValidPushPlatform(platform)) {
+        if (callback.on_error) {
+            callback.on_error(-1, "invalid platform");
+        }
+        return;
+    }
+
     UpdatePushTokenRequestPayload body{};
     body.push_token = push_token;
     body.platform = platform;

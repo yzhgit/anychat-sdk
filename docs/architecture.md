@@ -135,7 +135,7 @@ CREATE TABLE messages (
     local_id        TEXT UNIQUE,    -- 客户端发送时生成，服务端确认后更新 msg_id
     conv_id         TEXT NOT NULL,
     sender_id       TEXT,
-    content_type    TEXT,           -- 'text' | 'image' | 'audio' | 'video' | 'file'
+    content_type    INTEGER,        -- 1=text 2=image 3=video 4=audio 5=file 6=location 7=card
     content         TEXT,           -- JSON string
     seq             INTEGER,        -- 会话内序列号
     reply_to        TEXT,
@@ -163,7 +163,7 @@ CREATE TABLE outbound_queue (
     local_id        TEXT PRIMARY KEY,
     conv_id         TEXT,
     conv_type       TEXT,
-    content_type    TEXT,
+    content_type    INTEGER,        -- 1=text 2=image 3=video 4=audio 5=file 6=location 7=card
     content         TEXT,
     retry_count     INTEGER DEFAULT 0,
     created_at      INTEGER

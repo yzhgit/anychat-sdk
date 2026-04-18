@@ -35,7 +35,7 @@ public actor AuthManager {
     public func login(
         account: String,
         password: String,
-        deviceType: String = "ios",
+        deviceType: Int32 = 1,
         clientVersion: String = ""
     ) async throws -> AuthToken {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AuthToken, Error>) in
@@ -63,27 +63,25 @@ public actor AuthManager {
 
             let result = withCString(account) { accountPtr in
                 withCString(password) { passwordPtr in
-                    withCString(deviceType) { deviceTypePtr in
-                        withOptionalCString(clientVersion.isEmpty ? nil : clientVersion) { clientVersionPtr in
-                            if let clientHandle {
-                                return anychat_client_login(
-                                    clientHandle,
-                                    accountPtr,
-                                    passwordPtr,
-                                    deviceTypePtr,
-                                    clientVersionPtr,
-                                    &callback
-                                )
-                            }
-                            return anychat_auth_login(
-                                handle,
+                    withOptionalCString(clientVersion.isEmpty ? nil : clientVersion) { clientVersionPtr in
+                        if let clientHandle {
+                            return anychat_client_login(
+                                clientHandle,
                                 accountPtr,
                                 passwordPtr,
-                                deviceTypePtr,
+                                deviceType,
                                 clientVersionPtr,
                                 &callback
                             )
                         }
+                        return anychat_auth_login(
+                            handle,
+                            accountPtr,
+                            passwordPtr,
+                            deviceType,
+                            clientVersionPtr,
+                            &callback
+                        )
                     }
                 }
             }
@@ -99,7 +97,7 @@ public actor AuthManager {
         phoneOrEmail: String,
         password: String,
         verifyCode: String,
-        deviceType: String = "ios",
+        deviceType: Int32 = 1,
         nickname: String? = nil,
         clientVersion: String = ""
     ) async throws -> AuthToken {
@@ -129,20 +127,18 @@ public actor AuthManager {
             let result = withCString(phoneOrEmail) { phonePtr in
                 withCString(password) { passwordPtr in
                     withCString(verifyCode) { codePtr in
-                        withCString(deviceType) { deviceTypePtr in
-                            withOptionalCString(nickname) { nicknamePtr in
-                                withOptionalCString(clientVersion.isEmpty ? nil : clientVersion) { clientVersionPtr in
-                                    anychat_auth_register(
-                                        handle,
-                                        phonePtr,
-                                        passwordPtr,
-                                        codePtr,
-                                        deviceTypePtr,
-                                        nicknamePtr,
-                                        clientVersionPtr,
-                                        &callback
-                                    )
-                                }
+                        withOptionalCString(nickname) { nicknamePtr in
+                            withOptionalCString(clientVersion.isEmpty ? nil : clientVersion) { clientVersionPtr in
+                                anychat_auth_register(
+                                    handle,
+                                    phonePtr,
+                                    passwordPtr,
+                                    codePtr,
+                                    deviceType,
+                                    nicknamePtr,
+                                    clientVersionPtr,
+                                    &callback
+                                )
                             }
                         }
                     }
@@ -158,8 +154,8 @@ public actor AuthManager {
 
     public func sendCode(
         target: String,
-        targetType: String,
-        purpose: String
+        targetType: Int32,
+        purpose: Int32
     ) async throws -> VerificationCodeResult {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<VerificationCodeResult, Error>) in
             let context = CallbackContext(continuation: continuation)
@@ -185,17 +181,13 @@ public actor AuthManager {
             }
 
             let result = withCString(target) { targetPtr in
-                withCString(targetType) { targetTypePtr in
-                    withCString(purpose) { purposePtr in
-                        anychat_auth_send_code(
-                            handle,
-                            targetPtr,
-                            targetTypePtr,
-                            purposePtr,
-                            &callback
-                        )
-                    }
-                }
+                anychat_auth_send_code(
+                    handle,
+                    targetPtr,
+                    targetType,
+                    purpose,
+                    &callback
+                )
             }
 
             if result != ANYCHAT_OK {

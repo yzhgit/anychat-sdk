@@ -28,29 +28,30 @@ public:
         const std::string& phone_or_email,
         const std::string& password,
         const std::string& verify_code,
-        const std::string& device_type,
+        int32_t device_type,
         const std::string& nickname,
         const std::string& client_version,
         AnyChatValueCallback<AuthToken> callback
     ) = 0;
 
     // Send verification code for register/reset_password/bind/change flows.
-    // target_type: "sms" | "email"
+    // target_type: ANYCHAT_VERIFY_TARGET_*
+    // purpose: ANYCHAT_VERIFY_PURPOSE_*
     virtual void sendVerificationCode(
         const std::string& target,
-        const std::string& target_type,
-        const std::string& purpose,
+        int32_t target_type,
+        int32_t purpose,
         AnyChatValueCallback<VerificationCodeResult> callback
     ) = 0;
 
     // Login with account (phone number or email) + password.
-    // device_type: "ios" | "android" | "web" | "pc" | "h5"
+    // device_type: ANYCHAT_DEVICE_TYPE_*
     // client_version: client version string (e.g. "1.0.0")
     // The manager uses the device_id provided at construction time.
     virtual void login(
         const std::string& account,
         const std::string& password,
-        const std::string& device_type,
+        int32_t device_type,
         const std::string& client_version,
         AnyChatValueCallback<AuthToken> callback
     ) = 0;

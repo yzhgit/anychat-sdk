@@ -22,7 +22,7 @@ public:
     // on_done: called with the file_id and download_url on success
     virtual void upload(
         const std::string& local_path,
-        const std::string& file_type, // "image" | "video" | "audio" | "file"
+        int32_t file_type, // ANYCHAT_FILE_TYPE_*
         UploadProgressCallback on_progress,
         AnyChatValueCallback<FileInfo> on_done
     ) = 0;
@@ -34,8 +34,8 @@ public:
     virtual void getFileInfo(const std::string& file_id, AnyChatValueCallback<FileInfo> cb) = 0;
 
     // GET /files?fileType=&page=&pageSize=
-    // file_type empty means no type filter.
-    virtual void listFiles(const std::string& file_type, int page, int page_size, AnyChatValueCallback<FileListResult> cb) = 0;
+    // file_type = 0 means no type filter.
+    virtual void listFiles(int32_t file_type, int page, int page_size, AnyChatValueCallback<FileListResult> cb) = 0;
 
     // Three-step client log upload: POST /logs/upload -> PUT upload_url -> POST /logs/complete
     virtual void uploadClientLog(

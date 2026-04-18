@@ -49,7 +49,7 @@ val messageToJS(const AnyChatMessage_C& msg) {
     obj.set("localId", std::string(msg.local_id));
     obj.set("convId", std::string(msg.conv_id));
     obj.set("senderId", std::string(msg.sender_id));
-    obj.set("contentType", std::string(msg.content_type));
+    obj.set("contentType", msg.content_type);
     obj.set("type", msg.type);
     obj.set("content", msg.content ? std::string(msg.content) : "");
     obj.set("seq", (double)msg.seq);
@@ -92,7 +92,8 @@ val friendRequestToJS(const AnyChatFriendRequest_C& req) {
     obj.set("fromUserId", std::string(req.from_user_id));
     obj.set("toUserId", std::string(req.to_user_id));
     obj.set("message", std::string(req.message));
-    obj.set("status", std::string(req.status));
+    obj.set("source", req.source);
+    obj.set("status", req.status);
     obj.set("createdAt", (double)req.created_at_ms);
     obj.set("fromUserInfo", userInfoToJS(req.from_user_info));
     return obj;
@@ -646,7 +647,7 @@ public:
     }
 
     // Auth methods
-    void login(std::string account, std::string password, std::string deviceType, std::string clientVersion, val callback) {
+    void login(std::string account, std::string password, int32_t deviceType, std::string clientVersion, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.authCallbacks[callbackId] = callback;
 
@@ -660,7 +661,7 @@ public:
             handle_,
             account.c_str(),
             password.c_str(),
-            deviceType.c_str(),
+            deviceType,
             clientVersion.empty() ? nullptr : clientVersion.c_str(),
             &authCallback
         );
@@ -672,7 +673,7 @@ public:
     }
 
     void register_(std::string phoneOrEmail, std::string password, std::string verifyCode,
-                   std::string deviceType, std::string nickname, std::string clientVersion, val callback) {
+                   int32_t deviceType, std::string nickname, std::string clientVersion, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.authCallbacks[callbackId] = callback;
 
@@ -687,7 +688,7 @@ public:
             phoneOrEmail.c_str(),
             password.c_str(),
             verifyCode.c_str(),
-            deviceType.c_str(),
+            deviceType,
             nickname.empty() ? nullptr : nickname.c_str(),
             clientVersion.empty() ? nullptr : clientVersion.c_str(),
             &authCallback
@@ -952,7 +953,7 @@ public:
         }
     }
 
-    void sendFriendRequest(std::string toUserId, std::string message, val callback) {
+    void sendFriendRequest(std::string toUserId, std::string message, int32_t source, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.friendCallbacks[callbackId] = callback;
 
@@ -966,7 +967,7 @@ public:
             friendHandle_,
             toUserId.c_str(),
             message.c_str(),
-            nullptr,
+            source,
             &friendCallback
         );
 
@@ -976,7 +977,7 @@ public:
         }
     }
 
-    void handleFriendRequest(double requestId, bool accept, val callback) {
+    void handleFriendRequest(double requestId, int32_t action, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.friendCallbacks[callbackId] = callback;
 
@@ -986,9 +987,12 @@ public:
         friendCallback.on_success = friendSuccessCallbackWrapper;
         friendCallback.on_error = friendErrorCallbackWrapper;
 
-        int result = accept
-            ? anychat_friend_accept_request(friendHandle_, static_cast<int64_t>(requestId), &friendCallback)
-            : anychat_friend_reject_request(friendHandle_, static_cast<int64_t>(requestId), &friendCallback);
+        int result = anychat_friend_handle_request(
+            friendHandle_,
+            static_cast<int64_t>(requestId),
+            action,
+            &friendCallback
+        );
 
         if (result != ANYCHAT_OK) {
             g_callbacks.friendCallbacks.erase(callbackId);
@@ -996,7 +1000,7 @@ public:
         }
     }
 
-    void getPendingFriendRequests(val callback) {
+    void getPendingFriendRequests(int32_t requestType, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.friendRequestListCallbacks[callbackId] = callback;
 
@@ -1006,7 +1010,7 @@ public:
         requestListCallback.on_success = friendRequestListSuccessCallbackWrapper;
         requestListCallback.on_error = friendRequestListErrorCallbackWrapper;
 
-        int result = anychat_friend_get_requests(friendHandle_, "received", &requestListCallback);
+        int result = anychat_friend_get_requests(friendHandle_, requestType, &requestListCallback);
         if (result != ANYCHAT_OK) {
             g_callbacks.friendRequestListCallbacks.erase(callbackId);
             callback(dispatchErrorMessage(result), val::null());

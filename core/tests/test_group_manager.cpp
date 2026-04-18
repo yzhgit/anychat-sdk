@@ -238,7 +238,7 @@ TEST_F(GroupManagerTest, RemoveMemberDoesNotCrash) {
 }
 
 TEST_F(GroupManagerTest, UpdateMemberRoleDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->updateMemberRole("grp-001", "user-002", anychat::GroupRole::Admin, makeNoopCallback()));
+    EXPECT_NO_THROW(mgr_->updateMemberRole("grp-001", "user-002", 2, makeNoopCallback()));
 }
 
 TEST_F(GroupManagerTest, UpdateNicknameDoesNotCrash) {
@@ -251,7 +251,7 @@ TEST_F(GroupManagerTest, TransferOwnershipDoesNotCrash) {
 
 TEST_F(GroupManagerTest, GetJoinRequestsDoesNotCrash) {
     EXPECT_NO_THROW(
-        mgr_->getJoinRequests("grp-001", "pending", makeNoopValueCallback<std::vector<anychat::GroupJoinRequest>>())
+        mgr_->getJoinRequests("grp-001", 1, makeNoopValueCallback<std::vector<anychat::GroupJoinRequest>>())
     );
 }
 

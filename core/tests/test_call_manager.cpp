@@ -94,7 +94,7 @@ TEST_F(CallManagerTest, IncomingCallNotificationFiresHandler) {
             "payload": {
                 "call_id": "call-001",
                 "caller_id": "user-caller-111",
-                "call_type": "video"
+                "call_type": 1
             }
         }
     })";
@@ -134,7 +134,7 @@ TEST_F(CallManagerTest, CallStatusChangedNotificationFiresHandler) {
             "timestamp": 1708329601,
             "payload": {
                 "call_id": "call-002",
-                "status": "connected"
+                "status": 1
             }
         }
     })";

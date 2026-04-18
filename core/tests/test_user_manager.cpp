@@ -1,6 +1,7 @@
 #include "user_manager.h"
 #include "notification_manager.h"
 
+#include "anychat/types.h"
 #include "network/http_client.h"
 
 #include <memory>
@@ -96,11 +97,11 @@ TEST_F(UserManagerTest, GetUserInfoDoesNotCrash) {
 }
 
 TEST_F(UserManagerTest, UpdatePushTokenDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->updatePushToken("push-token-abc", "ios", makeNoopCallback()));
+    EXPECT_NO_THROW(mgr_->updatePushToken("push-token-abc", 1, makeNoopCallback()));
 }
 
 TEST_F(UserManagerTest, UpdatePushTokenWithDeviceDoesNotCrash) {
-    EXPECT_NO_THROW(mgr_->updatePushToken("push-token-abc", "ios", "device-explicit-123", makeNoopCallback()));
+    EXPECT_NO_THROW(mgr_->updatePushToken("push-token-abc", 1, "device-explicit-123", makeNoopCallback()));
 }
 
 TEST_F(UserManagerTest, BindPhoneDoesNotCrash) {
@@ -225,18 +226,18 @@ TEST_F(UserManagerTest, StatusChangedNotificationFiresHandler) {
             "timestamp": 1708329600,
             "payload": {
                 "user_id": "user-789",
-                "status": "online",
+                "status": 1,
                 "last_active_at": 1708329555,
-                "platform": "iOS"
+                "platform": 1
             }
         }
     })");
 
     ASSERT_EQ(call_count, 1);
     EXPECT_EQ(status.user_id, "user-789");
-    EXPECT_EQ(status.status, "online");
+    EXPECT_EQ(status.status, ANYCHAT_USER_STATUS_ONLINE);
     EXPECT_EQ(status.last_active_at_ms, 1708329555000LL);
-    EXPECT_EQ(status.platform, "iOS");
+    EXPECT_EQ(status.platform, 1);
 }
 
 TEST_F(UserManagerTest, UnrelatedNotificationDoesNotFireUserHandlers) {

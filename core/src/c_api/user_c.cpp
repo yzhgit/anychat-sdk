@@ -101,9 +101,9 @@ void changeEmailToC(const anychat::ChangeEmailResult& src, AnyChatChangeEmailRes
 
 void statusEventToC(const anychat::UserStatusEvent& src, AnyChatUserStatusEvent_C* dst) {
     anychat_strlcpy(dst->user_id, src.user_id.c_str(), sizeof(dst->user_id));
-    anychat_strlcpy(dst->status, src.status.c_str(), sizeof(dst->status));
+    dst->status = src.status;
     dst->last_active_at_ms = src.last_active_at_ms;
-    anychat_strlcpy(dst->platform, src.platform.c_str(), sizeof(dst->platform));
+    dst->platform = src.platform;
 }
 
 class CUserListener final : public anychat::UserListener {
@@ -291,13 +291,16 @@ int anychat_user_update_settings(
 int anychat_user_update_push_token(
     AnyChatUserHandle handle,
     const char* push_token,
-    const char* platform,
+    int32_t platform,
     const AnyChatUserCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !push_token || !platform) {
+    if (!handle || !handle->impl || !push_token) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (platform != ANYCHAT_PUSH_PLATFORM_IOS && platform != ANYCHAT_PUSH_PLATFORM_ANDROID) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -309,14 +312,17 @@ int anychat_user_update_push_token(
 int anychat_user_update_push_token_with_device(
     AnyChatUserHandle handle,
     const char* push_token,
-    const char* platform,
+    int32_t platform,
     const char* device_id,
     const AnyChatUserCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !push_token || !platform || !device_id) {
+    if (!handle || !handle->impl || !push_token || !device_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (platform != ANYCHAT_PUSH_PLATFORM_IOS && platform != ANYCHAT_PUSH_PLATFORM_ANDROID) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 

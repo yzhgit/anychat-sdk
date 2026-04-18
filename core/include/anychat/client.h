@@ -41,7 +41,7 @@ ANYCHAT_C_API int anychat_client_login(
     AnyChatClientHandle handle,
     const char* account,
     const char* password,
-    const char* device_type,
+    int32_t device_type,
     const char* client_version,
     const AnyChatAuthTokenCallback_C* callback
 );

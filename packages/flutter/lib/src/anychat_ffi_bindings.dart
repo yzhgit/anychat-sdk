@@ -83,7 +83,7 @@ class AnyChatNativeBindings {
     ffi.Pointer<ffi.Char> phone_or_email,
     ffi.Pointer<ffi.Char> password,
     ffi.Pointer<ffi.Char> verify_code,
-    ffi.Pointer<ffi.Char> device_type,
+    int device_type,
     ffi.Pointer<ffi.Char> nickname,
     ffi.Pointer<ffi.Char> client_version,
     ffi.Pointer<AnyChatAuthTokenCallback_C> callback,
@@ -107,7 +107,7 @@ class AnyChatNativeBindings {
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
-                  ffi.Pointer<ffi.Char>,
+                  ffi.Int32,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<AnyChatAuthTokenCallback_C>)>>(
@@ -118,7 +118,7 @@ class AnyChatNativeBindings {
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
-          ffi.Pointer<ffi.Char>,
+          int,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<AnyChatAuthTokenCallback_C>)>();
@@ -163,7 +163,7 @@ class AnyChatNativeBindings {
     AnyChatClientHandle handle,
     ffi.Pointer<ffi.Char> account,
     ffi.Pointer<ffi.Char> password,
-    ffi.Pointer<ffi.Char> device_type,
+    int device_type,
     ffi.Pointer<ffi.Char> client_version,
     ffi.Pointer<AnyChatAuthTokenCallback_C> callback,
   ) {
@@ -183,7 +183,7 @@ class AnyChatNativeBindings {
                   AnyChatClientHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
-                  ffi.Pointer<ffi.Char>,
+                  ffi.Int32,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<AnyChatAuthTokenCallback_C>)>>(
       'anychat_client_login');
@@ -192,7 +192,7 @@ class AnyChatNativeBindings {
           AnyChatClientHandle,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
-          ffi.Pointer<ffi.Char>,
+          int,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<AnyChatAuthTokenCallback_C>)>();
 
@@ -615,8 +615,8 @@ final class AnyChatMessage_C extends ffi.Struct {
   @ffi.Array.multi([64])
   external ffi.Array<ffi.Char> sender_id;
 
-  @ffi.Array.multi([32])
-  external ffi.Array<ffi.Char> content_type;
+  @ffi.Int32()
+  external int content_type;
 
   /// ANYCHAT_MSG_*
   @ffi.Int()
@@ -889,6 +889,22 @@ const int ANYCHAT_MSG_AUDIO = 3;
 
 const int ANYCHAT_MSG_VIDEO = 4;
 
+const int ANYCHAT_MESSAGE_CONTENT_TYPE_UNSPECIFIED = 0;
+
+const int ANYCHAT_MESSAGE_CONTENT_TYPE_TEXT = 1;
+
+const int ANYCHAT_MESSAGE_CONTENT_TYPE_IMAGE = 2;
+
+const int ANYCHAT_MESSAGE_CONTENT_TYPE_VIDEO = 3;
+
+const int ANYCHAT_MESSAGE_CONTENT_TYPE_AUDIO = 4;
+
+const int ANYCHAT_MESSAGE_CONTENT_TYPE_FILE = 5;
+
+const int ANYCHAT_MESSAGE_CONTENT_TYPE_LOCATION = 6;
+
+const int ANYCHAT_MESSAGE_CONTENT_TYPE_CARD = 7;
+
 const int ANYCHAT_CONV_PRIVATE = 0;
 
 const int ANYCHAT_CONV_GROUP = 1;
@@ -915,8 +931,8 @@ const int ANYCHAT_CALL_STATUS_MISSED = 4;
 
 const int ANYCHAT_CALL_STATUS_CANCELLED = 5;
 
-const int ANYCHAT_GROUP_ROLE_OWNER = 0;
+const int ANYCHAT_GROUP_ROLE_OWNER = 1;
 
-const int ANYCHAT_GROUP_ROLE_ADMIN = 1;
+const int ANYCHAT_GROUP_ROLE_ADMIN = 2;
 
-const int ANYCHAT_GROUP_ROLE_MEMBER = 2;
+const int ANYCHAT_GROUP_ROLE_MEMBER = 3;

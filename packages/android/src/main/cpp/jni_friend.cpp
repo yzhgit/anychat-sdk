@@ -197,6 +197,7 @@ Java_com_anychat_sdk_Friend_nativeSendRequest(
     jlong handle,
     jstring toUserId,
     jstring message,
+    jint source,
     jobject callback
 ) {
     JNI_TRY(env)
@@ -212,7 +213,7 @@ Java_com_anychat_sdk_Friend_nativeSendRequest(
         friendHandle,
         toUserIdStr.c_str(),
         messageStr.c_str(),
-        nullptr,
+        static_cast<int32_t>(source),
         &friendCb
     );
 
@@ -231,7 +232,7 @@ Java_com_anychat_sdk_Friend_nativeHandleRequest(
     jobject thiz,
     jlong handle,
     jlong requestId,
-    jboolean accept,
+    jint action,
     jobject callback
 ) {
     JNI_TRY(env)
@@ -241,9 +242,12 @@ Java_com_anychat_sdk_Friend_nativeHandleRequest(
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
     AnyChatFriendCallback_C friendCb = makeFriendCallback(ctx);
 
-    int result = accept
-        ? anychat_friend_accept_request(friendHandle, (int64_t)requestId, &friendCb)
-        : anychat_friend_reject_request(friendHandle, (int64_t)requestId, &friendCb);
+    int result = anychat_friend_handle_request(
+        friendHandle,
+        (int64_t)requestId,
+        static_cast<int32_t>(action),
+        &friendCb
+    );
 
     if (result != ANYCHAT_OK) {
         delete ctx;
@@ -259,6 +263,7 @@ Java_com_anychat_sdk_Friend_nativeGetPendingRequests(
     JNIEnv* env,
     jobject thiz,
     jlong handle,
+    jint requestType,
     jobject callback
 ) {
     JNI_TRY(env)
@@ -268,7 +273,7 @@ Java_com_anychat_sdk_Friend_nativeGetPendingRequests(
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
     AnyChatFriendRequestListCallback_C requestListCb = makeFriendRequestListCallback(ctx);
 
-    int result = anychat_friend_get_requests(friendHandle, "received", &requestListCb);
+    int result = anychat_friend_get_requests(friendHandle, static_cast<int32_t>(requestType), &requestListCb);
     if (result != ANYCHAT_OK) {
         delete ctx;
         LOGE("Get pending friend requests failed with error code: %d", result);

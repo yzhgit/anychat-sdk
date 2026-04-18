@@ -6,6 +6,7 @@
 #include "db/database.h"
 
 #include <functional>
+#include <cstdint>
 // `memory` include not needed (no shared_ptr)
 #include <mutex>
 #include <string>
@@ -42,7 +43,7 @@ public:
     void enqueue(
         const std::string& conv_id,
         const std::string& conv_type,
-        const std::string& content_type,
+        int32_t content_type,
         const std::string& content,
         const std::string& local_id,
         AnyChatCallback cb
@@ -71,7 +72,7 @@ private:
     static std::string buildSendFrame(
         const std::string& conv_id,
         const std::string& conv_type,
-        const std::string& content_type,
+        int32_t content_type,
         const std::string& content,
         const std::string& local_id
     );
@@ -82,7 +83,7 @@ private:
     void sendRow(
         const std::string& conv_id,
         const std::string& conv_type,
-        const std::string& content_type,
+        int32_t content_type,
         const std::string& content,
         const std::string& local_id
     );

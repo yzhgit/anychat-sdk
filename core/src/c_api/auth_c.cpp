@@ -23,7 +23,7 @@ void verificationCodeToCStruct(const anychat::VerificationCodeResult& src, AnyCh
 
 void authDeviceToCStruct(const anychat::AuthDevice& src, AnyChatAuthDevice_C* dst) {
     anychat_strlcpy(dst->device_id, src.device_id.c_str(), sizeof(dst->device_id));
-    anychat_strlcpy(dst->device_type, src.device_type.c_str(), sizeof(dst->device_type));
+    dst->device_type = src.device_type;
     anychat_strlcpy(dst->client_version, src.client_version.c_str(), sizeof(dst->client_version));
     anychat_strlcpy(dst->last_login_ip, src.last_login_ip.c_str(), sizeof(dst->last_login_ip));
     dst->last_login_at_ms = src.last_login_at_ms;
@@ -91,7 +91,7 @@ int anychat_auth_login(
     AnyChatAuthHandle handle,
     const char* account,
     const char* password,
-    const char* device_type,
+    int32_t device_type,
     const char* client_version,
     const AnyChatAuthTokenCallback_C* callback
 ) {
@@ -109,7 +109,7 @@ int anychat_auth_login(
     handle->impl->login(
         account,
         password,
-        device_type ? device_type : "",
+        device_type,
         client_version ? client_version : "",
         anychat::AnyChatValueCallback<anychat::AuthToken>{
             .on_success =
@@ -136,7 +136,7 @@ int anychat_auth_register(
     const char* phone_or_email,
     const char* password,
     const char* verify_code,
-    const char* device_type,
+    int32_t device_type,
     const char* nickname,
     const char* client_version,
     const AnyChatAuthTokenCallback_C* callback
@@ -156,7 +156,7 @@ int anychat_auth_register(
         phone_or_email,
         password,
         verify_code,
-        device_type ? device_type : "",
+        device_type,
         nickname ? nickname : "",
         client_version ? client_version : "",
         anychat::AnyChatValueCallback<anychat::AuthToken>{
@@ -195,14 +195,14 @@ int anychat_auth_logout(AnyChatAuthHandle handle, const AnyChatAuthResultCallbac
 int anychat_auth_send_code(
     AnyChatAuthHandle handle,
     const char* target,
-    const char* target_type,
-    const char* purpose,
+    int32_t target_type,
+    int32_t purpose,
     const AnyChatVerificationCodeCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (!target || !target_type || !purpose) {
+    if (!target) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {

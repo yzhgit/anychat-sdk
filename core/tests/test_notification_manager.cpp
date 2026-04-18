@@ -13,7 +13,7 @@ struct NotificationPayload {
     std::string message_id{};
     std::string conversation_id{};
     std::string from_user_id{};
-    std::string content_type{};
+    int32_t content_type = 0;
     std::string content{};
     int64_t seq = 0;
     int64_t sent_at = 0;
@@ -92,7 +92,7 @@ TEST(NotificationManagerTest, NotificationDispatch) {
                 "message_id": "msg-111",
                 "conversation_id": "conv-222",
                 "from_user_id": "user-333",
-                "content_type": "text",
+                "content_type": 1,
                 "content": "你好吗？",
                 "sent_at": 1708329595,
                 "seq": 43
@@ -112,7 +112,7 @@ TEST(NotificationManagerTest, NotificationDispatch) {
     EXPECT_EQ(payload.message_id, "msg-111");
     EXPECT_EQ(payload.conversation_id, "conv-222");
     EXPECT_EQ(payload.from_user_id, "user-333");
-    EXPECT_EQ(payload.content_type, "text");
+    EXPECT_EQ(payload.content_type, 1);
     EXPECT_EQ(payload.seq, 43);
     EXPECT_EQ(payload.sent_at, 1708329595);
 }

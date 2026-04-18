@@ -13,7 +13,7 @@ public:
 
     // GET /versions/check?platform=&version=&buildNumber=
     virtual void checkVersion(
-        const std::string& platform,
+        int32_t platform,
         const std::string& version,
         int32_t build_number,
         AnyChatValueCallback<VersionCheckResult> callback
@@ -21,15 +21,15 @@ public:
 
     // GET /versions/latest?platform=&releaseType=
     virtual void getLatestVersion(
-        const std::string& platform,
-        const std::string& release_type,
+        int32_t platform,
+        int32_t release_type,
         AnyChatValueCallback<AppVersionInfo> callback
     ) = 0;
 
     // GET /versions/list?platform=&releaseType=&page=&pageSize=
     virtual void listVersions(
-        const std::string& platform,
-        const std::string& release_type,
+        int32_t platform,
+        int32_t release_type,
         int page,
         int page_size,
         AnyChatValueCallback<VersionListResult> callback
@@ -37,7 +37,7 @@ public:
 
     // POST /versions/report
     virtual void reportVersion(
-        const std::string& platform,
+        int32_t platform,
         const std::string& version,
         int32_t build_number,
         const std::string& device_id,

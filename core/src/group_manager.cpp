@@ -11,6 +11,19 @@
 
 namespace anychat::group_manager_detail {
 
+static constexpr int32_t kGroupRoleUnknown = 0;
+static constexpr int32_t kGroupRoleOwner = 1;
+static constexpr int32_t kGroupRoleAdmin = 2;
+static constexpr int32_t kGroupRoleMember = 3;
+static constexpr int32_t kJoinRequestStatusUnknown = 0;
+static constexpr int32_t kJoinRequestStatusPending = 1;
+static constexpr int32_t kJoinRequestStatusAccepted = 2;
+static constexpr int32_t kJoinRequestStatusRejected = 3;
+
+static_assert(static_cast<int32_t>(GroupRole::Owner) == kGroupRoleOwner, "group role owner value mismatch");
+static_assert(static_cast<int32_t>(GroupRole::Admin) == kGroupRoleAdmin, "group role admin value mismatch");
+static_assert(static_cast<int32_t>(GroupRole::Member) == kGroupRoleMember, "group role member value mismatch");
+
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
 using json_common::parseBoolValue;
@@ -19,7 +32,6 @@ using json_common::parseInt64Value;
 using json_common::parseJsonObject;
 using json_common::parseTimestampMs;
 using json_common::pickList;
-using json_common::toLowerCopy;
 using json_common::writeJson;
 
 struct CreateGroupBody {
@@ -41,7 +53,7 @@ struct UpdateGroupBody {
 };
 
 struct UpdateMemberRoleBody {
-    std::string role{};
+    int32_t role = 0;
 };
 
 struct UpdateNicknameBody {
@@ -60,8 +72,6 @@ using IntegerValue = std::variant<int64_t, double, std::string>;
 using OptionalIntegerValue = std::optional<IntegerValue>;
 using BooleanValue = std::variant<bool, int64_t, double, std::string>;
 using OptionalBooleanValue = std::optional<BooleanValue>;
-using RoleValue = std::variant<int64_t, double, std::string>;
-using OptionalRoleValue = std::optional<RoleValue>;
 
 struct UserInfoPayload {
     std::string user_id{};
@@ -79,7 +89,7 @@ struct GroupPayload {
     std::string owner_id{};
     OptionalIntegerValue member_count{};
     OptionalIntegerValue max_members{};
-    OptionalRoleValue my_role{};
+    OptionalIntegerValue my_role{};
     OptionalBooleanValue join_verify{};
     OptionalBooleanValue is_muted{};
     json_common::OptionalTimestampValue created_at{};
@@ -96,7 +106,7 @@ struct GroupInfoPayload {
     std::string owner_id{};
     int32_t member_count = 0;
     int32_t max_members = 0;
-    std::string my_role{};
+    int32_t my_role = 0;
     bool join_verify = false;
     bool is_muted = false;
     json_common::OptionalTimestampValue created_at{};
@@ -110,7 +120,7 @@ struct GroupListDataPayload {
 struct GroupMemberPayload {
     std::string user_id{};
     std::string group_nickname{};
-    OptionalRoleValue role{};
+    OptionalIntegerValue role{};
     OptionalBooleanValue is_muted{};
     json_common::OptionalTimestampValue muted_until{};
     json_common::OptionalTimestampValue joined_at{};
@@ -127,7 +137,7 @@ struct GroupJoinRequestPayload {
     std::string user_id{};
     std::string inviter_id{};
     std::string message{};
-    std::string status{};
+    int32_t status = 0;
     json_common::OptionalTimestampValue created_at{};
     std::optional<UserInfoPayload> user_info{};
 };
@@ -152,7 +162,7 @@ struct NotificationGroupPayload {
     std::string owner_id{};
     int32_t member_count = 0;
     int32_t max_members = 0;
-    std::string my_role{};
+    int32_t my_role = 0;
     bool join_verify = false;
     bool is_muted = false;
     json_common::OptionalTimestampValue created_at{};
@@ -168,7 +178,7 @@ struct NotificationGroupEventPayload {
     std::string owner_id{};
     int32_t member_count = 0;
     int32_t max_members = 0;
-    std::string my_role{};
+    int32_t my_role = 0;
     bool join_verify = false;
     bool is_muted = false;
     json_common::OptionalTimestampValue created_at{};
@@ -177,8 +187,8 @@ struct NotificationGroupEventPayload {
     std::string operator_user_id{};
     std::string target_user_id{};
     std::string user_id{};
-    std::string old_role{};
-    std::string new_role{};
+    int32_t old_role = 0;
+    int32_t new_role = 0;
     int64_t request_id = 0;
     std::string source{};
     std::string token{};
@@ -186,48 +196,33 @@ struct NotificationGroupEventPayload {
     std::optional<std::vector<std::string>> updated_fields{};
 };
 
-GroupRole parseRoleString(const std::string& role_str) {
-    const std::string lowered = toLowerCopy(role_str);
-    if (lowered == "owner") {
+GroupRole parseRoleCode(int32_t role_code, GroupRole default_value = GroupRole::Member) {
+    switch (role_code) {
+    case kGroupRoleOwner:
         return GroupRole::Owner;
-    }
-    if (lowered == "admin") {
+    case kGroupRoleAdmin:
         return GroupRole::Admin;
-    }
-    return GroupRole::Member;
-}
-
-std::string roleToString(GroupRole role) {
-    switch (role) {
-    case GroupRole::Owner:
-        return "owner";
-    case GroupRole::Admin:
-        return "admin";
-    case GroupRole::Member:
-    default:
-        return "member";
-    }
-}
-
-GroupRole parseRoleValue(const RoleValue& value, GroupRole default_value = GroupRole::Member) {
-    if (const auto* int_value = std::get_if<int64_t>(&value); int_value != nullptr) {
-        if (*int_value == 0) {
-            return GroupRole::Owner;
-        }
-        if (*int_value == 1) {
-            return GroupRole::Admin;
-        }
+    case kGroupRoleMember:
         return GroupRole::Member;
+    default:
+        return default_value;
+    }
+}
+
+bool isValidGroupRoleCode(int32_t role_code) {
+    return role_code == kGroupRoleOwner || role_code == kGroupRoleAdmin || role_code == kGroupRoleMember;
+}
+
+bool isValidJoinRequestStatusCode(int32_t status) {
+    return status == kJoinRequestStatusPending || status == kJoinRequestStatusAccepted || status == kJoinRequestStatusRejected;
+}
+
+GroupRole parseRoleValue(const IntegerValue& value, GroupRole default_value = GroupRole::Member) {
+    if (const auto* int_value = std::get_if<int64_t>(&value); int_value != nullptr) {
+        return parseRoleCode(static_cast<int32_t>(*int_value), default_value);
     }
     if (const auto* dbl_value = std::get_if<double>(&value); dbl_value != nullptr) {
-        const int64_t int_value = static_cast<int64_t>(*dbl_value);
-        if (int_value == 0) {
-            return GroupRole::Owner;
-        }
-        if (int_value == 1) {
-            return GroupRole::Admin;
-        }
-        return GroupRole::Member;
+        return parseRoleCode(static_cast<int32_t>(*dbl_value), default_value);
     }
     if (const auto* str_value = std::get_if<std::string>(&value); str_value != nullptr) {
         if (str_value->empty()) {
@@ -239,14 +234,13 @@ GroupRole parseRoleValue(const RoleValue& value, GroupRole default_value = Group
         if (end != nullptr && *end == '\0') {
             return parseRoleValue(parsed, default_value);
         }
-
-        return parseRoleString(*str_value);
+        return default_value;
     }
     return default_value;
 }
 
 GroupRole
-parseRoleValue(const OptionalRoleValue& primary, const OptionalRoleValue& secondary, GroupRole default_value) {
+parseRoleValue(const OptionalIntegerValue& primary, const OptionalIntegerValue& secondary, GroupRole default_value) {
     if (primary.has_value()) {
         return parseRoleValue(*primary, default_value);
     }
@@ -254,6 +248,10 @@ parseRoleValue(const OptionalRoleValue& primary, const OptionalRoleValue& second
         return parseRoleValue(*secondary, default_value);
     }
     return default_value;
+}
+
+GroupRole parseRoleValue(int32_t role_code, GroupRole default_value = GroupRole::Member) {
+    return parseRoleCode(role_code, default_value);
 }
 
 UserInfo toUserInfo(const UserInfoPayload& payload) {
@@ -294,7 +292,7 @@ Group parseGroupInfo(const GroupInfoPayload& payload) {
     g.owner_id = payload.owner_id;
     g.member_count = payload.member_count;
     g.max_members = payload.max_members;
-    g.my_role = parseRoleString(payload.my_role);
+    g.my_role = parseRoleValue(payload.my_role, GroupRole::Member);
     g.join_verify = payload.join_verify;
     g.is_muted = payload.is_muted;
     g.created_at_ms = parseTimestampMs(payload.created_at);
@@ -328,7 +326,10 @@ GroupJoinRequest parseJoinRequest(const GroupJoinRequestPayload& payload) {
     req.user_id = payload.user_id;
     req.inviter_id = payload.inviter_id;
     req.message = payload.message;
-    req.status = payload.status.empty() ? "pending" : payload.status;
+    req.status = payload.status == 0 ? kJoinRequestStatusPending : payload.status;
+    if (!isValidJoinRequestStatusCode(req.status)) {
+        req.status = kJoinRequestStatusPending;
+    }
     req.created_at_ms = parseTimestampMs(payload.created_at);
 
     if (payload.user_info.has_value()) {
@@ -380,8 +381,8 @@ NotificationGroupPayload toGroupPayload(const NotificationGroupEventPayload& pay
 }
 
 GroupRole parseNotificationRole(const NotificationGroupPayload& payload, GroupRole fallback = GroupRole::Member) {
-    if (!payload.my_role.empty()) {
-        return parseRoleString(payload.my_role);
+    if (payload.my_role != 0) {
+        return parseRoleValue(payload.my_role, fallback);
     }
     return fallback;
 }
@@ -468,7 +469,7 @@ void GroupManagerImpl::getGroupList(AnyChatValueCallback<std::vector<Group>> cb)
                           g.avatar_url,
                           g.owner_id,
                           static_cast<int64_t>(g.member_count),
-                          roleToString(g.my_role),
+                          static_cast<int64_t>(static_cast<int32_t>(g.my_role)),
                           g.updated_at_ms },
                         nullptr
                     );
@@ -536,7 +537,7 @@ void GroupManagerImpl::create(
                   group.avatar_url,
                   group.owner_id,
                   static_cast<int64_t>(group.member_count),
-                  roleToString(group.my_role),
+                  static_cast<int64_t>(static_cast<int32_t>(group.my_role)),
                   group.updated_at_ms },
                 nullptr
             );
@@ -674,10 +675,17 @@ void GroupManagerImpl::removeMember(const std::string& group_id, const std::stri
 void GroupManagerImpl::updateMemberRole(
     const std::string& group_id,
     const std::string& user_id,
-    GroupRole role,
+    int32_t role,
     AnyChatCallback cb
 ) {
-    const UpdateMemberRoleBody body{.role = roleToString(role)};
+    if (!isValidGroupRoleCode(role)) {
+        if (cb.on_error) {
+            cb.on_error(-1, "invalid role");
+        }
+        return;
+    }
+
+    const UpdateMemberRoleBody body{.role = role};
 
     std::string body_json;
     std::string err;
@@ -736,12 +744,18 @@ void GroupManagerImpl::transferOwnership(
 
 void GroupManagerImpl::getJoinRequests(
     const std::string& group_id,
-    const std::string& status,
+    int32_t status,
     AnyChatValueCallback<std::vector<GroupJoinRequest>> cb
 ) {
     std::string path = "/groups/" + group_id + "/requests";
-    if (!status.empty()) {
-        path += "?status=" + status;
+    if (status != kJoinRequestStatusUnknown) {
+        if (!isValidJoinRequestStatusCode(status)) {
+            if (cb.on_error) {
+                cb.on_error(-1, "invalid status");
+            }
+            return;
+        }
+        path += "?status=" + std::to_string(status);
     }
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {

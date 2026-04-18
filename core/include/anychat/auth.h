@@ -45,14 +45,14 @@ typedef struct {
 /* ---- Auth operations ---- */
 
 /* Login with account (phone / e-mail) and password.
- * device_type: "ios" | "android" | "web"
+ * device_type: ANYCHAT_DEVICE_TYPE_*
  * client_version: client version string (e.g. "1.0.0"), can be NULL
  * Returns ANYCHAT_OK if the request was dispatched; callback fires asynchronously. */
 ANYCHAT_C_API int anychat_auth_login(
     AnyChatAuthHandle handle,
     const char* account,
     const char* password,
-    const char* device_type,
+    int32_t device_type,
     const char* client_version,
     const AnyChatAuthTokenCallback_C* callback
 );
@@ -66,20 +66,20 @@ ANYCHAT_C_API int anychat_auth_register(
     const char* phone_or_email,
     const char* password,
     const char* verify_code,
-    const char* device_type,
+    int32_t device_type,
     const char* nickname,
     const char* client_version,
     const AnyChatAuthTokenCallback_C* callback
 );
 
 /* Send verification code.
- * target_type: "sms" | "email"
- * purpose: e.g. "register", "reset_password" */
+ * target_type: ANYCHAT_VERIFY_TARGET_*
+ * purpose: ANYCHAT_VERIFY_PURPOSE_* */
 ANYCHAT_C_API int anychat_auth_send_code(
     AnyChatAuthHandle handle,
     const char* target,
-    const char* target_type,
-    const char* purpose,
+    int32_t target_type,
+    int32_t purpose,
     const AnyChatVerificationCodeCallback_C* callback
 );
 

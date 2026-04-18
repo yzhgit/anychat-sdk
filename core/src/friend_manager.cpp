@@ -5,12 +5,14 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace anychat::friend_manager_detail {
 
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
+using json_common::parseInt32Value;
 using json_common::parseJsonObject;
 using json_common::parseTimestampMs;
 using json_common::pickList;
@@ -20,12 +22,14 @@ using json_common::writeJson;
 struct SendFriendRequestBody {
     std::string user_id{};
     std::string message{};
-    std::string source{};
+    int32_t source = 0;
 };
 
+using EnumValue = std::variant<int64_t, double, bool, std::string>;
+using OptionalEnumValue = std::optional<EnumValue>;
+
 struct HandleFriendRequestBody {
-    bool accept = false;
-    std::string action{};
+    int32_t action = 0;
 };
 
 struct UpdateRemarkBody {
@@ -58,8 +62,8 @@ struct NotificationFriendEventPayload {
     std::string from_user_id{};
     std::string to_user_id{};
     std::string message{};
-    std::string source{};
-    std::string status{};
+    OptionalEnumValue source{};
+    OptionalEnumValue status{};
     std::string action{};
     json_common::OptionalTimestampValue updated_at{};
     json_common::OptionalTimestampValue created_at{};
@@ -88,8 +92,8 @@ struct FriendRequestPayload {
     std::string from_user_id{};
     std::string to_user_id{};
     std::string message{};
-    std::string source{};
-    std::string status{};
+    OptionalEnumValue source{};
+    OptionalEnumValue status{};
     json_common::OptionalTimestampValue created_at{};
     std::optional<NotificationUserInfoPayload> from_user_info{};
 };
@@ -123,6 +127,24 @@ UserInfo toUserInfo(const NotificationUserInfoPayload& payload) {
     return info;
 }
 
+constexpr int32_t kFriendSourceSearch = 1;
+constexpr int32_t kFriendRequestStatusPending = 1;
+constexpr int32_t kFriendRequestStatusAccepted = 2;
+constexpr int32_t kFriendRequestStatusRejected = 3;
+constexpr int32_t kFriendRequestStatusExpired = 4;
+constexpr int32_t kFriendRequestActionAccept = 1;
+constexpr int32_t kFriendRequestActionReject = 2;
+constexpr int32_t kFriendRequestQueryTypeReceived = 1;
+constexpr int32_t kFriendRequestQueryTypeSent = 2;
+
+int32_t normalizeSource(const OptionalEnumValue& value) {
+    return parseInt32Value(value, kFriendSourceSearch);
+}
+
+int32_t normalizeStatus(const OptionalEnumValue& value) {
+    return parseInt32Value(value, kFriendRequestStatusPending);
+}
+
 Friend toFriend(const FriendPayload& payload) {
     Friend f;
     f.user_id = payload.user_id;
@@ -145,8 +167,8 @@ FriendRequest toFriendRequest(const FriendRequestPayload& payload) {
     request.from_user_id = payload.from_user_id;
     request.to_user_id = payload.to_user_id;
     request.message = payload.message;
-    request.source = payload.source;
-    request.status = payload.status.empty() ? "pending" : payload.status;
+    request.source = normalizeSource(payload.source);
+    request.status = normalizeStatus(payload.status);
     request.created_at_ms = parseTimestampMs(payload.created_at);
 
     if (payload.from_user_info.has_value()) {
@@ -217,8 +239,8 @@ FriendRequest parseNotificationFriendRequest(const NotificationFriendEventPayloa
     request.from_user_id = payload.from_user_id;
     request.to_user_id = payload.to_user_id;
     request.message = payload.message;
-    request.source = payload.source;
-    request.status = payload.status.empty() ? "pending" : payload.status;
+    request.source = normalizeSource(payload.source);
+    request.status = normalizeStatus(payload.status);
     request.created_at_ms = parseTimestampMs(payload.created_at);
 
     if (payload.from_user_info.has_value()) {
@@ -250,8 +272,8 @@ std::string parseBlacklistAction(const NotificationFriendEventPayload& payload) 
     return payload.action;
 }
 
-std::string parseRequestStatus(const NotificationFriendEventPayload& payload) {
-    return toLowerCopy(payload.status);
+int32_t parseRequestStatus(const NotificationFriendEventPayload& payload) {
+    return normalizeStatus(payload.status);
 }
 
 bool isAddAction(const std::string& action) {
@@ -349,13 +371,13 @@ void FriendManagerImpl::getFriendList(AnyChatValueCallback<std::vector<Friend>> 
 void FriendManagerImpl::addFriend(
     const std::string& to_user_id,
     const std::string& message,
-    const std::string& source,
+    int32_t source,
     AnyChatCallback cb
 ) {
     const SendFriendRequestBody body{
         .user_id = to_user_id,
         .message = message,
-        .source = source.empty() ? "search" : source,
+        .source = source > 0 ? source : kFriendSourceSearch,
     };
 
     std::string body_json;
@@ -397,16 +419,15 @@ void FriendManagerImpl::updateRemark(const std::string& friend_id, const std::st
     });
 }
 
-void FriendManagerImpl::acceptFriendRequest(int64_t request_id, AnyChatCallback cb) {
-    handleFriendRequest(request_id, true, std::move(cb));
-}
+void FriendManagerImpl::handleFriendRequest(int64_t request_id, int32_t action, AnyChatCallback cb) {
+    if (action != kFriendRequestActionAccept && action != kFriendRequestActionReject) {
+        if (cb.on_error) {
+            cb.on_error(-1, "invalid action");
+        }
+        return;
+    }
 
-void FriendManagerImpl::rejectFriendRequest(int64_t request_id, AnyChatCallback cb) {
-    handleFriendRequest(request_id, false, std::move(cb));
-}
-
-void FriendManagerImpl::handleFriendRequest(int64_t request_id, bool accept, AnyChatCallback cb) {
-    const HandleFriendRequestBody body{ .accept = accept, .action = accept ? "accept" : "reject" };
+    const HandleFriendRequestBody body{ .action = action };
 
     std::string body_json;
     std::string err;
@@ -424,11 +445,21 @@ void FriendManagerImpl::handleFriendRequest(int64_t request_id, bool accept, Any
 }
 
 void FriendManagerImpl::getFriendRequests(
-    const std::string& request_type,
+    int32_t request_type,
     AnyChatValueCallback<std::vector<FriendRequest>> cb
 ) {
-    const std::string type = request_type.empty() ? "received" : request_type;
-    const std::string path = "/friends/requests?type=" + type;
+    int32_t type = request_type;
+    if (type == 0) {
+        type = kFriendRequestQueryTypeReceived;
+    }
+    if (type != kFriendRequestQueryTypeReceived && type != kFriendRequestQueryTypeSent) {
+        if (cb.on_error) {
+            cb.on_error(-1, "invalid request_type");
+        }
+        return;
+    }
+
+    const std::string path = "/friends/requests?request_type=" + std::to_string(type);
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<FriendRequestListDataPayload> root{};
@@ -562,13 +593,12 @@ void FriendManagerImpl::handleFriendNotification(const NotificationEvent& event)
 
         if (type == "friend.request_handled") {
             FriendRequest req = parseNotificationFriendRequest(payload);
-            const std::string status = parseRequestStatus(payload);
-            if (status == "accepted" || status == "accept" || status == "approved" || status == "approve") {
+            const int32_t status = parseRequestStatus(payload);
+            if (status == kFriendRequestStatusAccepted) {
                 listener->onFriendRequestAccepted(req);
-            } else if (status == "rejected" || status == "reject" || status == "declined" || status == "decline") {
+            } else if (status == kFriendRequestStatusRejected) {
                 listener->onFriendRequestRejected(req);
-            } else if (status == "deleted" || status == "delete" || status == "canceled" || status == "cancelled"
-                       || status == "cancel") {
+            } else if (status == kFriendRequestStatusExpired) {
                 listener->onFriendRequestDeleted(req);
             }
             return;

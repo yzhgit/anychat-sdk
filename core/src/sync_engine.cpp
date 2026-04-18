@@ -80,7 +80,7 @@ struct ConversationDeltaListPayload {
 struct MessageDeltaPayload {
     std::string message_id{};
     std::string sender_id{};
-    std::string content_type = "text";
+    OptionalIntegerValue content_type{};
     std::optional<MessageContentValue> content{};
     OptionalIntegerValue sequence{};
     std::string reply_to{};
@@ -267,6 +267,8 @@ void mergeConvMessages(
             const int64_t timestamp_ms = parseTimestampMs(payload.created_at);
             const std::string content = parseMessageContent(payload.content);
             const int status = static_cast<int>(parseInt64Value(payload.status, 0));
+            const int32_t content_type_raw = static_cast<int32_t>(parseInt64Value(payload.content_type, 1));
+            const int32_t content_type = (content_type_raw >= 1 && content_type_raw <= 7) ? content_type_raw : 1;
 
             db->execSync(
                 "INSERT OR IGNORE INTO messages "
@@ -276,7 +278,7 @@ void mergeConvMessages(
                 { payload.message_id,
                   conv_id,
                   payload.sender_id,
-                  payload.content_type,
+                  static_cast<int64_t>(content_type),
                   content,
                   sequence,
                   payload.reply_to,
@@ -290,7 +292,7 @@ void mergeConvMessages(
             msg.message_id = payload.message_id;
             msg.conv_id = conv_id;
             msg.sender_id = payload.sender_id;
-            msg.content_type = payload.content_type;
+            msg.content_type = content_type;
             msg.content = content;
             msg.seq = sequence;
             msg.reply_to = payload.reply_to;

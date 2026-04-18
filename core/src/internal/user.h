@@ -42,13 +42,12 @@ public:
     virtual void updateSettings(const UserSettings& settings, AnyChatValueCallback<UserSettings> callback) = 0;
 
     // POST /users/me/push-token
-    virtual void
-    updatePushToken(const std::string& push_token, const std::string& platform, AnyChatCallback callback) = 0;
+    virtual void updatePushToken(const std::string& push_token, int32_t platform, AnyChatCallback callback) = 0;
 
     // POST /users/me/push-token
     virtual void updatePushToken(
         const std::string& push_token,
-        const std::string& platform,
+        int32_t platform,
         const std::string& device_id,
         AnyChatCallback callback
     ) = 0;

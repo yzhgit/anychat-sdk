@@ -62,7 +62,7 @@ struct UnreadStateMessagePayload {
     std::string message_id{};
     std::string conversation_id{};
     std::string sender_id{};
-    std::string content_type{};
+    std::optional<int32_t> content_type{};
     std::optional<MessageContentValue> content{};
     std::optional<int64_t> sequence{};
     json_common::OptionalTimestampValue timestamp{};
@@ -176,7 +176,7 @@ Message parseUnreadStateMessage(const UnreadStateMessagePayload& payload, const 
     msg.message_id = payload.message_id;
     msg.conv_id = payload.conversation_id.empty() ? conv_id : payload.conversation_id;
     msg.sender_id = payload.sender_id;
-    msg.content_type = payload.content_type;
+    msg.content_type = parseInt32Value(payload.content_type, 1);
     msg.content = parseMessageContent(payload.content);
     msg.seq = parseInt64Value(payload.sequence, 0);
     msg.timestamp_ms =

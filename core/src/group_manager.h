@@ -30,14 +30,13 @@ public:
     getMembers(const std::string& group_id, int page, int page_size, AnyChatValueCallback<std::vector<GroupMember>> cb)
         override;
     void removeMember(const std::string& group_id, const std::string& user_id, AnyChatCallback cb) override;
-    void
-    updateMemberRole(const std::string& group_id, const std::string& user_id, GroupRole role, AnyChatCallback cb)
+    void updateMemberRole(const std::string& group_id, const std::string& user_id, int32_t role, AnyChatCallback cb)
         override;
     void updateNickname(const std::string& group_id, const std::string& nickname, AnyChatCallback cb) override;
     void transferOwnership(const std::string& group_id, const std::string& new_owner_id, AnyChatCallback cb) override;
     void getJoinRequests(
         const std::string& group_id,
-        const std::string& status,
+        int32_t status,
         AnyChatValueCallback<std::vector<GroupJoinRequest>> cb
     )
         override;

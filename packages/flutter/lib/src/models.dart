@@ -89,10 +89,16 @@ enum GroupRole {
   member;
 
   static GroupRole fromInt(int value) {
-    if (value < 0 || value >= GroupRole.values.length) {
-      return GroupRole.member;
+    switch (value) {
+      case 1:
+        return GroupRole.owner;
+      case 2:
+        return GroupRole.admin;
+      case 3:
+        return GroupRole.member;
+      default:
+        return GroupRole.member;
     }
-    return GroupRole.values[value];
   }
 }
 
@@ -138,7 +144,7 @@ class Message {
   final String localId;
   final String convId;
   final String senderId;
-  final String contentType;
+  final int contentType;
   final MessageType type;
   final String content;
   final int seq;
@@ -235,7 +241,8 @@ class FriendRequest {
   final String fromUserId;
   final String toUserId;
   final String message;
-  final String status;
+  final int source;
+  final int status;
   final int createdAtMs;
   final UserInfo fromUserInfo;
 
@@ -244,6 +251,7 @@ class FriendRequest {
     required this.fromUserId,
     required this.toUserId,
     required this.message,
+    required this.source,
     required this.status,
     required this.createdAtMs,
     required this.fromUserInfo,
@@ -254,7 +262,7 @@ class FriendRequest {
 
   @override
   String toString() =>
-      'FriendRequest(requestId: $requestId, from: $fromUserId, status: $status)';
+      'FriendRequest(requestId: $requestId, from: $fromUserId, source: $source, status: $status)';
 }
 
 /// Group
@@ -311,7 +319,7 @@ class GroupMember {
 class FileInfo {
   final String fileId;
   final String fileName;
-  final String fileType;
+  final int fileType;
   final int fileSizeBytes;
   final String mimeType;
   final String downloadUrl;

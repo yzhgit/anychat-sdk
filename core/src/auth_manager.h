@@ -30,7 +30,7 @@ public:
         const std::string& phone_or_email,
         const std::string& password,
         const std::string& verify_code,
-        const std::string& device_type,
+        int32_t device_type,
         const std::string& nickname,
         const std::string& client_version,
         AnyChatValueCallback<AuthToken> callback
@@ -38,15 +38,15 @@ public:
 
     void sendVerificationCode(
         const std::string& target,
-        const std::string& target_type,
-        const std::string& purpose,
+        int32_t target_type,
+        int32_t purpose,
         AnyChatValueCallback<VerificationCodeResult> callback
     ) override;
 
     void login(
         const std::string& account,
         const std::string& password,
-        const std::string& device_type,
+        int32_t device_type,
         const std::string& client_version,
         AnyChatValueCallback<AuthToken> callback
     ) override;

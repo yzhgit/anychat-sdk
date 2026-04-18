@@ -72,7 +72,7 @@ protected:
 TEST_F(OutboundQueueTest, EnqueuePersists) {
     const std::string local_id = "local-001";
 
-    queue_->enqueue("conv-1", "private", "text", "Hello world", local_id, anychat::AnyChatCallback{});
+    queue_->enqueue("conv-1", "private", 1, "Hello world", local_id, anychat::AnyChatCallback{});
 
     // drainDb() ensures the async INSERT has been committed.
     drainDb();
@@ -87,7 +87,7 @@ TEST_F(OutboundQueueTest, EnqueuePersists) {
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, FlushOnConnect) {
     const std::string local_id = "local-002";
-    queue_->enqueue("conv-flush", "private", "text", "Test content", local_id, anychat::AnyChatCallback{});
+    queue_->enqueue("conv-flush", "private", 1, "Test content", local_id, anychat::AnyChatCallback{});
     drainDb();
 
     std::vector<std::string> sent_payloads;
@@ -124,7 +124,7 @@ TEST_F(OutboundQueueTest, AckRemovesRow) {
         cb_called = true;
     };
 
-    queue_->enqueue("conv-ack", "private", "text", "Ack test", local_id, std::move(callback));
+    queue_->enqueue("conv-ack", "private", 1, "Ack test", local_id, std::move(callback));
     drainDb();
 
     // Connect (flush any pending rows).
@@ -154,7 +154,7 @@ TEST_F(OutboundQueueTest, AckRemovesRow) {
 TEST_F(OutboundQueueTest, RetryOnReconnect) {
     const std::string local_id = "local-004";
 
-    queue_->enqueue("conv-retry", "private", "text", "Retry me", local_id, anychat::AnyChatCallback{});
+    queue_->enqueue("conv-retry", "private", 1, "Retry me", local_id, anychat::AnyChatCallback{});
     drainDb();
 
     // First connection — row is sent, but NOT acknowledged (no ack received).
@@ -186,8 +186,8 @@ TEST_F(OutboundQueueTest, RetryOnReconnect) {
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, DuplicateLocalIdIgnored) {
     const std::string local_id = "local-dup";
-    queue_->enqueue("conv-1", "private", "text", "first", local_id, anychat::AnyChatCallback{});
-    queue_->enqueue("conv-1", "private", "text", "second", local_id, anychat::AnyChatCallback{});
+    queue_->enqueue("conv-1", "private", 1, "first", local_id, anychat::AnyChatCallback{});
+    queue_->enqueue("conv-1", "private", 1, "second", local_id, anychat::AnyChatCallback{});
     drainDb();
 
     EXPECT_EQ(rowCount(local_id), 1) << "Duplicate local_id should not create a second row";
@@ -198,9 +198,9 @@ TEST_F(OutboundQueueTest, DuplicateLocalIdIgnored) {
 //    Enqueue several messages, then call onConnected — each should be sent.
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, MultipleEnqueueFlushesAll) {
-    queue_->enqueue("conv-m", "private", "text", "msg-a", "local-a", anychat::AnyChatCallback{});
-    queue_->enqueue("conv-m", "private", "text", "msg-b", "local-b", anychat::AnyChatCallback{});
-    queue_->enqueue("conv-m", "private", "text", "msg-c", "local-c", anychat::AnyChatCallback{});
+    queue_->enqueue("conv-m", "private", 1, "msg-a", "local-a", anychat::AnyChatCallback{});
+    queue_->enqueue("conv-m", "private", 1, "msg-b", "local-b", anychat::AnyChatCallback{});
+    queue_->enqueue("conv-m", "private", 1, "msg-c", "local-c", anychat::AnyChatCallback{});
     drainDb();
 
     EXPECT_EQ(totalRows(), 3);
