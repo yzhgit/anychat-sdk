@@ -1,4 +1,4 @@
-#include "internal/client.h"
+#include "client_impl.h"
 
 #include "auth_manager.h"
 #include "call_manager.h"
@@ -13,10 +13,6 @@
 #include "sync_engine.h"
 #include "user_manager.h"
 #include "version_manager.h"
-
-#include "internal/auth.h"
-#include "internal/message.h"
-#include "internal/types.h"
 
 #include "cache/conversation_cache.h"
 #include "cache/message_cache.h"
@@ -53,7 +49,7 @@ AnyChatClient::AnyChatClient(const ClientConfig& config)
     msg_cache_ = std::make_unique<cache::MessageCache>();
     notif_mgr_ = std::make_unique<NotificationManager>();
 
-    auth_mgr_ = createAuthManager(http_, config.device_id, db_.get(), notif_mgr_.get());
+    auth_mgr_ = std::make_unique<AuthManagerImpl>(http_, config.device_id, db_.get(), notif_mgr_.get());
     outbound_q_ = std::make_unique<OutboundQueue>(db_.get());
     sync_engine_ = std::make_unique<SyncEngine>(db_.get(), conv_cache_.get(), msg_cache_.get(), http_);
 
@@ -145,39 +141,39 @@ void AnyChatClient::setOnConnectionStateChanged(ConnectionStateCallback callback
     state_cb_ = std::move(callback);
 }
 
-AuthManager& AnyChatClient::authMgr() {
+AuthManagerImpl& AnyChatClient::authMgr() {
     return *auth_mgr_;
 }
 
-MessageManager& AnyChatClient::messageMgr() {
+MessageManagerImpl& AnyChatClient::messageMgr() {
     return *msg_mgr_;
 }
 
-ConversationManager& AnyChatClient::conversationMgr() {
+ConversationManagerImpl& AnyChatClient::conversationMgr() {
     return *conv_mgr_;
 }
 
-FriendManager& AnyChatClient::friendMgr() {
+FriendManagerImpl& AnyChatClient::friendMgr() {
     return *friend_mgr_;
 }
 
-GroupManager& AnyChatClient::groupMgr() {
+GroupManagerImpl& AnyChatClient::groupMgr() {
     return *group_mgr_;
 }
 
-FileManager& AnyChatClient::fileMgr() {
+FileManagerImpl& AnyChatClient::fileMgr() {
     return *file_mgr_;
 }
 
-UserManager& AnyChatClient::userMgr() {
+UserManagerImpl& AnyChatClient::userMgr() {
     return *user_mgr_;
 }
 
-CallManager& AnyChatClient::callMgr() {
+CallManagerImpl& AnyChatClient::callMgr() {
     return *call_mgr_;
 }
 
-VersionManager& AnyChatClient::versionMgr() {
+VersionManagerImpl& AnyChatClient::versionMgr() {
     return *version_mgr_;
 }
 

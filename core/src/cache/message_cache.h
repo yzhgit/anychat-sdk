@@ -1,16 +1,16 @@
 #pragma once
 
-#include "internal/types.h"
+#include "sdk_types.h"
 
 #include <algorithm>
 #include <functional>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-namespace anychat::cache {
+namespace anychat {
+namespace cache {
 
 static constexpr size_t kDefaultBucketSize = 100;
 
@@ -130,4 +130,5 @@ private:
     std::unordered_map<std::string, std::vector<Message>> buckets_;
 };
 
-} // namespace anychat::cache
+} // namespace cache
+} // namespace anychat

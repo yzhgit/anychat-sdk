@@ -1,6 +1,6 @@
 #pragma once
 
-#include "internal/types.h"
+#include "sdk_types.h"
 
 #include <algorithm>
 #include <mutex>
@@ -8,7 +8,8 @@
 #include <string>
 #include <vector>
 
-namespace anychat::cache {
+namespace anychat {
+namespace cache {
 
 // Maintains an in-memory sorted list of Conversation objects.
 //
@@ -143,4 +144,5 @@ private:
     std::vector<Conversation> convs_;
 };
 
-} // namespace anychat::cache
+} // namespace cache
+} // namespace anychat

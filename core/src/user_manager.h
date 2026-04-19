@@ -1,6 +1,7 @@
 #pragma once
 
-#include "internal/user.h"
+#include "sdk_callbacks.h"
+#include "sdk_types.h"
 
 #include "network/http_client.h"
 
@@ -13,7 +14,24 @@ namespace anychat {
 class NotificationManager;
 struct NotificationEvent;
 
-class UserManagerImpl : public UserManager {
+class UserListener {
+public:
+    virtual ~UserListener() = default;
+
+    virtual void onProfileUpdated(const UserInfo& info) {
+        (void) info;
+    }
+
+    virtual void onFriendProfileChanged(const UserInfo& info) {
+        (void) info;
+    }
+
+    virtual void onUserStatusChanged(const UserStatusEvent& event) {
+        (void) event;
+    }
+};
+
+class UserManagerImpl {
 public:
     explicit UserManagerImpl(
         std::shared_ptr<network::HttpClient> http,
@@ -21,51 +39,51 @@ public:
         std::string device_id = {}
     );
 
-    void getProfile(AnyChatValueCallback<UserProfile> callback) override;
-    void updateProfile(const UserProfile& profile, AnyChatValueCallback<UserProfile> callback) override;
-    void getSettings(AnyChatValueCallback<UserSettings> callback) override;
-    void updateSettings(const UserSettings& settings, AnyChatValueCallback<UserSettings> callback) override;
-    void updatePushToken(const std::string& push_token, int32_t platform, AnyChatCallback callback) override;
+    void getProfile(AnyChatValueCallback<UserProfile> callback);
+    void updateProfile(const UserProfile& profile, AnyChatValueCallback<UserProfile> callback);
+    void getSettings(AnyChatValueCallback<UserSettings> callback);
+    void updateSettings(const UserSettings& settings, AnyChatValueCallback<UserSettings> callback);
+    void updatePushToken(const std::string& push_token, int32_t platform, AnyChatCallback callback);
     void updatePushToken(
         const std::string& push_token,
         int32_t platform,
         const std::string& device_id,
         AnyChatCallback callback
-    ) override;
+    );
     void searchUsers(
         const std::string& keyword,
         int page,
         int page_size,
         AnyChatValueCallback<UserSearchResult> callback
-    ) override;
-    void getUserInfo(const std::string& user_id, AnyChatValueCallback<UserInfo> callback) override;
+    );
+    void getUserInfo(const std::string& user_id, AnyChatValueCallback<UserInfo> callback);
     void bindPhone(
         const std::string& phone_number,
         const std::string& verify_code,
         AnyChatValueCallback<BindPhoneResult> callback
-    ) override;
+    );
     void changePhone(
         const std::string& old_phone_number,
         const std::string& new_phone_number,
         const std::string& new_verify_code,
         const std::string& old_verify_code,
         AnyChatValueCallback<ChangePhoneResult> callback
-    ) override;
+    );
     void bindEmail(
         const std::string& email,
         const std::string& verify_code,
         AnyChatValueCallback<BindEmailResult> callback
-    ) override;
+    );
     void changeEmail(
         const std::string& old_email,
         const std::string& new_email,
         const std::string& new_verify_code,
         const std::string& old_verify_code,
         AnyChatValueCallback<ChangeEmailResult> callback
-    ) override;
-    void refreshQRCode(AnyChatValueCallback<UserQRCode> callback) override;
-    void getUserByQRCode(const std::string& qrcode, AnyChatValueCallback<UserInfo> callback) override;
-    void setListener(std::shared_ptr<UserListener> listener) override;
+    );
+    void refreshQRCode(AnyChatValueCallback<UserQRCode> callback);
+    void getUserByQRCode(const std::string& qrcode, AnyChatValueCallback<UserInfo> callback);
+    void setListener(std::shared_ptr<UserListener> listener);
 
 private:
     static std::string urlEncode(const std::string& input);

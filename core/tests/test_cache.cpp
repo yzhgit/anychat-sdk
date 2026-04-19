@@ -1,4 +1,4 @@
-#include "internal/types.h"
+#include "sdk_types.h"
 
 #include "cache/conversation_cache.h"
 #include "cache/lru_cache.h"

@@ -15,6 +15,15 @@
 
 namespace {
 
+std::unique_ptr<anychat::AuthManagerImpl> makeAuth(
+    const std::shared_ptr<anychat::network::HttpClient>& http,
+    const std::string& device_id,
+    anychat::db::Database* db,
+    anychat::NotificationManager* notif_mgr = nullptr
+) {
+    return std::make_unique<anychat::AuthManagerImpl>(http, device_id, db, notif_mgr);
+}
+
 anychat::AnyChatCallback makeNoopCallback() {
     anychat::AnyChatCallback callback{};
     callback.on_success = []() {};
@@ -72,7 +81,7 @@ private:
 TEST(AuthManagerTest, NoTokenInitially) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-test-001", db.get());
+    auto auth = makeAuth(http, "device-test-001", db.get());
 
     EXPECT_FALSE(auth->isLoggedIn()) << "AuthManager should not be logged in on a fresh (empty) database";
 }
@@ -97,10 +106,10 @@ TEST(AuthManagerTest, TokenPersistedAcrossRestart) {
     db->setMeta("auth.refresh_token", "eyJ_fake_refresh_token");
     db->setMeta("auth.expires_at_ms", std::to_string(future_expires_ms));
 
-    // Construct a new auth manager against the same DB — it should restore
+    // Construct a new auth manager against the same DB; it should restore
     // the token from metadata.
     auto http = makeDummyHttp();
-    auto auth2 = anychat::createAuthManager(http, "device-test-001", db.get());
+    auto auth2 = makeAuth(http, "device-test-001", db.get());
 
     EXPECT_TRUE(auth2->isLoggedIn()) << "AuthManager should report logged-in after restoring a valid token";
 
@@ -112,7 +121,7 @@ TEST(AuthManagerTest, TokenPersistedAcrossRestart) {
 // ---------------------------------------------------------------------------
 // 3. ClearToken
 //    After storing a valid token and then clearing it, isLoggedIn() should
-//    return false — both immediately and after a fresh AuthManager is created
+//    return false both immediately and after a fresh AuthManager is created
 //    from the same DB.
 // ---------------------------------------------------------------------------
 TEST(AuthManagerTest, ClearToken) {
@@ -125,7 +134,7 @@ TEST(AuthManagerTest, ClearToken) {
     db->setMeta("auth.expires_at_ms", std::to_string(future_expires_ms));
 
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-test-002", db.get());
+    auto auth = makeAuth(http, "device-test-002", db.get());
 
     ASSERT_TRUE(auth->isLoggedIn()) << "Pre-condition: should be logged in";
 
@@ -136,7 +145,7 @@ TEST(AuthManagerTest, ClearToken) {
     db->setMeta("auth.expires_at_ms", "0");
 
     // A brand-new AuthManager from the same DB should not see a valid token.
-    auto auth2 = anychat::createAuthManager(http, "device-test-002", db.get());
+    auto auth2 = makeAuth(http, "device-test-002", db.get());
     EXPECT_FALSE(auth2->isLoggedIn()) << "AuthManager should not be logged in after token was cleared";
 }
 
@@ -155,7 +164,7 @@ TEST(AuthManagerTest, ExpiredTokenNotLoggedIn) {
     db->setMeta("auth.expires_at_ms", std::to_string(past_expires_ms));
 
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-test-003", db.get());
+    auto auth = makeAuth(http, "device-test-003", db.get());
 
     EXPECT_FALSE(auth->isLoggedIn()) << "AuthManager should not report logged-in for an expired token";
 }
@@ -167,14 +176,14 @@ TEST(AuthManagerTest, ExpiredTokenNotLoggedIn) {
 // ---------------------------------------------------------------------------
 TEST(AuthManagerTest, NoTokenWithNullDb) {
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-no-db", nullptr);
+    auto auth = makeAuth(http, "device-no-db", nullptr);
     EXPECT_FALSE(auth->isLoggedIn()) << "AuthManager with null DB should not be logged in";
 }
 
 TEST(AuthManagerTest, RegisterDoesNotCrash) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-001", db.get());
+    auto auth = makeAuth(http, "device-auth-001", db.get());
 
     EXPECT_NO_THROW(auth->registerUser(
         "13800138000",
@@ -190,7 +199,7 @@ TEST(AuthManagerTest, RegisterDoesNotCrash) {
 TEST(AuthManagerTest, SendVerificationCodeDoesNotCrash) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-002", db.get());
+    auto auth = makeAuth(http, "device-auth-002", db.get());
 
     EXPECT_NO_THROW(auth->sendVerificationCode(
         "13800138000",
@@ -203,7 +212,7 @@ TEST(AuthManagerTest, SendVerificationCodeDoesNotCrash) {
 TEST(AuthManagerTest, LoginDoesNotCrash) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-003", db.get());
+    auto auth = makeAuth(http, "device-auth-003", db.get());
 
     EXPECT_NO_THROW(auth->login(
         "13800138000",
@@ -217,7 +226,7 @@ TEST(AuthManagerTest, LoginDoesNotCrash) {
 TEST(AuthManagerTest, LogoutDoesNotCrash) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-004", db.get());
+    auto auth = makeAuth(http, "device-auth-004", db.get());
 
     EXPECT_NO_THROW(auth->logout(makeNoopCallback()));
 }
@@ -225,7 +234,7 @@ TEST(AuthManagerTest, LogoutDoesNotCrash) {
 TEST(AuthManagerTest, RefreshTokenDoesNotCrash) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-005", db.get());
+    auto auth = makeAuth(http, "device-auth-005", db.get());
 
     EXPECT_NO_THROW(auth->refreshToken("refresh-token", makeNoopValueCallback<anychat::AuthToken>()));
 }
@@ -233,7 +242,7 @@ TEST(AuthManagerTest, RefreshTokenDoesNotCrash) {
 TEST(AuthManagerTest, ChangePasswordDoesNotCrash) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-006", db.get());
+    auto auth = makeAuth(http, "device-auth-006", db.get());
 
     EXPECT_NO_THROW(auth->changePassword("old-password", "new-password", makeNoopCallback()));
 }
@@ -241,7 +250,7 @@ TEST(AuthManagerTest, ChangePasswordDoesNotCrash) {
 TEST(AuthManagerTest, ResetPasswordDoesNotCrash) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-007", db.get());
+    auto auth = makeAuth(http, "device-auth-007", db.get());
 
     EXPECT_NO_THROW(auth->resetPassword("13800138000", "654321", "new-password", makeNoopCallback()));
 }
@@ -249,7 +258,7 @@ TEST(AuthManagerTest, ResetPasswordDoesNotCrash) {
 TEST(AuthManagerTest, GetDeviceListDoesNotCrash) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-008", db.get());
+    auto auth = makeAuth(http, "device-auth-008", db.get());
 
     EXPECT_NO_THROW(auth->getDeviceList(makeNoopValueCallback<std::vector<anychat::AuthDevice>>()));
 }
@@ -257,7 +266,7 @@ TEST(AuthManagerTest, GetDeviceListDoesNotCrash) {
 TEST(AuthManagerTest, LogoutDeviceDoesNotCrash) {
     auto db = makeDb();
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-009", db.get());
+    auto auth = makeAuth(http, "device-auth-009", db.get());
 
     EXPECT_NO_THROW(auth->logoutDevice("device-other-001", makeNoopCallback()));
 }
@@ -266,7 +275,7 @@ TEST(AuthManagerTest, EnsureValidTokenWithoutRefreshTokenReportsErrorAndFiresLis
     auto db = makeDb();
     anychat::NotificationManager notif_mgr;
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-010", db.get(), &notif_mgr);
+    auto auth = makeAuth(http, "device-auth-010", db.get(), &notif_mgr);
 
     bool expired_called = false;
     bool error_called = false;
@@ -298,7 +307,7 @@ TEST(AuthManagerTest, EnsureValidTokenWithValidTokenShortCircuitsSuccess) {
     db->setMeta("auth.expires_at_ms", std::to_string(future_expires_ms));
 
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-auth-011", db.get());
+    auto auth = makeAuth(http, "device-auth-011", db.get());
 
     bool success_called = false;
     bool error_called = false;
@@ -328,7 +337,7 @@ TEST(AuthManagerTest, ForceLogoutNotificationClearsTokenAndFiresCallback) {
 
     anychat::NotificationManager notif_mgr;
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-force-001", db.get(), &notif_mgr);
+    auto auth = makeAuth(http, "device-force-001", db.get(), &notif_mgr);
     ASSERT_TRUE(auth->isLoggedIn());
 
     bool expired_called = false;
@@ -363,7 +372,7 @@ TEST(AuthManagerTest, ForceLogoutForOtherDeviceIsIgnored) {
 
     anychat::NotificationManager notif_mgr;
     auto http = makeDummyHttp();
-    auto auth = anychat::createAuthManager(http, "device-self-001", db.get(), &notif_mgr);
+    auto auth = makeAuth(http, "device-self-001", db.get(), &notif_mgr);
     ASSERT_TRUE(auth->isLoggedIn());
 
     bool expired_called = false;

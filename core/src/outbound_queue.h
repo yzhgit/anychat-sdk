@@ -2,7 +2,7 @@
 
 #include "notification_manager.h"
 
-#include "internal/message.h"
+#include "sdk_callbacks.h"
 #include "db/database.h"
 
 #include <functional>

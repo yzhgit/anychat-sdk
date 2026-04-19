@@ -1,4 +1,4 @@
-#include "internal/client.h"
+#include "client_impl.h"
 
 #include <gtest/gtest.h>
 #include <stdexcept>

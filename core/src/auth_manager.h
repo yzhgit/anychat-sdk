@@ -1,8 +1,8 @@
 #pragma once
 
 #include "notification_manager.h"
-
-#include "internal/auth.h"
+#include "sdk_callbacks.h"
+#include "sdk_types.h"
 
 #include "db/database.h"
 #include "network/http_client.h"
@@ -10,15 +10,22 @@
 #include <memory>
 #include <mutex>
 #include <string>
-
+#include <vector>
 
 namespace anychat {
 
-class AuthManagerImpl : public AuthManager {
+class AuthListener {
 public:
-    // |http|      – shared HTTP client (base_url already set to api_base_url).
-    // |device_id| – stable identifier for this installation/device.
-    // |db|        – optional database for token persistence; may be nullptr.
+    virtual ~AuthListener() = default;
+
+    virtual void onAuthExpired() {}
+};
+
+class AuthManagerImpl {
+public:
+    // |http|      - shared HTTP client (base_url already set to api_base_url).
+    // |device_id| - stable identifier for this installation/device.
+    // |db|        - optional database for token persistence; may be nullptr.
     AuthManagerImpl(
         std::shared_ptr<network::HttpClient> http,
         std::string device_id,
@@ -34,14 +41,14 @@ public:
         const std::string& nickname,
         const std::string& client_version,
         AnyChatValueCallback<AuthToken> callback
-    ) override;
+    );
 
     void sendVerificationCode(
         const std::string& target,
         int32_t target_type,
         int32_t purpose,
         AnyChatValueCallback<VerificationCodeResult> callback
-    ) override;
+    );
 
     void login(
         const std::string& account,
@@ -49,35 +56,34 @@ public:
         int32_t device_type,
         const std::string& client_version,
         AnyChatValueCallback<AuthToken> callback
-    ) override;
+    );
 
-    void logout(AnyChatCallback callback) override;
+    void logout(AnyChatCallback callback);
 
-    void refreshToken(const std::string& refresh_token, AnyChatValueCallback<AuthToken> callback) override;
+    void refreshToken(const std::string& refresh_token, AnyChatValueCallback<AuthToken> callback);
 
-    void
-    changePassword(const std::string& old_password, const std::string& new_password, AnyChatCallback callback)
-        override;
+    void changePassword(const std::string& old_password, const std::string& new_password, AnyChatCallback callback);
 
     void resetPassword(
         const std::string& account,
         const std::string& verify_code,
         const std::string& new_password,
         AnyChatCallback callback
-    ) override;
+    );
 
-    void getDeviceList(AnyChatValueCallback<std::vector<AuthDevice>> callback) override;
-    void logoutDevice(const std::string& device_id, AnyChatCallback callback) override;
+    void getDeviceList(AnyChatValueCallback<std::vector<AuthDevice>> callback);
+    void logoutDevice(const std::string& device_id, AnyChatCallback callback);
 
-    bool isLoggedIn() const override;
-    AuthToken currentToken() const override;
+    bool isLoggedIn() const;
+    AuthToken currentToken() const;
 
-    void ensureValidToken(AnyChatCallback cb) override;
-    void setListener(std::shared_ptr<AuthListener> listener) override;
+    void ensureValidToken(AnyChatCallback cb);
+    void setListener(std::shared_ptr<AuthListener> listener);
 
 private:
     void handleAuthResponse(network::HttpResponse resp, const AnyChatValueCallback<AuthToken>& callback);
-    void handleResultResponse(network::HttpResponse resp, const std::string& fallback_message, const AnyChatCallback& cb);
+    void
+    handleResultResponse(network::HttpResponse resp, const std::string& fallback_message, const AnyChatCallback& cb);
     void handleAuthNotification(const NotificationEvent& event);
     void storeToken(const AuthToken& token);
     void clearToken();
@@ -90,13 +96,5 @@ private:
     std::mutex listener_mutex_;
     std::shared_ptr<AuthListener> listener_;
 };
-
-// Factory — creates a fully-functional AuthManager.
-std::unique_ptr<AuthManager> createAuthManager(
-    std::shared_ptr<network::HttpClient> http,
-    const std::string& device_id,
-    db::Database* db = nullptr,
-    NotificationManager* notif_mgr = nullptr
-);
 
 } // namespace anychat

@@ -1,7 +1,7 @@
 include(GNUInstallDirs)
 
 set(ANYCHAT_INTERNAL_SOURCES
-    src/client.cpp
+    src/client_impl.cpp
     src/auth_manager.cpp
     src/connection_manager.cpp
     src/notification_manager.cpp

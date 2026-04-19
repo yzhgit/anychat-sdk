@@ -2,20 +2,54 @@
 
 #include "notification_manager.h"
 #include "outbound_queue.h"
-
-#include "internal/message.h"
+#include "sdk_callbacks.h"
+#include "sdk_types.h"
 
 #include "cache/message_cache.h"
 #include "db/database.h"
 #include "network/http_client.h"
 
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
 namespace anychat {
 
-class MessageManagerImpl : public MessageManager {
+class MessageListener {
+public:
+    virtual ~MessageListener() = default;
+
+    virtual void onMessageReceived(const Message& message) {
+        (void) message;
+    }
+
+    virtual void onMessageReadReceipt(const MessageReadReceiptEvent& event) {
+        (void) event;
+    }
+
+    virtual void onMessageRecalled(const Message& message) {
+        (void) message;
+    }
+
+    virtual void onMessageDeleted(const Message& message) {
+        (void) message;
+    }
+
+    virtual void onMessageEdited(const Message& message) {
+        (void) message;
+    }
+
+    virtual void onMessageTyping(const MessageTypingEvent& event) {
+        (void) event;
+    }
+
+    virtual void onMessageMentioned(const Message& message) {
+        (void) message;
+    }
+};
+
+class MessageManagerImpl {
 public:
     MessageManagerImpl(
         db::Database* db,
@@ -26,24 +60,23 @@ public:
         const std::string& current_user_id
     );
 
-    void sendTextMessage(const std::string& conv_id, const std::string& content, AnyChatCallback callback) override;
+    void sendTextMessage(const std::string& conv_id, const std::string& content, AnyChatCallback callback);
 
     void
-    getHistory(const std::string& conv_id, int64_t before_timestamp, int limit, AnyChatValueCallback<std::vector<Message>> callback)
-        override;
+    getHistory(const std::string& conv_id, int64_t before_timestamp, int limit, AnyChatValueCallback<std::vector<Message>> callback);
 
-    void markAsRead(const std::string& conv_id, const std::string& message_id, AnyChatCallback callback) override;
-    void getOfflineMessages(int64_t last_seq, int limit, AnyChatValueCallback<MessageOfflineResult> callback) override;
+    void markAsRead(const std::string& conv_id, const std::string& message_id, AnyChatCallback callback);
+    void getOfflineMessages(int64_t last_seq, int limit, AnyChatValueCallback<MessageOfflineResult> callback);
     void ackMessages(
         const std::string& conv_id,
         const std::vector<std::string>& message_ids,
         AnyChatCallback callback
-    ) override;
+    );
     void getGroupMessageReadState(
         const std::string& group_id,
         const std::string& message_id,
         AnyChatValueCallback<GroupMessageReadState> callback
-    ) override;
+    );
     void searchMessages(
         const std::string& keyword,
         const std::string& conversation_id,
@@ -51,14 +84,13 @@ public:
         int limit,
         int offset,
         AnyChatValueCallback<MessageSearchResult> callback
-    ) override;
-    void recallMessage(const std::string& message_id, AnyChatCallback callback) override;
-    void deleteMessage(const std::string& message_id, AnyChatCallback callback) override;
-    void editMessage(const std::string& message_id, const std::string& content, AnyChatCallback callback) override;
-    void sendTyping(const std::string& conversation_id, bool typing, int32_t ttl_seconds, AnyChatCallback callback)
-        override;
+    );
+    void recallMessage(const std::string& message_id, AnyChatCallback callback);
+    void deleteMessage(const std::string& message_id, AnyChatCallback callback);
+    void editMessage(const std::string& message_id, const std::string& content, AnyChatCallback callback);
+    void sendTyping(const std::string& conversation_id, bool typing, int32_t ttl_seconds, AnyChatCallback callback);
 
-    void setListener(std::shared_ptr<MessageListener> listener) override;
+    void setListener(std::shared_ptr<MessageListener> listener);
 
     // Called by AnyChatClientImpl when current_user_id becomes known after login.
     void setCurrentUserId(const std::string& uid);

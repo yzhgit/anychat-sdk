@@ -1,6 +1,7 @@
 #pragma once
 
-#include "internal/version.h"
+#include "sdk_callbacks.h"
+#include "sdk_types.h"
 
 #include "network/http_client.h"
 
@@ -9,31 +10,35 @@
 
 namespace anychat {
 
-class VersionManagerImpl : public VersionManager {
+class VersionManagerImpl {
 public:
     explicit VersionManagerImpl(std::shared_ptr<network::HttpClient> http);
 
+    // GET /versions/check?platform=&version=&buildNumber=
     void checkVersion(
         int32_t platform,
         const std::string& version,
         int32_t build_number,
         AnyChatValueCallback<VersionCheckResult> callback
-    ) override;
+    );
 
+    // GET /versions/latest?platform=&releaseType=
     void getLatestVersion(
         int32_t platform,
         int32_t release_type,
         AnyChatValueCallback<AppVersionInfo> callback
-    ) override;
+    );
 
+    // GET /versions/list?platform=&releaseType=&page=&pageSize=
     void listVersions(
         int32_t platform,
         int32_t release_type,
         int page,
         int page_size,
         AnyChatValueCallback<VersionListResult> callback
-    ) override;
+    );
 
+    // POST /versions/report
     void reportVersion(
         int32_t platform,
         const std::string& version,
@@ -42,7 +47,7 @@ public:
         const std::string& os_version,
         const std::string& sdk_version,
         AnyChatCallback callback
-    ) override;
+    );
 
 private:
     static std::string urlEncode(const std::string& input);

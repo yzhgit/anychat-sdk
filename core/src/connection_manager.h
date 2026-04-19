@@ -1,7 +1,7 @@
 #pragma once
 
-#include "internal/network_monitor.h"
-#include "internal/types.h"
+#include "network_monitor.h"
+#include "sdk_types.h"
 
 #include "network/iwebsocket_client.h"
 

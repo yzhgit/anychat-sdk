@@ -9,16 +9,16 @@ extern "C" {
 #endif
 
 /* ---- Opaque handle types ---- */
-typedef struct AnyChatClient_T* AnyChatClientHandle;
-typedef struct AnyChatAuthManager_T* AnyChatAuthHandle;
-typedef struct AnyChatMessage_T* AnyChatMessageHandle;
-typedef struct AnyChatConversation_T* AnyChatConvHandle;
-typedef struct AnyChatFriend_T* AnyChatFriendHandle;
-typedef struct AnyChatGroup_T* AnyChatGroupHandle;
-typedef struct AnyChatFile_T* AnyChatFileHandle;
-typedef struct AnyChatUser_T* AnyChatUserHandle;
-typedef struct AnyChatCall_T* AnyChatCallHandle;
-typedef struct AnyChatVersion_T* AnyChatVersionHandle;
+typedef void* AnyChatClientHandle;
+typedef void* AnyChatAuthHandle;
+typedef void* AnyChatMessageHandle;
+typedef void* AnyChatConvHandle;
+typedef void* AnyChatFriendHandle;
+typedef void* AnyChatGroupHandle;
+typedef void* AnyChatFileHandle;
+typedef void* AnyChatUserHandle;
+typedef void* AnyChatCallHandle;
+typedef void* AnyChatVersionHandle;
 
 /* ---- Common callback types ---- */
 typedef void (*AnyChatErrorCallback)(void* userdata, int code, const char* error);

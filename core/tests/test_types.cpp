@@ -1,4 +1,4 @@
-#include "internal/types.h"
+#include "sdk_types.h"
 
 #include <gtest/gtest.h>
 

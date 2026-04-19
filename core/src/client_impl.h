@@ -1,16 +1,17 @@
 #pragma once
 
-#include "auth.h"
-#include "conversation.h"
-#include "file.h"
-#include "friend.h"
-#include "group.h"
-#include "message.h"
+#include "auth_manager.h"
+#include "call_manager.h"
+#include "conversation_manager.h"
+#include "file_manager.h"
+#include "friend_manager.h"
+#include "group_manager.h"
+#include "message_manager.h"
 #include "network_monitor.h"
-#include "call.h"
-#include "types.h"
-#include "user.h"
-#include "version.h"
+#include "sdk_callbacks.h"
+#include "sdk_types.h"
+#include "user_manager.h"
+#include "version_manager.h"
 
 #include <functional>
 #include <memory>
@@ -94,15 +95,15 @@ public:
     void setOnConnectionStateChanged(ConnectionStateCallback callback);
 
     // ---- Sub-modules -------------------------------------------------------
-    AuthManager& authMgr();
-    MessageManager& messageMgr();
-    ConversationManager& conversationMgr();
-    FriendManager& friendMgr();
-    GroupManager& groupMgr();
-    FileManager& fileMgr();
-    UserManager& userMgr();
-    CallManager& callMgr();
-    VersionManager& versionMgr();
+    AuthManagerImpl& authMgr();
+    MessageManagerImpl& messageMgr();
+    ConversationManagerImpl& conversationMgr();
+    FriendManagerImpl& friendMgr();
+    GroupManagerImpl& groupMgr();
+    FileManagerImpl& fileMgr();
+    UserManagerImpl& userMgr();
+    CallManagerImpl& callMgr();
+    VersionManagerImpl& versionMgr();
 
 private:
     static std::string buildWsUrl(const std::string& gateway_url, const std::string& token);
@@ -120,21 +121,21 @@ private:
     std::unique_ptr<cache::ConversationCache> conv_cache_;
     std::unique_ptr<cache::MessageCache> msg_cache_;
 
-    std::unique_ptr<AuthManager> auth_mgr_;
-    std::unique_ptr<MessageManager> msg_mgr_;
+    std::unique_ptr<AuthManagerImpl> auth_mgr_;
+    std::unique_ptr<MessageManagerImpl> msg_mgr_;
     std::unique_ptr<ConnectionManager> conn_mgr_;
 
     std::unique_ptr<NotificationManager> notif_mgr_;
     std::unique_ptr<OutboundQueue> outbound_q_;
     std::unique_ptr<SyncEngine> sync_engine_;
 
-    std::unique_ptr<ConversationManager> conv_mgr_;
-    std::unique_ptr<FriendManager> friend_mgr_;
-    std::unique_ptr<GroupManager> group_mgr_;
-    std::unique_ptr<FileManager> file_mgr_;
-    std::unique_ptr<UserManager> user_mgr_;
-    std::unique_ptr<CallManager> call_mgr_;
-    std::unique_ptr<VersionManager> version_mgr_;
+    std::unique_ptr<ConversationManagerImpl> conv_mgr_;
+    std::unique_ptr<FriendManagerImpl> friend_mgr_;
+    std::unique_ptr<GroupManagerImpl> group_mgr_;
+    std::unique_ptr<FileManagerImpl> file_mgr_;
+    std::unique_ptr<UserManagerImpl> user_mgr_;
+    std::unique_ptr<CallManagerImpl> call_mgr_;
+    std::unique_ptr<VersionManagerImpl> version_mgr_;
 
     mutable std::mutex cb_mutex_;
     ConnectionStateCallback state_cb_;

@@ -1,7 +1,5 @@
 #include "call_manager.h"
 
-#include "internal/types.h"
-
 #include "network/http_client.h"
 
 #include <memory>

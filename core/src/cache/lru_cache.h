@@ -6,7 +6,8 @@
 
 #include <shared_mutex>
 
-namespace anychat::cache {
+namespace anychat {
+namespace cache {
 
 // Thread-safe generic LRU cache.
 //
@@ -114,4 +115,5 @@ bool LruCache<K, V>::contains(const K& key) const {
     return map_.count(key) > 0;
 }
 
-} // namespace anychat::cache
+} // namespace cache
+} // namespace anychat

@@ -10,7 +10,8 @@
 // Forward-declare sqlite3 for the TxScope raw handle.
 struct sqlite3;
 
-namespace anychat::db {
+namespace anychat {
+namespace db {
 
 using DbValue = std::variant<std::nullptr_t, int64_t, double, std::string>;
 using Params = std::vector<DbValue>;
@@ -80,4 +81,5 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace anychat::db
+} // namespace db
+} // namespace anychat

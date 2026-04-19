@@ -9,7 +9,8 @@
 #include <variant>
 #include <vector>
 
-namespace anychat::auth_manager_detail {
+namespace anychat {
+namespace auth_manager_detail {
 
 using json_common::ApiEnvelope;
 using json_common::nowMs;
@@ -111,7 +112,8 @@ const std::vector<AuthDevicePayload>* toDevicePayloadList(const DeviceListDataPa
     return pickList(data.devices);
 }
 
-} // namespace anychat::auth_manager_detail
+} // namespace auth_manager_detail
+} // namespace anychat
 
 namespace anychat {
 using namespace auth_manager_detail;
@@ -255,7 +257,7 @@ void AuthManagerImpl::login(
 }
 
 void AuthManagerImpl::logout(AnyChatCallback callback) {
-    const LogoutRequest body{.device_id = device_id_};
+    const LogoutRequest body{ .device_id = device_id_ };
 
     std::string body_json;
     std::string err;
@@ -336,7 +338,7 @@ void AuthManagerImpl::getDeviceList(AnyChatValueCallback<std::vector<AuthDevice>
 }
 
 void AuthManagerImpl::logoutDevice(const std::string& device_id, AnyChatCallback callback) {
-    const LogoutDeviceRequest body{.device_id = device_id};
+    const LogoutDeviceRequest body{ .device_id = device_id };
 
     std::string body_json;
     std::string err;
@@ -367,7 +369,7 @@ void AuthManagerImpl::logoutDevice(const std::string& device_id, AnyChatCallback
 }
 
 void AuthManagerImpl::refreshToken(const std::string& refresh_token, AnyChatValueCallback<AuthToken> callback) {
-    const RefreshTokenRequest body{.refresh_token = refresh_token};
+    const RefreshTokenRequest body{ .refresh_token = refresh_token };
 
     std::string body_json;
     std::string err;
@@ -604,16 +606,6 @@ void AuthManagerImpl::clearToken() {
         db_->setMeta("auth.refresh_token", "");
         db_->setMeta("auth.expires_at_ms", "0");
     }
-}
-
-std::unique_ptr<AuthManager>
-createAuthManager(
-    std::shared_ptr<network::HttpClient> http,
-    const std::string& device_id,
-    db::Database* db,
-    NotificationManager* notif_mgr
-) {
-    return std::make_unique<AuthManagerImpl>(std::move(http), device_id, db, notif_mgr);
 }
 
 } // namespace anychat
