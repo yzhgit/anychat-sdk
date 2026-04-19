@@ -1,12 +1,13 @@
-#include "anychat/file.h"
-
 #include "handles_c.h"
 #include "utils_c.h"
+
+#include "anychat/file.h"
 
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
+
 
 namespace {
 
@@ -20,15 +21,15 @@ void fileInfoToC(const anychat::FileInfo& src, AnyChatFileInfo_C* dst) {
     dst->created_at_ms = src.created_at_ms;
 }
 
-template <typename CallbackStruct>
+template<typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
-    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+    if (callback) {
         return false;
     }
     return true;
 }
 
-template <typename CallbackStruct>
+template<typename CallbackStruct>
 CallbackStruct copyCallbackStruct(const CallbackStruct* callback) {
     CallbackStruct callback_copy{};
     if (callback) {
@@ -136,11 +137,7 @@ int anychat_file_get_download_url(
     return ANYCHAT_OK;
 }
 
-int anychat_file_get_info(
-    AnyChatFileHandle handle,
-    const char* file_id,
-    const AnyChatFileInfoCallback_C* callback
-) {
+int anychat_file_get_info(AnyChatFileHandle handle, const char* file_id, const AnyChatFileInfoCallback_C* callback) {
     if (!handle || !handle->impl || !file_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
@@ -202,9 +199,10 @@ int anychat_file_list(
                     c_list.total = result.total;
                     c_list.page = result.page > 0 ? result.page : safe_page;
                     c_list.page_size = result.page_size > 0 ? result.page_size : safe_page_size;
-                    c_list.items = c_list.count > 0
-                        ? static_cast<AnyChatFileInfo_C*>(std::calloc(c_list.count, sizeof(AnyChatFileInfo_C)))
-                        : nullptr;
+                    c_list.items =
+                        c_list.count > 0
+                            ? static_cast<AnyChatFileInfo_C*>(std::calloc(c_list.count, sizeof(AnyChatFileInfo_C)))
+                            : nullptr;
 
                     for (int i = 0; i < c_list.count; ++i) {
                         fileInfoToC(result.files[static_cast<size_t>(i)], &c_list.items[i]);

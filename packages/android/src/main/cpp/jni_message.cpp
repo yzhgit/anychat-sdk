@@ -118,7 +118,6 @@ static void messageReceivedCallback(void* userdata, const AnyChatMessage_C* mess
 
 static AnyChatMessageCallback_C makeMessageCallback(CallbackContext* ctx) {
     AnyChatMessageCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = messageSuccess;
     callback.on_error = messageError;
@@ -127,7 +126,6 @@ static AnyChatMessageCallback_C makeMessageCallback(CallbackContext* ctx) {
 
 static AnyChatMessageListCallback_C makeMessageListCallback(CallbackContext* ctx) {
     AnyChatMessageListCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = messageListSuccess;
     callback.on_error = messageListError;
@@ -270,7 +268,6 @@ Java_com_anychat_sdk_Message_nativeSetReceivedCallback(
             auto ctx = std::make_unique<CallbackContext>(g_jvm, globalCallback);
 
             AnyChatMessageListener_C listener{};
-            listener.struct_size = sizeof(listener);
             listener.userdata = ctx.get();
             listener.on_message_received = messageReceivedCallback;
 

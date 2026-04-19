@@ -39,7 +39,6 @@ public actor MessageManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatMessageCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatMessageCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -81,7 +80,6 @@ public actor MessageManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatMessageListCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatMessageListCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, list in
                 guard let cbUserdata else { return }
@@ -129,7 +127,6 @@ public actor MessageManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatMessageCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatMessageCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -191,7 +188,6 @@ public actor MessageManager {
         }
 
         var listener = AnyChatMessageListener_C()
-        listener.struct_size = UInt32(MemoryLayout<AnyChatMessageListener_C>.size)
         listener.userdata = listenerUserdata
         listener.on_message_received = { userdata, message in
             guard let userdata, let message else { return }

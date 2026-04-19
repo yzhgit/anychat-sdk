@@ -16,35 +16,30 @@ typedef void (*AnyChatMeetingSuccessCallback)(void* userdata, const AnyChatMeeti
 typedef void (*AnyChatMeetingListSuccessCallback)(void* userdata, const AnyChatMeetingList_C* list);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatCallSessionSuccessCallback on_success;
     AnyChatCallErrorCallback on_error;
 } AnyChatCallSessionCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatCallListSuccessCallback on_success;
     AnyChatCallErrorCallback on_error;
 } AnyChatCallListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatMeetingSuccessCallback on_success;
     AnyChatCallErrorCallback on_error;
 } AnyChatMeetingCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatMeetingListSuccessCallback on_success;
     AnyChatCallErrorCallback on_error;
 } AnyChatMeetingListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatCallSuccessCallback on_success;
     AnyChatCallErrorCallback on_error;
@@ -61,7 +56,6 @@ typedef void (*AnyChatCallStatusChangedCallback)(
 );
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatIncomingCallCallback on_incoming_call;
     AnyChatCallStatusChangedCallback on_call_status_changed;

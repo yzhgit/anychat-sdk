@@ -36,7 +36,6 @@ public actor ConversationManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatConvListCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatConvListCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, list in
                 guard let cbUserdata else { return }
@@ -71,7 +70,6 @@ public actor ConversationManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatConvCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatConvCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -105,7 +103,6 @@ public actor ConversationManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatConvCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatConvCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -144,7 +141,6 @@ public actor ConversationManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatConvCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatConvCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -180,7 +176,6 @@ public actor ConversationManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatConvCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatConvCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -235,7 +230,6 @@ public actor ConversationManager {
         }
 
         var listener = AnyChatConvListener_C()
-        listener.struct_size = UInt32(MemoryLayout<AnyChatConvListener_C>.size)
         listener.userdata = listenerUserdata
         listener.on_conversation_updated = { userdata, conversation in
             guard let userdata, let conversation else { return }

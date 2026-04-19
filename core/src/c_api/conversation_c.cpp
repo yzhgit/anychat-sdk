@@ -1,7 +1,7 @@
-#include "anychat/conversation.h"
-
 #include "handles_c.h"
 #include "utils_c.h"
+
+#include "anychat/conversation.h"
 
 #include <cstdlib>
 #include <memory>
@@ -53,9 +53,8 @@ private:
 
 void markReadResultToCStruct(const anychat::ConversationMarkReadResult& src, AnyChatConversationMarkReadResult_C* dst) {
     dst->accepted_count = static_cast<int>(src.accepted_ids.size());
-    dst->accepted_ids = dst->accepted_count > 0
-                            ? static_cast<char**>(std::calloc(dst->accepted_count, sizeof(char*)))
-                            : nullptr;
+    dst->accepted_ids =
+        dst->accepted_count > 0 ? static_cast<char**>(std::calloc(dst->accepted_count, sizeof(char*))) : nullptr;
     for (int i = 0; i < dst->accepted_count; ++i) {
         dst->accepted_ids[i] = anychat_strdup(src.accepted_ids[static_cast<size_t>(i)].c_str());
     }
@@ -76,7 +75,7 @@ void freeMarkReadResultStruct(AnyChatConversationMarkReadResult_C* result) {
 
 template<typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
-    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+    if (callback) {
         return false;
     }
     return true;
@@ -217,11 +216,7 @@ int anychat_conv_get(AnyChatConvHandle handle, const char* conv_id, const AnyCha
     return ANYCHAT_OK;
 }
 
-int anychat_conv_mark_all_read(
-    AnyChatConvHandle handle,
-    const char* conv_id,
-    const AnyChatConvCallback_C* callback
-) {
+int anychat_conv_mark_all_read(AnyChatConvHandle handle, const char* conv_id, const AnyChatConvCallback_C* callback) {
     if (!handle || !handle->impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
@@ -432,11 +427,12 @@ int anychat_conv_get_message_read_receipts(
 
         AnyChatConversationReadReceiptList_C c_list{};
         c_list.count = static_cast<int>(list.size());
-        c_list.items = c_list.count > 0
-                           ? static_cast<AnyChatConversationReadReceipt_C*>(
-                                 std::calloc(static_cast<size_t>(c_list.count), sizeof(AnyChatConversationReadReceipt_C))
-                             )
-                           : nullptr;
+        c_list.items =
+            c_list.count > 0
+                ? static_cast<AnyChatConversationReadReceipt_C*>(
+                      std::calloc(static_cast<size_t>(c_list.count), sizeof(AnyChatConversationReadReceipt_C))
+                  )
+                : nullptr;
 
         for (int i = 0; i < c_list.count; ++i) {
             readReceiptToCStruct(list[static_cast<size_t>(i)], &c_list.items[i]);
@@ -481,9 +477,6 @@ int anychat_conv_set_listener(AnyChatConvHandle handle, const AnyChatConvListene
     if (!listener) {
         handle->impl->setListener(nullptr);
         return ANYCHAT_OK;
-    }
-    if (listener->struct_size < sizeof(AnyChatConvListener_C)) {
-        return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatConvListener_C copied = *listener;

@@ -15,28 +15,24 @@ typedef void (*AnyChatVersionListSuccessCallback)(void* userdata, const AnyChatV
 typedef void (*AnyChatVersionSuccessCallback)(void* userdata);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatVersionCheckSuccessCallback on_success;
     AnyChatVersionErrorCallback on_error;
 } AnyChatVersionCheckCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatVersionInfoSuccessCallback on_success;
     AnyChatVersionErrorCallback on_error;
 } AnyChatVersionInfoCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatVersionListSuccessCallback on_success;
     AnyChatVersionErrorCallback on_error;
 } AnyChatVersionListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatVersionSuccessCallback on_success;
     AnyChatVersionErrorCallback on_error;

@@ -61,7 +61,7 @@ int anychat_version_check(
     if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (callback && callback->struct_size < sizeof(AnyChatVersionCheckCallback_C)) {
+    if (callback) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -111,7 +111,7 @@ int anychat_version_get_latest(
     if (release_type < ANYCHAT_VERSION_RELEASE_TYPE_STABLE || release_type > ANYCHAT_VERSION_RELEASE_TYPE_ALPHA) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (callback && callback->struct_size < sizeof(AnyChatVersionInfoCallback_C)) {
+    if (callback) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -162,7 +162,7 @@ int anychat_version_list(
     if (release_type < ANYCHAT_VERSION_RELEASE_TYPE_UNSPECIFIED || release_type > ANYCHAT_VERSION_RELEASE_TYPE_ALPHA) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (callback && callback->struct_size < sizeof(AnyChatVersionListCallback_C)) {
+    if (callback) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -229,7 +229,7 @@ int anychat_version_report(
     if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (callback && callback->struct_size < sizeof(AnyChatVersionCallback_C)) {
+    if (callback) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 

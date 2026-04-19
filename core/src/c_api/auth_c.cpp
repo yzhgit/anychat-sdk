@@ -32,7 +32,7 @@ void authDeviceToCStruct(const anychat::AuthDevice& src, AnyChatAuthDevice_C* ds
 
 template <typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
-    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+    if (callback) {
         return false;
     }
     return true;
@@ -400,9 +400,6 @@ int anychat_auth_set_listener(AnyChatAuthHandle handle, const AnyChatAuthListene
     if (!listener) {
         handle->impl->setListener(nullptr);
         return ANYCHAT_OK;
-    }
-    if (listener->struct_size < sizeof(AnyChatAuthListener_C)) {
-        return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatAuthListener_C copied = *listener;

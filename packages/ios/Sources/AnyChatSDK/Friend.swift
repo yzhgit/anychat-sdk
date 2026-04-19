@@ -42,7 +42,6 @@ public actor FriendManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatFriendListCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatFriendListCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, list in
                 guard let cbUserdata else { return }
@@ -81,7 +80,6 @@ public actor FriendManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatFriendCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatFriendCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -120,7 +118,6 @@ public actor FriendManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatFriendCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatFriendCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -149,7 +146,6 @@ public actor FriendManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatFriendRequestListCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatFriendRequestListCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, list in
                 guard let cbUserdata else { return }
@@ -185,7 +181,6 @@ public actor FriendManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatFriendCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatFriendCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -216,7 +211,6 @@ public actor FriendManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatFriendCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatFriendCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -249,7 +243,6 @@ public actor FriendManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatFriendCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatFriendCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -280,7 +273,6 @@ public actor FriendManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatFriendCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatFriendCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -349,7 +341,6 @@ public actor FriendManager {
         }
 
         var listener = AnyChatFriendListener_C()
-        listener.struct_size = UInt32(MemoryLayout<AnyChatFriendListener_C>.size)
         listener.userdata = listenerUserdata
 
         if hasRequest {

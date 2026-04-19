@@ -528,7 +528,6 @@ private:
         }
 
         AnyChatAuthListener_C listener{};
-        listener.struct_size = sizeof(listener);
         listener.on_auth_expired = authExpiredCallbackWrapper;
         anychat_auth_set_listener(authHandle_, &listener);
     }
@@ -540,7 +539,6 @@ private:
         }
 
         AnyChatMessageListener_C listener{};
-        listener.struct_size = sizeof(listener);
         listener.on_message_received = messageReceivedCallbackWrapper;
         anychat_message_set_listener(messageHandle_, &listener);
     }
@@ -552,7 +550,6 @@ private:
         }
 
         AnyChatConvListener_C listener{};
-        listener.struct_size = sizeof(listener);
         listener.on_conversation_updated = convUpdatedCallbackWrapper;
         anychat_conv_set_listener(convHandle_, &listener);
     }
@@ -564,7 +561,6 @@ private:
         }
 
         AnyChatFriendListener_C listener{};
-        listener.struct_size = sizeof(listener);
         if (!g_callbacks.friendRequestCallback.isNull()) {
             listener.on_friend_request_received = friendRequestCallbackWrapper;
         }
@@ -586,7 +582,6 @@ private:
         }
 
         AnyChatGroupListener_C listener{};
-        listener.struct_size = sizeof(listener);
         if (!g_callbacks.groupInvitedCallback.isNull()) {
             listener.on_group_invited = groupInvitedCallbackWrapper;
         }
@@ -652,7 +647,6 @@ public:
         g_callbacks.authCallbacks[callbackId] = callback;
 
         AnyChatAuthTokenCallback_C authCallback{};
-        authCallback.struct_size = sizeof(authCallback);
         authCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         authCallback.on_success = authSuccessCallbackWrapper;
         authCallback.on_error = authErrorCallbackWrapper;
@@ -678,7 +672,6 @@ public:
         g_callbacks.authCallbacks[callbackId] = callback;
 
         AnyChatAuthTokenCallback_C authCallback{};
-        authCallback.struct_size = sizeof(authCallback);
         authCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         authCallback.on_success = authSuccessCallbackWrapper;
         authCallback.on_error = authErrorCallbackWrapper;
@@ -705,7 +698,6 @@ public:
         g_callbacks.resultCallbacks[callbackId] = callback;
 
         AnyChatAuthResultCallback_C resultCallback{};
-        resultCallback.struct_size = sizeof(resultCallback);
         resultCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         resultCallback.on_success = resultSuccessCallbackWrapper;
         resultCallback.on_error = resultErrorCallbackWrapper;
@@ -723,7 +715,6 @@ public:
         g_callbacks.authCallbacks[callbackId] = callback;
 
         AnyChatAuthTokenCallback_C authCallback{};
-        authCallback.struct_size = sizeof(authCallback);
         authCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         authCallback.on_success = authSuccessCallbackWrapper;
         authCallback.on_error = authErrorCallbackWrapper;
@@ -755,7 +746,6 @@ public:
         g_callbacks.messageCallbacks[callbackId] = callback;
 
         AnyChatMessageCallback_C messageCallback{};
-        messageCallback.struct_size = sizeof(messageCallback);
         messageCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         messageCallback.on_success = messageSuccessCallbackWrapper;
         messageCallback.on_error = messageErrorCallbackWrapper;
@@ -778,7 +768,6 @@ public:
         g_callbacks.messageListCallbacks[callbackId] = callback;
 
         AnyChatMessageListCallback_C listCallback{};
-        listCallback.struct_size = sizeof(listCallback);
         listCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         listCallback.on_success = messageListSuccessCallbackWrapper;
         listCallback.on_error = messageListErrorCallbackWrapper;
@@ -802,7 +791,6 @@ public:
         g_callbacks.messageCallbacks[callbackId] = callback;
 
         AnyChatMessageCallback_C messageCallback{};
-        messageCallback.struct_size = sizeof(messageCallback);
         messageCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         messageCallback.on_success = messageSuccessCallbackWrapper;
         messageCallback.on_error = messageErrorCallbackWrapper;
@@ -831,7 +819,6 @@ public:
         g_callbacks.convListCallbacks[callbackId] = callback;
 
         AnyChatConvListCallback_C listCallback{};
-        listCallback.struct_size = sizeof(listCallback);
         listCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         listCallback.on_success = convListSuccessCallbackWrapper;
         listCallback.on_error = convListErrorCallbackWrapper;
@@ -849,7 +836,6 @@ public:
         g_callbacks.convCallbacks[callbackId] = callback;
 
         AnyChatConvCallback_C convCallback{};
-        convCallback.struct_size = sizeof(convCallback);
         convCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         convCallback.on_success = convSuccessCallbackWrapper;
         convCallback.on_error = convErrorCallbackWrapper;
@@ -866,7 +852,6 @@ public:
         g_callbacks.convCallbacks[callbackId] = callback;
 
         AnyChatConvCallback_C convCallback{};
-        convCallback.struct_size = sizeof(convCallback);
         convCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         convCallback.on_success = convSuccessCallbackWrapper;
         convCallback.on_error = convErrorCallbackWrapper;
@@ -889,7 +874,6 @@ public:
         g_callbacks.convCallbacks[callbackId] = callback;
 
         AnyChatConvCallback_C convCallback{};
-        convCallback.struct_size = sizeof(convCallback);
         convCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         convCallback.on_success = convSuccessCallbackWrapper;
         convCallback.on_error = convErrorCallbackWrapper;
@@ -912,7 +896,6 @@ public:
         g_callbacks.convCallbacks[callbackId] = callback;
 
         AnyChatConvCallback_C convCallback{};
-        convCallback.struct_size = sizeof(convCallback);
         convCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         convCallback.on_success = convSuccessCallbackWrapper;
         convCallback.on_error = convErrorCallbackWrapper;
@@ -940,7 +923,6 @@ public:
         g_callbacks.friendListCallbacks[callbackId] = callback;
 
         AnyChatFriendListCallback_C listCallback{};
-        listCallback.struct_size = sizeof(listCallback);
         listCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         listCallback.on_success = friendListSuccessCallbackWrapper;
         listCallback.on_error = friendListErrorCallbackWrapper;
@@ -958,7 +940,6 @@ public:
         g_callbacks.friendCallbacks[callbackId] = callback;
 
         AnyChatFriendCallback_C friendCallback{};
-        friendCallback.struct_size = sizeof(friendCallback);
         friendCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         friendCallback.on_success = friendSuccessCallbackWrapper;
         friendCallback.on_error = friendErrorCallbackWrapper;
@@ -982,7 +963,6 @@ public:
         g_callbacks.friendCallbacks[callbackId] = callback;
 
         AnyChatFriendCallback_C friendCallback{};
-        friendCallback.struct_size = sizeof(friendCallback);
         friendCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         friendCallback.on_success = friendSuccessCallbackWrapper;
         friendCallback.on_error = friendErrorCallbackWrapper;
@@ -1005,7 +985,6 @@ public:
         g_callbacks.friendRequestListCallbacks[callbackId] = callback;
 
         AnyChatFriendRequestListCallback_C requestListCallback{};
-        requestListCallback.struct_size = sizeof(requestListCallback);
         requestListCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         requestListCallback.on_success = friendRequestListSuccessCallbackWrapper;
         requestListCallback.on_error = friendRequestListErrorCallbackWrapper;
@@ -1022,7 +1001,6 @@ public:
         g_callbacks.friendCallbacks[callbackId] = callback;
 
         AnyChatFriendCallback_C friendCallback{};
-        friendCallback.struct_size = sizeof(friendCallback);
         friendCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         friendCallback.on_success = friendSuccessCallbackWrapper;
         friendCallback.on_error = friendErrorCallbackWrapper;
@@ -1055,7 +1033,6 @@ public:
         g_callbacks.groupListCallbacks[callbackId] = callback;
 
         AnyChatGroupListCallback_C listCallback{};
-        listCallback.struct_size = sizeof(listCallback);
         listCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         listCallback.on_success = groupListSuccessCallbackWrapper;
         listCallback.on_error = groupListErrorCallbackWrapper;
@@ -1073,7 +1050,6 @@ public:
         g_callbacks.groupCallbacks[callbackId] = callback;
 
         AnyChatGroupInfoCallback_C groupCallback{};
-        groupCallback.struct_size = sizeof(groupCallback);
         groupCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         groupCallback.on_success = groupInfoSuccessCallbackWrapper;
         groupCallback.on_error = groupErrorCallbackWrapper;
@@ -1107,7 +1083,6 @@ public:
         g_callbacks.groupCallbacks[callbackId] = callback;
 
         AnyChatGroupCallback_C groupCallback{};
-        groupCallback.struct_size = sizeof(groupCallback);
         groupCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         groupCallback.on_success = groupSuccessCallbackWrapper;
         groupCallback.on_error = groupErrorCallbackWrapper;
@@ -1130,7 +1105,6 @@ public:
         g_callbacks.groupCallbacks[callbackId] = callback;
 
         AnyChatGroupCallback_C groupCallback{};
-        groupCallback.struct_size = sizeof(groupCallback);
         groupCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         groupCallback.on_success = groupSuccessCallbackWrapper;
         groupCallback.on_error = groupErrorCallbackWrapper;
@@ -1163,7 +1137,6 @@ public:
         g_callbacks.groupCallbacks[callbackId] = callback;
 
         AnyChatGroupCallback_C groupCallback{};
-        groupCallback.struct_size = sizeof(groupCallback);
         groupCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         groupCallback.on_success = groupSuccessCallbackWrapper;
         groupCallback.on_error = groupErrorCallbackWrapper;
@@ -1185,7 +1158,6 @@ public:
         g_callbacks.groupMemberCallbacks[callbackId] = callback;
 
         AnyChatGroupMemberListCallback_C memberListCallback{};
-        memberListCallback.struct_size = sizeof(memberListCallback);
         memberListCallback.userdata = reinterpret_cast<void*>(static_cast<intptr_t>(callbackId));
         memberListCallback.on_success = groupMemberListSuccessCallbackWrapper;
         memberListCallback.on_error = groupMemberListErrorCallbackWrapper;

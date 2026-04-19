@@ -22,56 +22,48 @@ typedef void (*AnyChatConvSequenceSuccessCallback)(void* userdata, int64_t curre
 typedef void (*AnyChatConvMarkReadResultSuccessCallback)(void* userdata, const AnyChatConversationMarkReadResult_C* result);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatConvListSuccessCallback on_success;
     AnyChatConvErrorCallback on_error;
 } AnyChatConvListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatConvSuccessCallback on_success;
     AnyChatConvErrorCallback on_error;
 } AnyChatConvCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatConvInfoSuccessCallback on_success;
     AnyChatConvErrorCallback on_error;
 } AnyChatConvInfoCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatConvTotalUnreadSuccessCallback on_success;
     AnyChatConvErrorCallback on_error;
 } AnyChatConvTotalUnreadCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatConvUnreadStateSuccessCallback on_success;
     AnyChatConvErrorCallback on_error;
 } AnyChatConvUnreadStateCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatConvReadReceiptListSuccessCallback on_success;
     AnyChatConvErrorCallback on_error;
 } AnyChatConvReadReceiptListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatConvSequenceSuccessCallback on_success;
     AnyChatConvErrorCallback on_error;
 } AnyChatConvSequenceCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatConvMarkReadResultSuccessCallback on_success;
     AnyChatConvErrorCallback on_error;
@@ -81,7 +73,6 @@ typedef struct {
 typedef void (*AnyChatConvUpdatedCallback)(void* userdata, const AnyChatConversation_C* conversation);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatConvUpdatedCallback on_conversation_updated;
 } AnyChatConvListener_C;

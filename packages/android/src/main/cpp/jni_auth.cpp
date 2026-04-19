@@ -186,7 +186,6 @@ static void authDeviceListError(void* userdata, int code, const char* error) {
 
 static AnyChatAuthTokenCallback_C makeAuthTokenCallback(CallbackContext* ctx) {
     AnyChatAuthTokenCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = authTokenSuccess;
     callback.on_error = authTokenError;
@@ -195,7 +194,6 @@ static AnyChatAuthTokenCallback_C makeAuthTokenCallback(CallbackContext* ctx) {
 
 static AnyChatVerificationCodeCallback_C makeVerificationCodeCallback(CallbackContext* ctx) {
     AnyChatVerificationCodeCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = verificationCodeSuccess;
     callback.on_error = verificationCodeError;
@@ -204,7 +202,6 @@ static AnyChatVerificationCodeCallback_C makeVerificationCodeCallback(CallbackCo
 
 static AnyChatAuthResultCallback_C makeResultCallback(CallbackContext* ctx) {
     AnyChatAuthResultCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = resultSuccess;
     callback.on_error = resultError;
@@ -213,7 +210,6 @@ static AnyChatAuthResultCallback_C makeResultCallback(CallbackContext* ctx) {
 
 static AnyChatAuthDeviceListCallback_C makeAuthDeviceListCallback(CallbackContext* ctx) {
     AnyChatAuthDeviceListCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = authDeviceListSuccess;
     callback.on_error = authDeviceListError;

@@ -88,7 +88,7 @@ void qrcodeToC(const anychat::GroupQRCode& src, AnyChatGroupQRCode_C* dst) {
 
 template <typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
-    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+    if (callback) {
         return false;
     }
     return true;
@@ -641,9 +641,6 @@ int anychat_group_set_listener(AnyChatGroupHandle handle, const AnyChatGroupList
     if (!listener) {
         handle->impl->setListener(nullptr);
         return ANYCHAT_OK;
-    }
-    if (listener->struct_size < sizeof(AnyChatGroupListener_C)) {
-        return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatGroupListener_C copied = *listener;

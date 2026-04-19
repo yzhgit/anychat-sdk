@@ -16,35 +16,30 @@ typedef void (*AnyChatMsgSearchSuccessCallback)(void* userdata, const AnyChatMes
 typedef void (*AnyChatMsgGroupReadStateSuccessCallback)(void* userdata, const AnyChatGroupMessageReadState_C* state);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatMsgSuccessCallback on_success;
     AnyChatMsgErrorCallback on_error;
 } AnyChatMessageCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatMsgListSuccessCallback on_success;
     AnyChatMsgErrorCallback on_error;
 } AnyChatMessageListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatMsgOfflineSuccessCallback on_success;
     AnyChatMsgErrorCallback on_error;
 } AnyChatOfflineMessageCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatMsgSearchSuccessCallback on_success;
     AnyChatMsgErrorCallback on_error;
 } AnyChatMessageSearchCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatMsgGroupReadStateSuccessCallback on_success;
     AnyChatMsgErrorCallback on_error;
@@ -56,7 +51,6 @@ typedef void (*AnyChatMessageReadReceiptCallback)(void* userdata, const AnyChatM
 typedef void (*AnyChatMessageTypingCallback)(void* userdata, const AnyChatMessageTypingEvent_C* event);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatMessageReceivedCallback on_message_received;
     AnyChatMessageReadReceiptCallback on_message_read_receipt;

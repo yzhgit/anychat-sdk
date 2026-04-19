@@ -114,7 +114,6 @@ int main(void) {
     if (!client) return 1;
 
     AnyChatAuthTokenCallback_C cb = {0};
-    cb.struct_size = sizeof(cb);
     cb.on_success = on_login_ok;
     cb.on_error = on_login_error;
 

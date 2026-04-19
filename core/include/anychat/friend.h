@@ -15,28 +15,24 @@ typedef void (*AnyChatFriendRequestListSuccessCallback)(void* userdata, const An
 typedef void (*AnyChatBlacklistListSuccessCallback)(void* userdata, const AnyChatBlacklistList_C* list);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatFriendListSuccessCallback on_success;
     AnyChatFriendErrorCallback on_error;
 } AnyChatFriendListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatFriendRequestListSuccessCallback on_success;
     AnyChatFriendErrorCallback on_error;
 } AnyChatFriendRequestListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatBlacklistListSuccessCallback on_success;
     AnyChatFriendErrorCallback on_error;
 } AnyChatBlacklistListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatFriendSuccessCallback on_success;
     AnyChatFriendErrorCallback on_error;
@@ -55,7 +51,6 @@ typedef void (*AnyChatFriendRequestAcceptedCallback)(void* userdata, const AnyCh
 typedef void (*AnyChatFriendRequestRejectedCallback)(void* userdata, const AnyChatFriendRequest_C* request);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatFriendAddedCallback on_friend_added;
     AnyChatFriendDeletedCallback on_friend_deleted;

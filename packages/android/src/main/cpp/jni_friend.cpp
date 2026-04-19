@@ -140,7 +140,6 @@ static void friendError(void* userdata, int code, const char* error) {
 
 static AnyChatFriendListCallback_C makeFriendListCallback(CallbackContext* ctx) {
     AnyChatFriendListCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = friendListSuccess;
     callback.on_error = friendListError;
@@ -149,7 +148,6 @@ static AnyChatFriendListCallback_C makeFriendListCallback(CallbackContext* ctx) 
 
 static AnyChatFriendRequestListCallback_C makeFriendRequestListCallback(CallbackContext* ctx) {
     AnyChatFriendRequestListCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = friendRequestListSuccess;
     callback.on_error = friendRequestListError;
@@ -158,7 +156,6 @@ static AnyChatFriendRequestListCallback_C makeFriendRequestListCallback(Callback
 
 static AnyChatFriendCallback_C makeFriendCallback(CallbackContext* ctx) {
     AnyChatFriendCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = friendSuccess;
     callback.on_error = friendError;

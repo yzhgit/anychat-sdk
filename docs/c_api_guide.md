@@ -142,7 +142,6 @@ int main(void) {
     anychat_client_set_connection_callback(client, NULL, on_connection_state);
 
     AnyChatAuthTokenCallback_C login_cb = {0};
-    login_cb.struct_size = sizeof(login_cb);
     login_cb.userdata = NULL;
     login_cb.on_success = on_login_success;
     login_cb.on_error = on_login_error;
@@ -205,7 +204,6 @@ Example:
 
 ```c
 AnyChatUserProfileCallback_C cb = {0};
-cb.struct_size = sizeof(cb);
 cb.userdata = my_context;
 cb.on_success = on_profile;
 cb.on_error = on_profile_error;
@@ -213,7 +211,6 @@ cb.on_error = on_profile_error;
 
 Current callback rules:
 
-- `struct_size` must be set to at least `sizeof(the_callback_struct)`
 - `userdata` is passed back unchanged
 - Omitted handlers may be left as `NULL`
 - Passing `NULL` for the whole callback struct is allowed for most async APIs if

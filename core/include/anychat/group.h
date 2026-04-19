@@ -23,49 +23,42 @@ typedef void (*AnyChatGroupInvitedCallback)(void* userdata, const AnyChatGroup_C
 typedef void (*AnyChatGroupUpdatedCallback)(void* userdata, const AnyChatGroup_C* group);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatGroupInvitedCallback on_group_invited;
     AnyChatGroupUpdatedCallback on_group_updated;
 } AnyChatGroupListener_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatGroupSuccessCallback on_success;
     AnyChatGroupErrorCallback on_error;
 } AnyChatGroupCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatGroupListSuccessCallback on_success;
     AnyChatGroupErrorCallback on_error;
 } AnyChatGroupListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatGroupInfoSuccessCallback on_success;
     AnyChatGroupErrorCallback on_error;
 } AnyChatGroupInfoCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatGroupMemberListSuccessCallback on_success;
     AnyChatGroupErrorCallback on_error;
 } AnyChatGroupMemberListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatGroupJoinRequestListSuccessCallback on_success;
     AnyChatGroupErrorCallback on_error;
 } AnyChatGroupJoinRequestListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatGroupQRCodeSuccessCallback on_success;
     AnyChatGroupErrorCallback on_error;

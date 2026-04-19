@@ -145,7 +145,6 @@ static void groupInfoSuccess(void* userdata, const AnyChatGroup_C* group) {
 
 static AnyChatGroupListCallback_C makeGroupListCallback(CallbackContext* ctx) {
     AnyChatGroupListCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = groupListSuccess;
     callback.on_error = groupListError;
@@ -154,7 +153,6 @@ static AnyChatGroupListCallback_C makeGroupListCallback(CallbackContext* ctx) {
 
 static AnyChatGroupCallback_C makeGroupCallback(CallbackContext* ctx) {
     AnyChatGroupCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = groupSuccess;
     callback.on_error = groupError;
@@ -163,7 +161,6 @@ static AnyChatGroupCallback_C makeGroupCallback(CallbackContext* ctx) {
 
 static AnyChatGroupInfoCallback_C makeGroupInfoCallback(CallbackContext* ctx) {
     AnyChatGroupInfoCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = groupInfoSuccess;
     callback.on_error = groupError;
@@ -172,7 +169,6 @@ static AnyChatGroupInfoCallback_C makeGroupInfoCallback(CallbackContext* ctx) {
 
 static AnyChatGroupMemberListCallback_C makeGroupMemberListCallback(CallbackContext* ctx) {
     AnyChatGroupMemberListCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = groupMemberListSuccess;
     callback.on_error = groupMemberListError;

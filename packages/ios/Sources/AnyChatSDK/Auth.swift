@@ -43,7 +43,6 @@ public actor AuthManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatAuthTokenCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatAuthTokenCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, token in
                 guard let cbUserdata else { return }
@@ -106,7 +105,6 @@ public actor AuthManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatAuthTokenCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatAuthTokenCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, token in
                 guard let cbUserdata else { return }
@@ -162,7 +160,6 @@ public actor AuthManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatVerificationCodeCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatVerificationCodeCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, result in
                 guard let cbUserdata else { return }
@@ -203,7 +200,6 @@ public actor AuthManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatAuthResultCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatAuthResultCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -237,7 +233,6 @@ public actor AuthManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatAuthTokenCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatAuthTokenCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, token in
                 guard let cbUserdata else { return }
@@ -275,7 +270,6 @@ public actor AuthManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatAuthResultCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatAuthResultCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -312,7 +306,6 @@ public actor AuthManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatAuthResultCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatAuthResultCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -353,7 +346,6 @@ public actor AuthManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatAuthDeviceListCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatAuthDeviceListCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, list in
                 guard let cbUserdata else { return }
@@ -388,7 +380,6 @@ public actor AuthManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatAuthResultCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatAuthResultCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -464,7 +455,6 @@ public actor AuthManager {
         }
 
         var listener = AnyChatAuthListener_C()
-        listener.struct_size = UInt32(MemoryLayout<AnyChatAuthListener_C>.size)
         listener.userdata = listenerUserdata
         listener.on_auth_expired = { userdata in
             guard let userdata else { return }

@@ -1,24 +1,25 @@
-#include "anychat/client.h"
-
 #include "handles_c.h"
 #include "utils_c.h"
+
+#include "anychat/client.h"
 
 #include <exception>
 #include <mutex>
 #include <string>
 
+
 namespace {
 
 int connectionStateToC(anychat::ConnectionState state) {
     switch (state) {
-    case anychat::ConnectionState::Disconnected:
-        return ANYCHAT_STATE_DISCONNECTED;
-    case anychat::ConnectionState::Connecting:
-        return ANYCHAT_STATE_CONNECTING;
-    case anychat::ConnectionState::Connected:
-        return ANYCHAT_STATE_CONNECTED;
-    case anychat::ConnectionState::Reconnecting:
-        return ANYCHAT_STATE_RECONNECTING;
+        case anychat::ConnectionState::Disconnected:
+            return ANYCHAT_STATE_DISCONNECTED;
+        case anychat::ConnectionState::Connecting:
+            return ANYCHAT_STATE_CONNECTING;
+        case anychat::ConnectionState::Connected:
+            return ANYCHAT_STATE_CONNECTED;
+        case anychat::ConnectionState::Reconnecting:
+            return ANYCHAT_STATE_RECONNECTING;
     }
     return ANYCHAT_STATE_DISCONNECTED;
 }
@@ -29,15 +30,15 @@ void tokenToC(const anychat::AuthToken& src, AnyChatAuthToken_C* dst) {
     dst->expires_at_ms = src.expires_at_ms;
 }
 
-template <typename CallbackStruct>
+template<typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
-    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+    if (callback) {
         return false;
     }
     return true;
 }
 
-template <typename CallbackStruct>
+template<typename CallbackStruct>
 CallbackStruct copyCallbackStruct(const CallbackStruct* callback) {
     CallbackStruct callback_copy{};
     if (callback) {
@@ -46,7 +47,7 @@ CallbackStruct copyCallbackStruct(const CallbackStruct* callback) {
     return callback_copy;
 }
 
-template <typename CallbackStruct>
+template<typename CallbackStruct>
 void invokeClientError(const CallbackStruct& callback, int code, const std::string& error) {
     if (!callback.on_error) {
         return;

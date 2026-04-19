@@ -112,7 +112,6 @@ static void convUpdatedCallback(void* userdata, const AnyChatConversation_C* con
 
 static AnyChatConvListCallback_C makeConvListCallback(CallbackContext* ctx) {
     AnyChatConvListCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = convListSuccess;
     callback.on_error = convListError;
@@ -121,7 +120,6 @@ static AnyChatConvListCallback_C makeConvListCallback(CallbackContext* ctx) {
 
 static AnyChatConvCallback_C makeConvCallback(CallbackContext* ctx) {
     AnyChatConvCallback_C callback{};
-    callback.struct_size = sizeof(callback);
     callback.userdata = ctx;
     callback.on_success = convSuccess;
     callback.on_error = convError;
@@ -284,7 +282,6 @@ Java_com_anychat_sdk_Conversation_nativeSetUpdatedCallback(
             auto ctx = std::make_unique<CallbackContext>(g_jvm, globalCallback);
 
             AnyChatConvListener_C listener{};
-            listener.struct_size = sizeof(listener);
             listener.userdata = ctx.get();
             listener.on_conversation_updated = convUpdatedCallback;
 

@@ -471,7 +471,6 @@ class AnyChatClient {
     final callbackId = _registerCallback(completer);
 
     final callback = calloc<AnyChatAuthTokenCallback_C>();
-    callback.ref.struct_size = sizeOf<AnyChatAuthTokenCallback_C>();
     callback.ref.userdata = Pointer<Void>.fromAddress(callbackId);
     callback.ref.on_success = _authTokenSuccessCallable.nativeFunction;
     callback.ref.on_error = _authTokenErrorCallable.nativeFunction;
@@ -518,7 +517,6 @@ class AnyChatClient {
     final callbackId = _registerCallback(completer);
 
     final callback = calloc<AnyChatAuthTokenCallback_C>();
-    callback.ref.struct_size = sizeOf<AnyChatAuthTokenCallback_C>();
     callback.ref.userdata = Pointer<Void>.fromAddress(callbackId);
     callback.ref.on_success = _authTokenSuccessCallable.nativeFunction;
     callback.ref.on_error = _authTokenErrorCallable.nativeFunction;
@@ -593,7 +591,6 @@ class AnyChatClient {
     final callbackId = _registerCallback(completer);
 
     final callback = calloc<AnyChatAuthResultCallback_C>();
-    callback.ref.struct_size = sizeOf<AnyChatAuthResultCallback_C>();
     callback.ref.userdata = Pointer<Void>.fromAddress(callbackId);
     callback.ref.on_success = _voidSuccessCallable.nativeFunction;
     callback.ref.on_error = _voidErrorCallable.nativeFunction;
@@ -617,7 +614,6 @@ class AnyChatClient {
     final callbackId = _registerCallback(completer);
 
     final callback = calloc<AnyChatMessageCallback_C>();
-    callback.ref.struct_size = sizeOf<AnyChatMessageCallback_C>();
     callback.ref.userdata = Pointer<Void>.fromAddress(callbackId);
     callback.ref.on_success = _voidSuccessCallable.nativeFunction;
     callback.ref.on_error = _voidErrorCallable.nativeFunction;
@@ -653,7 +649,6 @@ class AnyChatClient {
     final callbackId = _registerCallback(completer);
 
     final callback = calloc<AnyChatMessageListCallback_C>();
-    callback.ref.struct_size = sizeOf<AnyChatMessageListCallback_C>();
     callback.ref.userdata = Pointer<Void>.fromAddress(callbackId);
     callback.ref.on_success = _messageListSuccessCallable.nativeFunction;
     callback.ref.on_error = _messageListErrorCallable.nativeFunction;
@@ -683,7 +678,6 @@ class AnyChatClient {
     final callbackId = _registerCallback(completer);
 
     final callback = calloc<AnyChatConvListCallback_C>();
-    callback.ref.struct_size = sizeOf<AnyChatConvListCallback_C>();
     callback.ref.userdata = Pointer<Void>.fromAddress(callbackId);
     callback.ref.on_success = _convListSuccessCallable.nativeFunction;
     callback.ref.on_error = _convListErrorCallable.nativeFunction;
@@ -704,7 +698,6 @@ class AnyChatClient {
     final callbackId = _registerCallback(completer);
 
     final callback = calloc<AnyChatFriendListCallback_C>();
-    callback.ref.struct_size = sizeOf<AnyChatFriendListCallback_C>();
     callback.ref.userdata = Pointer<Void>.fromAddress(callbackId);
     callback.ref.on_success = _friendListSuccessCallable.nativeFunction;
     callback.ref.on_error = _friendListErrorCallable.nativeFunction;

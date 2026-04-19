@@ -155,7 +155,7 @@ private:
 
 template<typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
-    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+    if (callback) {
         return false;
     }
     return true;
@@ -562,9 +562,6 @@ int anychat_message_set_listener(AnyChatMessageHandle handle, const AnyChatMessa
     if (!listener) {
         handle->impl->setListener(nullptr);
         return ANYCHAT_OK;
-    }
-    if (listener->struct_size < sizeof(AnyChatMessageListener_C)) {
-        return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatMessageListener_C copied = *listener;

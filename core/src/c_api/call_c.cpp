@@ -1,11 +1,12 @@
-#include "anychat/call.h"
-
 #include "handles_c.h"
 #include "utils_c.h"
+
+#include "anychat/call.h"
 
 #include <cstdlib>
 #include <memory>
 #include <string>
+
 
 namespace {
 
@@ -67,7 +68,7 @@ private:
 
 template<typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
-    if (callback && callback->struct_size < sizeof(CallbackStruct)) {
+    if (callback) {
         return false;
     }
     return true;
@@ -172,11 +173,7 @@ int anychat_call_join_call(
     return ANYCHAT_OK;
 }
 
-int anychat_call_reject_call(
-    AnyChatCallHandle handle,
-    const char* call_id,
-    const AnyChatCallCallback_C* callback
-) {
+int anychat_call_reject_call(AnyChatCallHandle handle, const char* call_id, const AnyChatCallCallback_C* callback) {
     if (!handle || !handle->impl || !call_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
@@ -189,11 +186,7 @@ int anychat_call_reject_call(
     return ANYCHAT_OK;
 }
 
-int anychat_call_end_call(
-    AnyChatCallHandle handle,
-    const char* call_id,
-    const AnyChatCallCallback_C* callback
-) {
+int anychat_call_end_call(AnyChatCallHandle handle, const char* call_id, const AnyChatCallCallback_C* callback) {
     if (!handle || !handle->impl || !call_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
@@ -255,9 +248,9 @@ int anychat_call_get_call_logs(
                     AnyChatCallList_C c_list{};
                     c_list.count = count;
                     c_list.total = result.total;
-                    c_list.items = count > 0
-                                       ? static_cast<AnyChatCallSession_C*>(std::calloc(count, sizeof(AnyChatCallSession_C)))
-                                       : nullptr;
+                    c_list.items =
+                        count > 0 ? static_cast<AnyChatCallSession_C*>(std::calloc(count, sizeof(AnyChatCallSession_C)))
+                                  : nullptr;
                     for (int i = 0; i < count; ++i)
                         callSessionToC(result.calls[static_cast<size_t>(i)], &c_list.items[i]);
                     callback_copy.on_success(callback_copy.userdata, &c_list);
@@ -324,11 +317,7 @@ int anychat_call_join_meeting(
     return ANYCHAT_OK;
 }
 
-int anychat_call_end_meeting(
-    AnyChatCallHandle handle,
-    const char* room_id,
-    const AnyChatCallCallback_C* callback
-) {
+int anychat_call_end_meeting(AnyChatCallHandle handle, const char* room_id, const AnyChatCallCallback_C* callback) {
     if (!handle || !handle->impl || !room_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
@@ -341,11 +330,7 @@ int anychat_call_end_meeting(
     return ANYCHAT_OK;
 }
 
-int anychat_call_get_meeting(
-    AnyChatCallHandle handle,
-    const char* room_id,
-    const AnyChatMeetingCallback_C* callback
-) {
+int anychat_call_get_meeting(AnyChatCallHandle handle, const char* room_id, const AnyChatMeetingCallback_C* callback) {
     if (!handle || !handle->impl || !room_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
@@ -390,9 +375,9 @@ int anychat_call_list_meetings(
                     AnyChatMeetingList_C c_list{};
                     c_list.count = count;
                     c_list.total = result.total;
-                    c_list.items = count > 0
-                                       ? static_cast<AnyChatMeetingRoom_C*>(std::calloc(count, sizeof(AnyChatMeetingRoom_C)))
-                                       : nullptr;
+                    c_list.items =
+                        count > 0 ? static_cast<AnyChatMeetingRoom_C*>(std::calloc(count, sizeof(AnyChatMeetingRoom_C)))
+                                  : nullptr;
                     for (int i = 0; i < count; ++i)
                         meetingRoomToC(result.rooms[static_cast<size_t>(i)], &c_list.items[i]);
                     callback_copy.on_success(callback_copy.userdata, &c_list);
@@ -414,9 +399,6 @@ int anychat_call_set_listener(AnyChatCallHandle handle, const AnyChatCallListene
     if (!listener) {
         handle->impl->setListener(nullptr);
         return ANYCHAT_OK;
-    }
-    if (listener->struct_size < sizeof(AnyChatCallListener_C)) {
-        return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatCallListener_C copied = *listener;

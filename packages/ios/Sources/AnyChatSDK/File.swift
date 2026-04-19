@@ -42,7 +42,6 @@ public actor FileManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var doneCallback = AnyChatFileInfoCallback_C()
-            doneCallback.struct_size = UInt32(MemoryLayout<AnyChatFileInfoCallback_C>.size)
             doneCallback.userdata = userdata
             doneCallback.on_success = { cbUserdata, info in
                 guard let cbUserdata else { return }
@@ -89,7 +88,6 @@ public actor FileManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatDownloadUrlCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatDownloadUrlCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, url in
                 guard let cbUserdata else { return }
@@ -124,7 +122,6 @@ public actor FileManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatFileCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatFileCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }

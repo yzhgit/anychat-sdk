@@ -37,7 +37,6 @@ public actor GroupManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatGroupListCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupListCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, list in
                 guard let cbUserdata else { return }
@@ -72,7 +71,6 @@ public actor GroupManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatGroupInfoCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupInfoCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, _ in
                 guard let cbUserdata else { return }
@@ -111,7 +109,6 @@ public actor GroupManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatGroupCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -144,7 +141,6 @@ public actor GroupManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatGroupCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -183,7 +179,6 @@ public actor GroupManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatGroupCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -214,7 +209,6 @@ public actor GroupManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatGroupCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata in
                 guard let cbUserdata else { return }
@@ -259,7 +253,6 @@ public actor GroupManager {
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
             var callback = AnyChatGroupMemberListCallback_C()
-            callback.struct_size = UInt32(MemoryLayout<AnyChatGroupMemberListCallback_C>.size)
             callback.userdata = userdata
             callback.on_success = { cbUserdata, list in
                 guard let cbUserdata else { return }
@@ -341,7 +334,6 @@ public actor GroupManager {
         }
 
         var listener = AnyChatGroupListener_C()
-        listener.struct_size = UInt32(MemoryLayout<AnyChatGroupListener_C>.size)
         listener.userdata = listenerUserdata
 
         if hasInvited {

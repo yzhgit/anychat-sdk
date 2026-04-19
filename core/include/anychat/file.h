@@ -15,14 +15,12 @@ typedef void (*AnyChatDownloadUrlSuccessCallback)(void* userdata, const char* ur
 typedef void (*AnyChatFileListSuccessCallback)(void* userdata, const AnyChatFileList_C* list);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatFileSuccessCallback on_success;
     AnyChatFileErrorCallback on_error;
 } AnyChatFileCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatFileInfoSuccessCallback on_success;
     AnyChatFileErrorCallback on_error;
@@ -32,14 +30,12 @@ typedef struct {
 typedef void (*AnyChatUploadProgressCallback)(void* userdata, int64_t uploaded, int64_t total);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatDownloadUrlSuccessCallback on_success;
     AnyChatFileErrorCallback on_error;
 } AnyChatDownloadUrlCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatFileListSuccessCallback on_success;
     AnyChatFileErrorCallback on_error;

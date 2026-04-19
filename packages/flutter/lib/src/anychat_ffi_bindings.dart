@@ -725,9 +725,6 @@ final class AnyChatFriendList_C extends ffi.Struct {
 }
 
 final class AnyChatAuthTokenCallback_C extends ffi.Struct {
-  @ffi.Uint32()
-  external int struct_size;
-
   external ffi.Pointer<ffi.Void> userdata;
 
   external ffi.Pointer<
@@ -742,9 +739,6 @@ final class AnyChatAuthTokenCallback_C extends ffi.Struct {
 }
 
 final class AnyChatAuthResultCallback_C extends ffi.Struct {
-  @ffi.Uint32()
-  external int struct_size;
-
   external ffi.Pointer<ffi.Void> userdata;
 
   external ffi.Pointer<
@@ -785,9 +779,6 @@ final class AnyChatClientConfig_C extends ffi.Struct {
 }
 
 final class AnyChatConvListCallback_C extends ffi.Struct {
-  @ffi.Uint32()
-  external int struct_size;
-
   external ffi.Pointer<ffi.Void> userdata;
 
   external ffi.Pointer<
@@ -802,9 +793,6 @@ final class AnyChatConvListCallback_C extends ffi.Struct {
 }
 
 final class AnyChatFriendListCallback_C extends ffi.Struct {
-  @ffi.Uint32()
-  external int struct_size;
-
   external ffi.Pointer<ffi.Void> userdata;
 
   external ffi.Pointer<
@@ -819,9 +807,6 @@ final class AnyChatFriendListCallback_C extends ffi.Struct {
 }
 
 final class AnyChatMessageCallback_C extends ffi.Struct {
-  @ffi.Uint32()
-  external int struct_size;
-
   external ffi.Pointer<ffi.Void> userdata;
 
   external ffi.Pointer<
@@ -835,9 +820,6 @@ final class AnyChatMessageCallback_C extends ffi.Struct {
 }
 
 final class AnyChatMessageListCallback_C extends ffi.Struct {
-  @ffi.Uint32()
-  external int struct_size;
-
   external ffi.Pointer<ffi.Void> userdata;
 
   external ffi.Pointer<

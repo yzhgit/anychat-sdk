@@ -21,70 +21,60 @@ typedef void (*AnyChatBindEmailSuccessCallback)(void* userdata, const AnyChatBin
 typedef void (*AnyChatChangeEmailSuccessCallback)(void* userdata, const AnyChatChangeEmailResult_C* result);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatUserProfileSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
 } AnyChatUserProfileCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatUserSettingsSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
 } AnyChatUserSettingsCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatUserInfoSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
 } AnyChatUserInfoCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatUserListSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
 } AnyChatUserListCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatUserSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
 } AnyChatUserCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatUserQRCodeSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
 } AnyChatUserQRCodeCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatBindPhoneSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
 } AnyChatBindPhoneCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatChangePhoneSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
 } AnyChatChangePhoneCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatBindEmailSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
 } AnyChatBindEmailCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatChangeEmailSuccessCallback on_success;
     AnyChatUserErrorCallback on_error;
@@ -95,7 +85,6 @@ typedef void (*AnyChatUserFriendProfileChangedCallback)(void* userdata, const An
 typedef void (*AnyChatUserStatusChangedCallback)(void* userdata, const AnyChatUserStatusEvent_C* event);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatUserProfileUpdatedCallback on_profile_updated;
     AnyChatUserFriendProfileChangedCallback on_friend_profile_changed;

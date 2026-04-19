@@ -15,28 +15,24 @@ typedef void (*AnyChatVerificationCodeSuccessCallback)(void* userdata, const Any
 typedef void (*AnyChatAuthDeviceListSuccessCallback)(void* userdata, const AnyChatAuthDeviceList_C* list);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatAuthTokenSuccessCallback on_success;
     AnyChatAuthErrorCallback on_error;
 } AnyChatAuthTokenCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatAuthSuccessCallback on_success;
     AnyChatAuthErrorCallback on_error;
 } AnyChatAuthResultCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatVerificationCodeSuccessCallback on_success;
     AnyChatAuthErrorCallback on_error;
 } AnyChatVerificationCodeCallback_C;
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatAuthDeviceListSuccessCallback on_success;
     AnyChatAuthErrorCallback on_error;
@@ -133,7 +129,6 @@ ANYCHAT_C_API int anychat_auth_get_current_token(AnyChatAuthHandle handle, AnyCh
 typedef void (*AnyChatAuthExpiredCallback)(void* userdata);
 
 typedef struct {
-    uint32_t struct_size;
     void* userdata;
     AnyChatAuthExpiredCallback on_auth_expired;
 } AnyChatAuthListener_C;
